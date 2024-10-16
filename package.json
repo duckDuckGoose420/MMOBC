@@ -1,0 +1,26 @@
+{
+    "name": "ropeybot",
+    "license": "Apache-2.0",
+    "scripts": {
+        "types": "tsc",
+        "bundle": "esbuild src/main.ts --bundle --platform=node --outfile=out/bundle.js --sourcemap",
+        "start": "tsx src/main.ts"
+    },
+    "dependencies": {
+        "bc-stubs": "^108.0.0",
+        "lodash": "^4.17.21",
+        "lz-string": "^1.5.0",
+        "mongodb": "^6.9.0",
+        "prettier": "^3.3.3",
+        "prom-client": "^14.2.0",
+        "socket.io-client": "^4.7.2"
+    },
+    "devDependencies": {
+        "@tsconfig/node18": "^18.2.1",
+        "@types/lodash": "^4.14.198",
+        "@types/node": "^20.6.0",
+        "esbuild": "^0.19.4",
+        "tsx": "^4.19.1",
+        "typescript": "^5.2.2"
+    }
+}

@@ -1,0 +1,704 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { io } from "socket.io-client";
+import { API_Character, API_Character_Data } from "./apiCharacter";
+import { API_Chatroom, API_Chatroom_Data } from "./apiChatroom";
+import { Socket } from "socket.io-client";
+import { LogicBase } from "./logicBase";
+import { BC_AppearanceItem } from "./item";
+import { compressToUTF16 } from "lz-string";
+import { EventEmitter } from "stream";
+import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
+import { SocketWrapper } from "./socketWrapper";
+
+export enum LeaveReason {
+    DISCONNECT = "ServerDisconnect",
+    LEAVE = "ServerLeave",
+    KICK = "ServerKick",
+    BAN = "ServerBan",
+}
+
+export type TellType = "Whisper" | "Chat" | "Emote" | "Activity";
+
+export interface RoomDefinition {
+    Name: string;
+    Description: string;
+    Background: string;
+    Private: boolean;
+    Locked: boolean | null;
+    Space: ServerChatRoomSpace;
+    Admin: number[];
+    Ban: number[];
+    Limit: number | string;
+    BlockCategory: ServerChatRoomBlockCategory[];
+    Game: ServerChatRoomGame;
+    Language: ServerChatRoomLanguage;
+    MapData?: ServerChatRoomMapData;
+}
+
+export interface SingleItemUpdate extends BC_AppearanceItem {
+    Target: number;
+}
+
+export interface SyncItemPayload {
+    Source: number;
+    Item: SingleItemUpdate;
+}
+
+export interface CoordObject {
+    X: number;
+    Y: number;
+}
+
+export interface SyncMapDataPayload {
+    MemberNumber: number;
+    MapData: CoordObject;
+}
+
+// What the bot advertises as its game version
+const GAMEVERSION = "R108";
+const LZSTRING_MAGIC = "╬";
+
+class PromiseResolve<T> {
+    public prom: Promise<T>;
+    public resolve!: (x: T) => void;
+
+    constructor() {
+        this.prom = new Promise<T>((r) => {
+            this.resolve = r;
+        });
+    }
+}
+
+interface ChatRoomAllowItem {
+    MemberNumber: number;
+}
+
+interface ChatRoomAllowItemResponse extends ChatRoomAllowItem {
+    AllowItem: boolean;
+}
+
+interface ReorderPlayers {
+    PlayerOrder: number[];
+}
+
+interface ChatRoomAdmin {
+    Action: "Update" | "MoveLeft" | "MoveRight";
+    MemberNumber?: number;
+    Publish?: boolean;
+    Room?: Partial<RoomDefinition>;
+}
+
+export interface MessageEvent {
+    sender: API_Character;
+    message: BC_Server_ChatRoomMessage;
+}
+
+interface OnlineFriendResult {
+    ChatRoomName: string;
+    ChatRoomSpace: string;
+    MemberName: string;
+    MemberNumber: number;
+    Private: boolean;
+    Type: string;
+}
+
+export class API_Connector extends EventEmitter {
+    private sock: Socket;
+    private wrappedSock: SocketWrapper;
+    private _player: API_Character | undefined;
+    public _chatRoom?: API_Chatroom;
+
+    private started = false;
+    private roomJoined: RoomDefinition;
+
+    private loggedIn = new PromiseResolve<void>();
+    private roomSynced = new PromiseResolve<void>();
+
+    private roomJoinPromise: PromiseResolve<string>;
+    private roomSearchPromise: PromiseResolve<RoomDefinition[]>; // (type not quite right: has 'Creator', MemberCount, MemberLimit)
+    private onlineFriendsPromise: PromiseResolve<OnlineFriendResult[]>;
+    private itemAllowQueries = new Map<
+        number,
+        PromiseResolve<ChatRoomAllowItemResponse>
+    >();
+
+    private leaveReasons = new Map<number, LeaveReason>();
+
+    private bot?: LogicBase;
+
+    constructor(
+        private url: string,
+        public username: string,
+        private password: string,
+        env: "live" | "test",
+    ) {
+        super();
+
+        const origin =
+            env === "live"
+                ? "https://www.bondageprojects.elementfx.com"
+                : "http://localhost:7777";
+
+        console.log(`Connecting to ${this.url} with origin ${origin}`);
+        this.sock = io(this.url, {
+            transports: ["websocket"],
+            extraHeaders: {
+                Origin: origin,
+            },
+        });
+        this.wrappedSock = new SocketWrapper(this.sock);
+
+        this.sock.on("connect", this.onSocketConnect);
+        this.sock.on("connect_error", this.onSocketConnectError);
+        this.sock.io.on("reconnect", this.onSocketReconnect);
+        this.sock.io.on("reconnect_attempt", this.onSocketReconnectAttempt);
+        this.sock.on("disconnect", this.onSocketDisconnect);
+        this.sock.on("ServerInfo", this.onServerInfo);
+        this.sock.on("LoginResponse", this.onLoginResponse);
+        this.sock.on("ChatRoomCreateResponse", this.onChatRoomCreateResponse);
+        this.sock.on("ChatRoomUpdateResponse", this.onChatRoomUpdateResponse);
+        this.sock.on("ChatRoomSync", this.onChatRoomSync);
+        this.sock.on("ChatRoomSyncMemberJoin", this.onChatRoomSyncMemberJoin);
+        this.sock.on("ChatRoomSyncMemberLeave", this.onChatRoomSyncMemberLeave);
+        this.sock.on(
+            "ChatRoomSyncRoomProperties",
+            this.onChatRoomSyncRoomProperties,
+        );
+        this.sock.on("ChatRoomSyncCharacter", this.onChatRoomSyncCharacter);
+        this.sock.on(
+            "ChatRoomSyncReorderPlayers",
+            this.onChatRoomSyncReorderPlayers,
+        );
+        this.sock.on("ChatRoomSyncSingle", this.onChatRoomSyncSingle);
+        this.sock.on("ChatRoomSyncExpression", this.onChatRoomSyncExpression);
+        this.sock.on("ChatRoomSyncPose", this.onChatRoomSyncPose);
+        this.sock.on("ChatRoomSyncArousal", this.onChatRoomSyncArousal);
+        this.sock.on("ChatRoomSyncItem", this.onChatRoomSyncItem);
+        this.sock.on("ChatRoomSyncMapData", this.onChatRoomSyncMapData);
+        this.sock.on("ChatRoomMessage", this.onChatRoomMessage);
+        this.sock.on("ChatRoomAllowItem", this.onChatRoomAllowItem);
+        this.sock.on(
+            "ChatRoomCharacterItemUpdate",
+            this.onChatRoomCharacterItemUpdate,
+        );
+        this.sock.on("ChatRoomSearchResult", this.onChatRoomSearchResult);
+        this.sock.on("ChatRoomSearchResponse", this.onChatRoomSearchResponse);
+        this.sock.on("AccountBeep", this.onAccountBeep);
+        this.sock.on("AccountQueryResult", this.onAccountQueryResult);
+    }
+
+    public isConnected(): boolean {
+        return this.sock.connected;
+    }
+
+    public getBot(): LogicBase {
+        return this.bot;
+    }
+
+    public get Player(): API_Character {
+        return this._player!;
+    }
+
+    public get chatRoom(): API_Chatroom {
+        return this._chatRoom!;
+    }
+
+    public SendMessage(
+        type: TellType,
+        msg: string,
+        target?: number,
+        dict?: Record<string, any>[],
+    ): void {
+        if (msg.length > 1000) {
+            console.error("Message too long, truncating");
+            msg = msg.substring(0, 1000);
+        }
+
+        const payload = { Type: type, Content: msg } as Record<string, any>;
+        if (target) payload.Target = target;
+        if (dict) payload.Dictionary = dict;
+        this.wrappedSock.emit("ChatRoomChat", payload);
+    }
+
+    public reply(orig: BC_Server_ChatRoomMessage, reply: string): void {
+        const prefix = this.chatRoom.usesMaps() ? "(" : "";
+
+        if (orig.Type === "Chat") {
+            if (this.chatRoom.usesMaps()) {
+                this.SendMessage("Chat", prefix + reply);
+            } else {
+                this.SendMessage("Emote", "*" + prefix + reply);
+            }
+        } else {
+            this.SendMessage("Whisper", prefix + reply, orig.Sender);
+        }
+    }
+
+    public ChatRoomUpdate(update: Record<string, any>): void {
+        this.chatRoom.update(update);
+        const payload = {
+            Action: "Update",
+            MemberNumber: 0,
+            Room: {
+                ...this.chatRoom.ToInfo(),
+                //...update,
+            },
+        } as ChatRoomAdmin;
+        if (payload.Room.Limit !== undefined)
+            payload.Room.Limit = payload.Room.Limit + "";
+        console.log("Updating chat room", payload);
+        this.chatRoomAdmin(payload);
+    }
+
+    public chatRoomAdmin(payload: ChatRoomAdmin) {
+        this.wrappedSock.emit("ChatRoomAdmin", payload);
+    }
+
+    public AccountBeep(
+        memberNumber: number,
+        beepType: null,
+        message: string,
+    ): void {
+        this.wrappedSock.emit("AccountBeep", {
+            BeepType: beepType ?? "",
+            MemberNumber: memberNumber,
+            Message: message,
+        });
+    }
+
+    public async QueryOnlineFriends(): Promise<API_Character[]> {
+        if (!this.onlineFriendsPromise) {
+            this.onlineFriendsPromise = new PromiseResolve<
+                OnlineFriendResult[]
+            >();
+            this.wrappedSock.emit("AccountQuery", {
+                Query: "OnlineFriends",
+            });
+        }
+
+        const result = await this.onlineFriendsPromise.prom;
+        return result.map((m) =>
+            this._chatRoom.findMember(m.MemberNumber + ""),
+        );
+    }
+
+    private onSocketConnect = async () => {
+        console.log("Socket connected!");
+        this.wrappedSock.emit("AccountLogin", {
+            AccountName: this.username,
+            Password: this.password,
+        });
+        if (!this.started) await this.start();
+        if (this.roomJoined) await this.joinOrCreateRoom(this.roomJoined);
+    };
+
+    private onSocketConnectError = (err: Error) => {
+        console.log(`Socket connect error: ${err.message}`);
+    };
+
+    private onSocketReconnect = () => {
+        console.log("Socket reconnected");
+    };
+
+    private onSocketReconnectAttempt = () => {
+        console.log("Socket reconnect attempt");
+    };
+
+    private onSocketDisconnect = () => {
+        console.log("Socket disconnected");
+        this.loggedIn = new PromiseResolve<void>();
+        this.roomSynced = new PromiseResolve<void>();
+    };
+
+    private onServerInfo = (info: any) => {
+        console.log("Server info: ", info);
+    };
+
+    private onLoginResponse = (resp: API_Character_Data) => {
+        console.log("Got login response", resp);
+        this._player = new API_Character(resp, this, undefined);
+        this.loggedIn.resolve();
+    };
+
+    private onChatRoomCreateResponse = (resp: any) => {
+        console.log("Got chat room create response", resp);
+    };
+
+    private onChatRoomUpdateResponse = (resp: any) => {
+        console.log("Got chat room update response", resp);
+    };
+
+    private onChatRoomSync = (resp: API_Chatroom_Data) => {
+        //console.log("Got chat room sync", resp);
+        if (!this._chatRoom) {
+            this._chatRoom = new API_Chatroom(resp, this, this._player);
+        } else {
+            this._chatRoom.update(resp);
+        }
+        this.roomSynced.resolve();
+        this.roomJoined = {
+            Name: resp.Name,
+            Description: resp.Description,
+            Background: resp.Background,
+            Private: resp.Private,
+            Locked: resp.Locked,
+            Space: resp.Space,
+            Admin: resp.Admin,
+            Ban: resp.Ban,
+            Limit: resp.Limit,
+            BlockCategory: resp.BlockCategories,
+            Game: resp.Game,
+            Language: resp.Language,
+        };
+    };
+
+    private onChatRoomSyncMemberJoin = (resp: any) => {
+        console.log("Chat room member joined", resp.Character?.Name);
+
+        this.leaveReasons.delete(resp.Character.MemberNumber);
+
+        this._chatRoom.memberJoined(resp.Character);
+
+        const char = this._chatRoom.getCharacter(resp.Character.MemberNumber);
+
+        this.emit("CharacterEntered", char);
+        this.bot?.onEvent({
+            name: "CharacterEntered",
+            connection: this,
+            character: char,
+        });
+        this.bot?.onCharacterEnteredPub(this, char);
+    };
+
+    private onChatRoomSyncMemberLeave = (resp: any) => {
+        console.log(
+            `chat room member left with reason ${this.leaveReasons.get(resp.SourceMemberNumber)}`,
+            resp,
+        );
+        const leftMember = this._chatRoom.getCharacter(resp.SourceMemberNumber);
+        this._chatRoom.memberLeft(resp.SourceMemberNumber);
+
+        this.emit("CharacterLeft", {
+            sourceMemberNumber: resp.SourceMemberNumber,
+            character: leftMember,
+            leaveMessage: null,
+            intentional:
+                this.leaveReasons.get(resp.SourceMemberNumber) !==
+                LeaveReason.DISCONNECT,
+        });
+        this.bot?.onEvent({
+            name: "CharacterLeft",
+            connection: this,
+            sourceMemberNumber: resp.SourceMemberNumber,
+            character: leftMember,
+            leaveMessage: null,
+            intentional:
+                this.leaveReasons.get(resp.SourceMemberNumber) !==
+                LeaveReason.DISCONNECT,
+        });
+        this.bot?.onCharacterLeftPub(this, leftMember, true);
+    };
+
+    private onChatRoomSyncRoomProperties = (resp: API_Chatroom_Data) => {
+        console.log("sync room properties", resp);
+        this._chatRoom.update(resp);
+    };
+
+    private onChatRoomSyncCharacter = (resp: any) => {
+        //console.log("sync character", resp);
+        this._chatRoom.characterSync(
+            resp.Character.MemberNumber,
+            resp.Character,
+            resp.SourceMemberNumber,
+        );
+    };
+
+    private onChatRoomSyncReorderPlayers = (resp: ReorderPlayers) => {
+        //console.log("sync reorder players", resp);
+        this._chatRoom.onReorder(resp.PlayerOrder);
+    };
+
+    private onChatRoomSyncSingle = (resp: any) => {
+        //console.log("sync single", resp);
+        this._chatRoom.characterSync(
+            resp.Character.MemberNumber,
+            resp.Character,
+            resp.SourceMemberNumber,
+        );
+    };
+
+    private onChatRoomSyncExpression = (resp: any) => {
+        //console.log("sync expression", resp);
+    };
+
+    private onChatRoomSyncPose = (resp: any) => {
+        //console.log("got sync pose", resp);
+        const char = this.chatRoom.getCharacter(resp.MemberNumber);
+        char.update({
+            ActivePose: resp.Pose,
+        });
+        this.emit("PoseChange", {
+            character: char,
+        });
+        this.bot?.onCharacterEventPub(this, {
+            name: "PoseChanged",
+            character: char,
+        });
+    };
+
+    private onChatRoomSyncArousal = (resp: any) => {
+        //console.log("Chat room sync arousal", resp);
+    };
+
+    private onChatRoomSyncItem = (update: SyncItemPayload) => {
+        console.log("Chat room sync item", update);
+        this._chatRoom.characterItemUpdate(update.Item);
+        if (update.Item.Target === this._player.MemberNumber) {
+            const payload = {
+                AssetFamily: "Female3DCG",
+                Appearance: this.Player.Appearance.getAppearanceData(),
+            };
+            this.accountUpdate(payload);
+        }
+    };
+
+    private onChatRoomSyncMapData = (update: SyncMapDataPayload) => {
+        console.log("chat room map data", update);
+        this._chatRoom.mapPositionUpdate(update.MemberNumber, update.MapData);
+    };
+
+    private onChatRoomMessage = (msg: BC_Server_ChatRoomMessage) => {
+        // Don't log BCX spam
+        if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg") {
+            console.log("chat room message", msg);
+        }
+
+        const char = this._chatRoom.getCharacter(msg.Sender);
+
+        if (
+            msg.Type === "Action" &&
+            Object.values(LeaveReason).includes(msg.Content as LeaveReason)
+        ) {
+            this.leaveReasons.set(
+                char.MemberNumber,
+                msg.Content as LeaveReason,
+            );
+        }
+
+        this.emit("Message", {
+            sender: char,
+            message: msg,
+        } as MessageEvent);
+        this.bot?.onEvent({
+            name: "Message",
+            connection: this,
+            Sender: char,
+            message: msg,
+        });
+        this.bot?.onMessagePub(this, msg, char);
+    };
+
+    private onChatRoomAllowItem = (resp: ChatRoomAllowItemResponse) => {
+        console.log("ChatRoomAllowItem", resp);
+        const promResolve = this.itemAllowQueries.get(resp.MemberNumber);
+        if (promResolve) {
+            this.itemAllowQueries.delete(resp.MemberNumber);
+            promResolve.resolve(resp);
+        }
+    };
+
+    private onChatRoomCharacterItemUpdate = (update: SingleItemUpdate) => {
+        console.log("Chat room character item update", update);
+        this._chatRoom.characterItemUpdate(update);
+        /*if (update.Target === this._player.MemberNumber) {
+            const payload = {
+                AssetFamily: "Female3DCG",
+                Appearance: this.Player.Appearance.getAppearanceData(),
+            };
+            this.accountUpdate(payload);
+        }*/
+    };
+
+    private onAccountBeep = (payload: TBeepType) => {
+        payload.Message = payload.Message.split("\n\n")[0];
+        this.bot?.onEvent({
+            name: "Beep",
+            connection: this,
+            beep: payload,
+        });
+    };
+
+    private onAccountQueryResult = (payload: Record<string, any>) => {
+        if (payload.Query === "OnlineFriends") {
+            this.onlineFriendsPromise.resolve(payload.Result);
+        }
+    };
+
+    private onChatRoomSearchResult = (results: RoomDefinition[]) => {
+        console.log("Chat room search result", results);
+        if (!this.roomSearchPromise) return;
+        this.roomSearchPromise.resolve(results);
+    };
+
+    private onChatRoomSearchResponse = (result: string) => {
+        console.log("Chat room search (join) response", result);
+        if (!this.roomJoinPromise) return;
+        this.roomJoinPromise.resolve(result);
+    };
+
+    public async ChatRoomJoin(name: string): Promise<boolean> {
+        if (this.roomJoinPromise) {
+            const result = await this.roomJoinPromise.prom;
+            return result === "JoinedRoom";
+        }
+
+        this.roomJoinPromise = new PromiseResolve();
+        this.wrappedSock.emit("ChatRoomJoin", {
+            Name: name,
+        });
+
+        const joinResult = await this.roomJoinPromise.prom;
+        if (joinResult !== "JoinedRoom") {
+            console.log("Failed to join room", joinResult);
+            return false;
+        }
+
+        await this.roomSynced.prom;
+        this._player.chatRoom = this._chatRoom;
+
+        this.roomJoinPromise = undefined;
+
+        return true;
+    }
+
+    public ChatRoomLeave() {
+        this.roomSynced = new PromiseResolve<void>();
+        this.wrappedSock.emit("ChatRoomLeave", "");
+        this.roomJoined = undefined;
+    }
+
+    public async joinOrCreateRoom(roomDef: RoomDefinition): Promise<void> {
+        await this.loggedIn.prom;
+
+        console.log("Trying to join room", roomDef);
+        const joinResult = await this.ChatRoomJoin(roomDef.Name);
+        if (!joinResult) {
+            console.log("creating room");
+            this.wrappedSock.emit("ChatRoomCreate", {
+                Admin: [this._player.MemberNumber],
+                ...roomDef,
+            });
+
+            await this.roomSynced.prom;
+            this._player.chatRoom = this._chatRoom;
+            console.log("Room created");
+            this.emit("RoomCreate");
+        } else {
+            this.emit("RoomJoin");
+        }
+        this.roomJoined = roomDef;
+    }
+
+    private searchRooms(
+        q: string,
+        space: ServerChatRoomSpace,
+    ): Promise<RoomDefinition[]> {
+        if (this.roomSearchPromise) return this.roomSearchPromise.prom;
+
+        this.roomSearchPromise = new PromiseResolve();
+        this.wrappedSock.emit("ChatRoomSearch", {
+            Query: q,
+            Language: "",
+            Space: space,
+            FullRooms: true,
+        });
+
+        return this.roomSearchPromise.prom;
+    }
+
+    private async start(): Promise<void> {
+        this.started = true;
+        await this.loggedIn.prom;
+        console.log("Logged in.");
+
+        this.accountUpdate({
+            OnlineSharedSettings: {
+                GameVersion: GAMEVERSION,
+            },
+        });
+        console.log("Connector started.");
+    }
+
+    public startBot(bot: LogicBase) {
+        this.bot = bot;
+    }
+
+    public setBotDescription(desc: string) {
+        this.accountUpdate({
+            Description: LZSTRING_MAGIC + compressToUTF16(desc),
+        });
+    }
+
+    public updateCharacterItem(update: SingleItemUpdate): void {
+        /*if (update.Target === this.Player.MemberNumber) {
+            const payload = {
+                AssetFamily: "Female3DCG",
+                Appearance: this.Player.Appearance.getAppearanceData(),
+            };
+            this.accountUpdate(payload);
+        } else {*/
+        console.log("sending ChatRoomCharacterItemUpdate", update);
+        this.wrappedSock.emit("ChatRoomCharacterItemUpdate", update);
+        //}
+    }
+
+    public updateCharacter(update: Partial<API_Character_Data>): void {
+        console.log("sending ChatRoomCharacterUpdate", JSON.stringify(update));
+        this.wrappedSock.emit("ChatRoomCharacterUpdate", update);
+    }
+
+    public characterPoseUpdate(pose: AssetPoseName[]): void {
+        console.log("sending pose update", pose);
+        this.wrappedSock.emit("ChatRoomCharacterPoseUpdate", {
+            Pose: pose,
+        });
+    }
+
+    public async queryItemAllowed(memberNo: number): Promise<boolean> {
+        if (!this.itemAllowQueries.has(memberNo)) {
+            this.itemAllowQueries.set(memberNo, new PromiseResolve());
+            this.wrappedSock.emit("ChatRoomAllowItem", {
+                MemberNumber: memberNo,
+            } as ChatRoomAllowItem);
+        }
+
+        const response = await this.itemAllowQueries.get(memberNo).prom;
+
+        return response.AllowItem;
+    }
+
+    public accountUpdate(update: Partial<API_Character_Data>): void {
+        console.log("Sending account update", update);
+        this.wrappedSock.emit("AccountUpdate", update);
+    }
+
+    public moveOnMap(x: number, y: number): void {
+        this.wrappedSock.emit("ChatRoomCharacterMapDataUpdate", {
+            X: x,
+            Y: y,
+        });
+    }
+}
