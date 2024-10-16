@@ -69,7 +69,8 @@ export const PET_EARS: BC_AppearanceItem = {
 
 export class PetSpa {
     public static description =
-        "This is an example to show how to use the ropeybot API to create a simple game.";
+        "This is an example to show how to use the ropeybot API to create a simple game." +
+        "Code at https://github.com/FriendsOfBC/ropeybot";
 
     private exitTime = new Map<number, number>();
 
