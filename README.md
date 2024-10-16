@@ -1,4 +1,4 @@
-# BC Bot
+# Ropeybot
 
 A node-based BC bot based on the old bot-api. Its functionality is divided up into
 'games' and you configure the bot to run one of them via its config file.
