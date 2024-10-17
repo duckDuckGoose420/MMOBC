@@ -18,10 +18,12 @@ import { makeDoorRegion, MapRegion } from "../apiMap";
 import { API_Character } from "../apiCharacter";
 import { AssetGet, BC_AppearanceItem } from "../item";
 import { wait } from "../hub/utils";
+import { CommandParser } from "../commandParser";
+import { BC_Server_ChatRoomMessage } from "../logicEvent";
 
 const RECEPTION_AREA: MapRegion = {
-    TopLeft: { X: 17, Y: 12 },
-    BottomRight: { X: 23, Y: 15 },
+    TopLeft: { X: 13, Y: 11 },
+    BottomRight: { X: 33, Y: 15 },
 };
 
 const RECEPTIONIST_POSITION = { X: 22, Y: 11 };
@@ -67,14 +69,29 @@ export const PET_EARS: BC_AppearanceItem = {
     },
 };
 
+function remainingTimeString(exitTime: number): string {
+    const remaining = exitTime - Date.now();
+    if (remaining < 0) return "0 seconds";
+    const minutes = Math.floor(remaining / (1000 * 60));
+    const seconds = Math.ceil((remaining % (1000 * 60)) / 1000);
+    if (minutes > 0) return `${minutes} minutes`;
+    return `${seconds} seconds`;
+}
+
 export class PetSpa {
     public static description =
         "This is an example to show how to use the ropeybot API to create a simple game." +
         "Code at https://github.com/FriendsOfBC/ropeybot";
 
     private exitTime = new Map<number, number>();
+    private earsAdded = new Set<number>();
+    private tailAdded = new Set<number>();
+
+    private commandParser: CommandParser;
 
     public constructor(private conn: API_Connector) {
+        this.commandParser = new CommandParser(this.conn);
+
         this.conn.on("RoomCreate", this.onChatRoomCreated);
         this.conn.on("RoomJoin", this.onChatRoomJoined);
 
@@ -128,6 +145,8 @@ export class PetSpa {
             makeDoorRegion(COMMON_AREA_TO_RECEPTION_DOOR, true, false),
             this.onCharacterLeaveCommonAreaToReceptionDoor,
         );
+
+        this.commandParser.register("residents", this.onCommandResidents);
     }
 
     public async init(): Promise<void> {
@@ -234,7 +253,7 @@ export class PetSpa {
                 `the door behind me into the dressing area and use the blue dressing pad to be permitted into the spa. ` +
                 `Please note that there is a minimum stay of 30 minutes and human speech is strictly prohibited for spa users. ` +
                 `If you're not sure, you can take a look at our promotional gallery to the right. If you're here to play with the pets, head ` +
-                `right on in through the door to the left!`,
+                `right on in through the door to the left! To see our current residents, use /bot residents.`,
         );
     };
 
@@ -315,6 +334,8 @@ export class PetSpa {
             ears.SetColor(
                 character.Appearance.InventoryGet("HairFront").GetColor(),
             );
+
+            this.earsAdded.add(character.MemberNumber);
         }
 
         if (character.Appearance.InventoryGet("TailStraps") === null) {
@@ -328,6 +349,8 @@ export class PetSpa {
             tail.SetColor(
                 character.Appearance.InventoryGet("HairFront").GetColor(),
             );
+
+            this.tailAdded.add(character.MemberNumber);
         }
 
         character.Tell(
@@ -351,20 +374,31 @@ export class PetSpa {
                 "(Thank you for visiting the Pet Spa! We hope you enjoyed your time with us.",
             );
             character.Appearance.RemoveItem("ItemArms");
-        } else {
-            const mayLeaveInMinutes = Math.floor(
-                (exitTime - Date.now()) / (1000 * 60),
-            );
-            const mayLeaveInSecond = Math.ceil((exitTime - Date.now()) / 1000);
 
-            const mayLeaveIn =
-                mayLeaveInMinutes > 1
-                    ? `${mayLeaveInMinutes} minutes`
-                    : `${mayLeaveInSecond} seconds`;
+            if (this.earsAdded.delete(character.MemberNumber)) {
+                character.Appearance.RemoveItem("ItemHood");
+            }
+            if (this.tailAdded.delete(character.MemberNumber)) {
+                character.Appearance.RemoveItem("TailStraps");
+            }
+        } else {
             character.Tell(
                 "Whisper",
-                `(I'm sorry, ${character}, you may leave the spa in another ${mayLeaveIn}.`,
+                `(I'm sorry, ${character}, you may leave the spa in another ${remainingTimeString(exitTime)}.`,
             );
+        }
+    };
+
+    private onCommandResidents = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        const residents = this.conn.chatRoom.characters.filter(
+            (c) => this.exitTime.has(c.MemberNumber),
+        );
+
+        const residentsList = residents.map((c) => `${c} (${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining)`).join("\n");
+        if (residentsList.length === 0) {
+            this.conn.reply(msg, "There are no residents in the spa right now.");
+        } else {
+            this.conn.reply(msg, `Current residents:\n${residentsList}`);
         }
     };
 }
