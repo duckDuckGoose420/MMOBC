@@ -40,7 +40,7 @@ const REDRESSING_PAD: CoordObject = { X: 18, Y: 8 };
 const DRESSING_PAD: CoordObject = { X: 23, Y: 5 };
 
 const MAP =
-    "N4IgKgngDgpiBcICCAbA7gQwgZxAGnAEsUZdEAgyq6m8wH+AAPJ5hugEw86+9t6sZZN23EZz586kyc2GiR4hfRlzRi8QNYr5a3gIDBsrRyknTZqcqNWjGw9fsc9bWw9dcXbroAXwHz/NnPb18vO25/EytgkJsAEL04hPjQkSjkrhiMzKy0oN8c4yzC/I5U2MLMu0An4Grq8hr6hsam+oB1tvaOzrbKroAz/q7BoeGezv7e4cmp0Y7xqfnBmfa5hdXuvQ3Nre2dnfnK3cOjzf3js73p86uN0+vz27vjh8fD9t8ug5ejt58Pr++2u9Op9/hcWkCOiDQVtntCbpc4TCEYj4ZMoYjYXDMdDsaDcf98CAAPIAIwAVjAAMYAFzIIECDI4lG0zMZ2iZ5CMgBr4NlcVm8gWCoUMwBV8MLxZ5AGNAkolDkAXEAKhXi6haQDV8CJ1bLrIAh6DYuv1EoAS1qTW5AAKApstKk1VttwsAH+AcQBAEHaRI6tNhXbLAKvgJvdXtELoDlqDWsADEAcQBb4MGrb63f7TQnxRG5EmtWmY4nbRns66c+L8+nOIXPISAGIAewA5ggAGYYFDYGAAXyAA=";
+    "N4IgKgngDgpiBcICCAbA7gQwgZxAGnAEsUZdEAgyq6m8wH+AAPJ5hugEw86+9t6sZZN23EZz586kyc2GiR4hfRlzRi8QNYr5a3gIDBsrRyknTZqcqNWjGw9fsc9bWw9dcXbroAXwHz/NnPb18vO25/EytgkJsAEL04hPjQkSjkrhiMzKy0oN8c4yzC/I5U2MLMu0An4Grq8hr6hsam+oB1tvaOzrbKroAz/q6unsGRluGO/t7R9vHpjtm2ybmx5c6FlqW59a29Xb39g8PKg+Xjw/Pzs73Ti9v9q92bu7uHvSfni9f3j6OTnZ/Ln8Wr4hgDAft2iC1mDfhC2lD5jCDl94T5QUi9ijpq8YVjRjiwXiRgSAUTBiSfmT0Ri9FToTTaUD8QzGXDsSzXvgQAB5ABGACsYABjAAuZBAgUlHEo2hlUu00vIRkANfDyrhytWarXayWAKvgdQbPIAxoCNhocgC4gS2Wg3ULSAavgRA6zdZAEPQbDdHsNACXnb63IABQD9QZUTuDYZ1gA/wDiAIAhwyIo1psHGzYBV8F9CeToljmaD2edgAYgDiALfAc8G0/GM37KwbC3Jq8766Wq2HGy2462DR2G5wu54uQAxAD2AHMEAAzDAobAwAC+QA";
 
 const PERMITTED_WORDS = new Set([
     "meow",
@@ -195,7 +195,10 @@ export class PetSpa {
     };
 
     private onMessage = async (msg: MessageEvent) => {
-        if (msg.message.Type === "Chat") {
+        if (
+            msg.message.Type === "Chat" &&
+            !msg.message.Content.startsWith("(")
+        ) {
             const exitTime = this.exitTime.get(msg.sender.MemberNumber);
             if (exitTime === undefined) return;
 
@@ -252,6 +255,7 @@ export class PetSpa {
     };
 
     private onCharacterEnterReception = async (character: API_Character) => {
+        this.exitTime.delete(character.MemberNumber);
         this.conn.SendMessage(
             "Chat",
             `Welcome to the Pet Spa, ${character}. Is life getting you down? Why not come and unwind with us? We offer a relaxation experience ` +
@@ -388,20 +392,36 @@ export class PetSpa {
         }
     };
 
-    private onCommandResidents = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
-        const residents = this.conn.chatRoom.characters.filter(
-            (c) => this.exitTime.has(c.MemberNumber),
+    private onCommandResidents = async (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        const residents = this.conn.chatRoom.characters.filter((c) =>
+            this.exitTime.has(c.MemberNumber),
         );
 
-        const residentsList = residents.map((c) => `${c} (${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining)`).join("\n");
+        const residentsList = residents
+            .map(
+                (c) =>
+                    `${c} (${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining)`,
+            )
+            .join("\n");
         if (residentsList.length === 0) {
-            this.conn.reply(msg, "There are no residents in the spa right now.");
+            this.conn.reply(
+                msg,
+                "There are no residents in the spa right now.",
+            );
         } else {
             this.conn.reply(msg, `Current residents:\n${residentsList}`);
         }
     };
 
-    private onCommandFreeAndLeave = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+    private onCommandFreeAndLeave = async (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
         this.exitTime.delete(sender.MemberNumber);
         this.freeCharacter(sender);
         await wait(500);

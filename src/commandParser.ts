@@ -36,9 +36,8 @@ export class CommandParser {
     }
 
     private onMessage = (ev: MessageEvent) => {
-        const msg = ev.message.Content.startsWith("(")
-            ? ev.message.Content.substring(1)
-            : ev.message.Content;
+        // trim any leading or trailing parentheses from the message
+        const msg = ev.message.Content.replace(/^\(+/, "").replace(/\)+$/, "");
 
         if (
             ["Whisper", "Chat"].includes(ev.message.Type) &&
