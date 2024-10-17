@@ -1,0 +1,4 @@
+# Data imported from BC that should stay as close as possible to the original
+src/bcdata/*
+# Files from the original bot hub
+src/hub/*
