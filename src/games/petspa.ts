@@ -79,9 +79,14 @@ function remainingTimeString(exitTime: number): string {
 }
 
 export class PetSpa {
-    public static description =
-        "This is an example to show how to use the ropeybot API to create a simple game." +
-        "Code at https://github.com/FriendsOfBC/ropeybot";
+    public static description = [
+        "This is an example to show how to use the ropeybot API to create a simple game.",
+        "Commands:",
+        "",
+        "/bot resisdents - List the current residents of the spa",
+        "/bot freeandleave - Immediately removes any restraints added and kicks you from the room",
+        "Code at https://github.com/FriendsOfBC/ropeybot",
+    ].join("\n");
 
     private exitTime = new Map<number, number>();
     private earsAdded = new Set<number>();
@@ -147,6 +152,7 @@ export class PetSpa {
         );
 
         this.commandParser.register("residents", this.onCommandResidents);
+        this.commandParser.register("freeandleave", this.onCommandFreeAndLeave);
     }
 
     public async init(): Promise<void> {
@@ -373,14 +379,7 @@ export class PetSpa {
                 "Whisper",
                 "(Thank you for visiting the Pet Spa! We hope you enjoyed your time with us.",
             );
-            character.Appearance.RemoveItem("ItemArms");
-
-            if (this.earsAdded.delete(character.MemberNumber)) {
-                character.Appearance.RemoveItem("ItemHood");
-            }
-            if (this.tailAdded.delete(character.MemberNumber)) {
-                character.Appearance.RemoveItem("TailStraps");
-            }
+            this.freeCharacter(character);
         } else {
             character.Tell(
                 "Whisper",
@@ -401,4 +400,22 @@ export class PetSpa {
             this.conn.reply(msg, `Current residents:\n${residentsList}`);
         }
     };
+
+    private onCommandFreeAndLeave = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        this.exitTime.delete(sender.MemberNumber);
+        this.freeCharacter(sender);
+        await wait(500);
+        sender.Kick();
+    };
+
+    private freeCharacter(character: API_Character): void {
+        character.Appearance.RemoveItem("ItemArms");
+
+        if (this.earsAdded.delete(character.MemberNumber)) {
+            character.Appearance.RemoveItem("ItemHood");
+        }
+        if (this.tailAdded.delete(character.MemberNumber)) {
+            character.Appearance.RemoveItem("TailStraps");
+        }
+    }
 }

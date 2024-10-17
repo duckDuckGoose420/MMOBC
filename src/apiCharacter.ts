@@ -151,7 +151,11 @@ export class API_Character {
     }
 
     public async Kick(): Promise<void> {
-        // TODO
+        this.connection.chatRoomAdmin({
+            Action: "Kick",
+            MemberNumber: this.MemberNumber,
+            Publish: true,
+        });
     }
 
     public Ban(): void {}

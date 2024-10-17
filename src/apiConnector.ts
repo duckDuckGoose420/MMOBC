@@ -95,7 +95,7 @@ interface ReorderPlayers {
 }
 
 interface ChatRoomAdmin {
-    Action: "Update" | "MoveLeft" | "MoveRight";
+    Action: "Update" | "MoveLeft" | "MoveRight" | "Kick";
     MemberNumber?: number;
     Publish?: boolean;
     Room?: Partial<RoomDefinition>;
