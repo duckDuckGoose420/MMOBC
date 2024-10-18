@@ -52,7 +52,7 @@ const PERMITTED_WORDS = new Set([
     "bark",
     "growl",
     "grrr",
-    "pon",
+    "awoo"
 ]);
 
 export const PET_EARS: BC_AppearanceItem = {
@@ -204,7 +204,9 @@ export class PetSpa {
 
             const words = msg.message.Content.toLowerCase()
                 .split(/^a-z/)
-                .filter((word) => word.length > 3);
+                .filter((word) => word.length > 3)
+                // replace duplicate end letters to allow "awoooooo" etc
+                .map((w) => w.replace(/(.)\1+$/, '$1'));
 
             for (const w of words) {
                 if (!PERMITTED_WORDS.has(w)) {
@@ -318,10 +320,24 @@ export class PetSpa {
     private onCharacterEnterDressingPad = async (character: API_Character) => {
         character.Tell(
             "Whisper",
-            "(Please stand by while we prepare your spa suit. This will only take a moment.",
+            "(Please remain still while the scanner determines exact measurements for your spa suit...",
         );
 
         await wait(2000);
+
+        character.Tell(
+            "Whisper",
+            "(Scan complete. Preparing spa suit...",
+        );
+
+        await wait(2000);
+
+        character.Tell(
+            "Whisper",
+            "(Preparation complete. Please remain still while your suit is fitted...",
+        );
+
+        await wait(1000);
 
         const petSuitItem = character.Appearance.AddItem(
             AssetGet("ItemArms", "ShinyPetSuit"),
@@ -365,8 +381,10 @@ export class PetSpa {
 
         character.Tell(
             "Whisper",
-            "(Thank you, you are now ready to enter the spa! Please enjoy your time.",
+            "(Thank you, you are now ready to enter the spa! Please enjoy your stay.",
         );
+
+        this.conn.SendMessage("Emote", `An voice speaks over the tannoy: Please welcome our newest resident: ${character}!`);
 
         this.exitTime.set(character.MemberNumber, Date.now() + 30 * 60 * 1000);
     };
