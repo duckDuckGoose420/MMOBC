@@ -273,6 +273,7 @@ export class PetSpa {
         character: API_Character,
     ) => {
         const currentArmItem = character.Appearance.InventoryGet("ItemArms");
+        console.log(`${character} current arm item name: ${currentArmItem?.Name}`);
         if (currentArmItem?.Name === "ShinyPetSuit") {
             character.Tell("Whisper", "(You may now enter the spa!");
             this.conn.chatRoom.map.setObject(
@@ -384,7 +385,7 @@ export class PetSpa {
             "(Thank you, you are now ready to enter the spa! Please enjoy your stay.",
         );
 
-        this.conn.SendMessage("Emote", `An voice speaks over the tannoy: Please welcome our newest resident: ${character}!`);
+        this.conn.SendMessage("Emote", `A voice speaks over the tannoy: Please welcome our newest resident: ${character}!`);
 
         this.exitTime.set(character.MemberNumber, Date.now() + 30 * 60 * 1000);
     };
@@ -422,7 +423,7 @@ export class PetSpa {
         const residentsList = residents
             .map(
                 (c) =>
-                    `${c} (${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining)`,
+                    `${c} - ${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining`,
             )
             .join("\n");
         if (residentsList.length === 0) {
