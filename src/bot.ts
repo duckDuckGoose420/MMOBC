@@ -20,6 +20,7 @@ import { readFile } from "fs/promises";
 import { ConfigFile } from "./config";
 import { Db, MongoClient } from "mongodb";
 import { PetSpa } from "./games/petspa";
+import { Lillypad } from "./rooms/lillypad";
 
 const SERVER_URL = {
     live: "https://bondage-club-server.herokuapp.com/",
@@ -107,6 +108,12 @@ export async function startBot(): Promise<RopeyBot> {
             const petSpaGame = new PetSpa(connector);
             await petSpaGame.init();
             connector.setBotDescription(PetSpa.description);
+            break;
+        case "lillypad":
+            const lillypad = new Lillypad(connector, config);
+            await lillypad.init();
+            connector.setBotDescription(Lillypad.description);            
+            console.log("Starting map: Lillypad");
             break;
         default:
             console.log("No such game");

@@ -259,7 +259,7 @@ export class API_Connector extends EventEmitter {
         } as ChatRoomAdmin;
         if (payload.Room.Limit !== undefined)
             payload.Room.Limit = payload.Room.Limit + "";
-        console.log("Updating chat room", payload);
+        //console.log("Updating chat room", payload);
         this.chatRoomAdmin(payload);
     }
 
@@ -413,7 +413,7 @@ export class API_Connector extends EventEmitter {
     };
 
     private onChatRoomSyncRoomProperties = (resp: API_Chatroom_Data) => {
-        console.log("sync room properties", resp);
+        //console.log("sync room properties", resp);
         this._chatRoom.update(resp);
     };
 
@@ -482,7 +482,7 @@ export class API_Connector extends EventEmitter {
 
     private onChatRoomMessage = (msg: BC_Server_ChatRoomMessage) => {
         // Don't log BCX spam
-        if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg") {
+        if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg" && msg.Sender !== this.Player.MemberNumber) {
             console.log("chat room message", msg);
         }
 

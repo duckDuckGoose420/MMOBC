@@ -24,4 +24,5 @@ export interface ConfigFile {
     room: RoomDefinition;
     mongo_uri?: string;
     mongo_db?: string;
+    members: number[];
 }
