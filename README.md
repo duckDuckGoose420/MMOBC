@@ -42,7 +42,7 @@ The bot can either be run locally or via the Docker image.
    at least a username and password for an account that the bot can log in as. You can
    also choose what game the bot will run.
  * Enter the directory and install the dependencies:
-   `cd bcbot2`
+   `cd ropeybot`
    `pnpm install`
  * Start the bot!
    `pnpm start`
