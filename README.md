@@ -73,3 +73,7 @@ From the original bot hub. Code is mostly unmodified from its original state.
 ### Roleplay challenge
 Also from the original bot hub.
 
+### Maid's Party Night
+Also from the original bot hub, a single player adventure. Needs a second bot account
+(user2 and password2 in the config). Probably buggy!
+
