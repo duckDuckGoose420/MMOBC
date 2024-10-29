@@ -611,19 +611,19 @@ This bot was created using EllieThePink's version of Jomshir's BotAPI.
 		if (this.maid.MemberNumber === character.MemberNumber) {
 			this.maid = null;
 		}
-		if (this.switch.MemberNumber === character.MemberNumber) {
+		if (this.switch?.MemberNumber === character.MemberNumber) {
 			this.switch = null;
 		}
-		if (this.stalker.MemberNumber === character.MemberNumber) {
+		if (this.stalker?.MemberNumber === character.MemberNumber) {
 			this.stalker = null;
 		}
-		if (this.fan.MemberNumber === character.MemberNumber) {
+		if (this.fan?.MemberNumber === character.MemberNumber) {
 			this.fan = null;
 		}
-		if (this.masochist.MemberNumber === character.MemberNumber) {
+		if (this.masochist?.MemberNumber === character.MemberNumber) {
 			this.masochist = null;
 		}
-		if (this.mistress.MemberNumber === character.MemberNumber) {
+		if (this.mistress?.MemberNumber === character.MemberNumber) {
 			this.mistress = null;
 		}
 
