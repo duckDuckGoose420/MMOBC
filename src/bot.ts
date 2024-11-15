@@ -34,6 +34,8 @@ export interface RopeyBot {
     game: string;
 }
 
+
+
 export async function startBot(): Promise<RopeyBot> {
     process.on("SIGINT", () => {
         console.log("SIGINT received, exiting");

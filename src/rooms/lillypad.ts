@@ -31,11 +31,12 @@ export class Lillypad {
     private commandParser: CommandParser;
     private guestInvites: Map<number, number> = new Map();
     private staffList: number[] = [];
-    private members: number[] = [];
+    private config: ConfigFile;
 
     public constructor(private conn: API_Connector, config: ConfigFile) {
-        this.staffList = config.superusers;
-        this.members = config.members;
+        this.config = config;
+
+        this.staffList = this.config.superusers;
         this.commandParser = new CommandParser(this.conn);
 
         this.commandParser.register("guestinvite", this.createGuestInviteCommand);
@@ -47,8 +48,10 @@ export class Lillypad {
         this.commandParser.register("toggleprivate", this.togglePrivateCommand);
         this.commandParser.register("togglemap", this.toggleMapCommand);
 
-        this.conn.ChatRoomUpdate({ Admin: config.members });
+        //this.conn.on("connect", this.reconnect);
     }
+
+
 
     public async init(): Promise<void> {
         await this.setupRoom();
@@ -63,11 +66,19 @@ export class Lillypad {
         } catch (e) {
             console.log("Map data not loaded", e);
         }
+        this.conn.ChatRoomUpdate({ Admin: this.config.members });
     };
 
     private setupCharacter = async () => {
         this.conn.moveOnMap(SECRETARY_POSITION.X, SECRETARY_POSITION.Y);
     };
+
+    private async reconnect() {
+        setTimeout(
+            () => this.setupRoom,
+            10000,
+        );
+    }
 
     createGuestInviteCommand = async (
         senderCharacter: API_Character,
@@ -145,13 +156,12 @@ export class Lillypad {
         }
 
         const id = +args[0];
-        if(this.members.includes(id)){
+        let admins = [...this.conn.chatRoom.Admin];
+        if(admins.includes(id)){
             this.conn.SendMessage("Emote", "*User is already a member.", senderCharacter.MemberNumber);
             return;
         }
 
-        this.members.push(id);
-        let admins = [...this.conn.chatRoom.Admin];
         admins.push(id);
         this.conn.ChatRoomUpdate({ Admin: admins });
         this.conn.SendMessage("Emote", `*User ${id} added as a member - Keep in mind that that is reversed on a bot restart unless you tell Lilly`, senderCharacter.MemberNumber);
@@ -171,13 +181,12 @@ export class Lillypad {
         }
 
         const id = +args[0];
-        if(!this.members.includes(id)){
+        let admins = [...this.conn.chatRoom.Admin];
+        if(!admins.includes(id)){
             this.conn.SendMessage("Emote", "*User is not a member.", senderCharacter.MemberNumber);
             return;
         }
 
-        this.members = this.members.filter((m) => m !== id);
-        let admins = [...this.conn.chatRoom.Admin];
         admins = admins.filter((a) => a !== id);
         this.conn.ChatRoomUpdate({ Admin: admins });
         this.conn.SendMessage("Emote", `*User ${id} removed as a member - Keep in mind that that is reversed on a bot restart unless you tell Lilly`, senderCharacter.MemberNumber);
