@@ -21,6 +21,7 @@ import { ConfigFile } from "./config";
 import { Db, MongoClient } from "mongodb";
 import { PetSpa } from "./games/petspa";
 import { Lillypad } from "./rooms/lillypad";
+import { MaidsPartyNightSinglePlayerAdventure } from "./hub/logic/maidsPartyNightSinglePlayerAdventure";
 
 const SERVER_URL = {
     live: "https://bondage-club-server.herokuapp.com/",
@@ -99,6 +100,21 @@ export async function startBot(): Promise<RopeyBot> {
             );
             connector.setBotDescription(RoleplaychallengeGameRoom.description);
             connector.startBot(roleplayGame);
+            break;
+        case "maidspartynight":
+            console.log("Starting game: Maid's Party Night");
+            if (!config.user2 || !config.password2) {
+                console.log("Need user2 and password2 for Maid's Party Night");
+                process.exit(1);
+            }
+            const connector2 = new API_Connector(
+                serverUrl,
+                config.user2,
+                config.password2,
+                config.env,
+            );
+            const maidsPartyNightGame = new MaidsPartyNightSinglePlayerAdventure(connector, connector2);
+            connector.startBot(maidsPartyNightGame);
             break;
         case "dare":
             console.log("Starting game: dare");

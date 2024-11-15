@@ -37,12 +37,12 @@ The bot can either be run locally or via the Docker image.
 ### Running Locally
  * Get an environment with NodeJS, pnpm (https://pnpm.io/installation) and git
  * Check out the bot's code
-   `git clone git@github.com:elliethepink/bcbot2.git`
+   `git clone https://github.com/FriendsOfBC/ropeybot.git`
  * Copy `config.sample.json` to `config.json` and customise it: you'll need to provide
    at least a username and password for an account that the bot can log in as. You can
    also choose what game the bot will run.
  * Enter the directory and install the dependencies:
-   `cd bcbot2`
+   `cd ropeybot`
    `pnpm install`
  * Start the bot!
    `pnpm start`
@@ -51,32 +51,35 @@ The bot can either be run locally or via the Docker image.
  * Install docker
  * Create a config file as in the steps for running locally
  * Run the bot, mapping in the config file you just made:
- `docker run --rm -it -v ${PWD}/config.json:/bot/cfg/config.json ghcr.io/elliethepink/bcbot2:main`
+ `docker run --rm -it -v ${PWD}/config.json:/bot/cfg/config.json ghcr.io/FriendsOfBC/ropeybot:main`
  * Alternatively you can build the docker yourself:
  `docker build --tag ropeybot .`
  * And then run said docker with the config file mapped in
  `docker run --rm -it -v ${PWD}/config.json:/bot/cfg/config.json ropeybot`
 
 ## Games
+The bot comes with some built games. In brackets is the value to use for 'game' in the config
+file to run that game.
 
-### Dare Game
+### Dare Game ('dare')
 A very simple game where players add dares and then draw them without knowing who added
 each dare.
 The dares added by players are stored in two files in the bot's working directory:
 dares.json and unuseddares.json: delete both of these files to reset the dares.
 
-### Pet Spa
+### Pet Spa ('petspa')
 This is an example of how to use the API to make an interactive map room, but also
 applies to non map rooms. You can use this file as a base for things like how to react
 when players enter areas on a map, adding restraints and setting their properties, sending
 and reacting to messages.
 
-### Kidnappers
+### Kidnappers ('kidnappers')
 From the original bot hub. Code is mostly unmodified from its original state.
 
-### Roleplay challenge
+### Roleplay challenge ('roleplay')
 Also from the original bot hub.
 
-### Maid's Party Night
-Also from the original bot hub. A short single player game.
+### Maid's Party Night ('maidspartynight')
+Also from the original bot hub, a single player adventure. Needs a second bot account
+(user2 and password2 in the config). Probably buggy!
 

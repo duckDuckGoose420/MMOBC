@@ -17,7 +17,7 @@ import { API_Character, API_Character_Data } from "./apiCharacter";
 import { API_Chatroom, API_Chatroom_Data } from "./apiChatroom";
 import { Socket } from "socket.io-client";
 import { LogicBase } from "./logicBase";
-import { BC_AppearanceItem } from "./item";
+import { API_AppearanceItem, BC_AppearanceItem } from "./item";
 import { compressToUTF16 } from "lz-string";
 import { EventEmitter } from "stream";
 import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
@@ -68,7 +68,7 @@ export interface SyncMapDataPayload {
 }
 
 // What the bot advertises as its game version
-const GAMEVERSION = "R108";
+const GAMEVERSION = "R109";
 const LZSTRING_MAGIC = "╬";
 
 class PromiseResolve<T> {
@@ -442,6 +442,20 @@ export class API_Connector extends EventEmitter {
 
     private onChatRoomSyncExpression = (resp: any) => {
         //console.log("sync expression", resp);
+        const char = this.chatRoom.getCharacter(resp.MemberNumber);
+        const item = new API_AppearanceItem(char, {
+            Group: resp.Group,
+            Name: resp.Name,
+            Property: {
+                Expression: resp.Name,
+            },
+        });
+        this.bot?.onCharacterEventPub(this, {
+            name: "ItemChange",
+            item,
+            character: char,
+            source: char,
+        });
     };
 
     private onChatRoomSyncPose = (resp: any) => {

@@ -125,6 +125,7 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 	readonly conn2: API_Connector;
 
 	// Metrics
+	/*
 	private metric_players = new promClient.Gauge({
 		name: "hub_players_in_room",
 		help: "hub_players_in_room",
@@ -139,6 +140,7 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 		help: "hub_maidspartynight_reached_endings",
 		labelNames: ["ending"] as const
 	});
+	*/
 
 	constructor(conn: API_Connector, conn2: API_Connector) {
 		super();
@@ -327,9 +329,11 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 		if (character.IsBot()) return;
 		super.onCharacterEntered(connection, character);
 
+		/*
 		this.metric_players
 			.labels({ roomName: character.chatRoom.Name })
 			.set(character.chatRoom.characters.filter(c => !c.IsBot()).length);
+		*/
 
 		if (this.player === null && !connection.chatRoom.Admin.includes(character.MemberNumber)) {
 			await this.conn.ChatRoomUpdate({
@@ -379,9 +383,11 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 		if (character.IsBot()) return;
 		super.onCharacterLeft(connection, character, intentional);
 
+		/*
 		this.metric_players
 			.labels({ roomName: character.chatRoom.Name })
 			.set(character.chatRoom.characters.filter(c => !c.IsBot()).length);
+		*/
 
 		if (this.player === character && (intentional || !this.started)) {
 			// TODO: this can only be reached via 'leave' or force DC, as the player cannot leave the locked room themself >>
@@ -445,7 +451,7 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 						`whos clothes are also changing.`
 					);
 					this.started = true;
-					this.metric_started.inc();
+					//this.metric_started.inc();
 					await wait(2500);
 					await this.toggleBotVisibility(true);
 					await wait(2000);
@@ -691,7 +697,7 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 						`whether refusal was the best decision here.`
 					);
 					logger.alert(`Player ${sender.Name} (${sender.MemberNumber}) reached ending: Storage cleaning`);
-					this.metric_endings.labels({ ending: "Storage cleaning" }).inc();
+					//this.metric_endings.labels({ ending: "Storage cleaning" }).inc();
 					this.playerGenericEnd(sender, false);
 					return;
 				} else {
@@ -752,7 +758,7 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 						this.conn2.ChatRoomLeave();
 						this.changeBotAppearanceTo("trixie", this.conn);
 						logger.alert(`Player ${sender.Name} (${sender.MemberNumber}) reached ending: Head Maid punishment`);
-						this.metric_endings.labels({ ending: "Head Maid punishment" }).inc();
+						//this.metric_endings.labels({ ending: "Head Maid punishment" }).inc();
 						this.playerGenericEnd(sender, false);
 						return;
 					}
@@ -952,7 +958,7 @@ export class MaidsPartyNightSinglePlayerAdventure extends LoggingLogic {
 					);
 					// TODO: remove the end below when more story was added here
 					logger.alert(`Player ${sender.Name} (${sender.MemberNumber}) reached ending: Club lady - end of the demo-`);
-					this.metric_endings.labels({ ending: "Club lady" }).inc();
+					//this.metric_endings.labels({ ending: "Club lady" }).inc();
 					this.playerGenericEnd(sender, true);
 					return;
 				} else {

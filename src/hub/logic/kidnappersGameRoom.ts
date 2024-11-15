@@ -608,22 +608,22 @@ This bot was created using EllieThePink's version of Jomshir's BotAPI.
 	private resolvePlayerRemovals(character: API_Character) {
 		this.kidnappers.delete(character);
 		this.club_members.delete(character);
-		if (this.maid.MemberNumber === character.MemberNumber) {
+		if (this.maid?.MemberNumber === character.MemberNumber) {
 			this.maid = null;
 		}
-		if (this.switch.MemberNumber === character.MemberNumber) {
+		if (this.switch?.MemberNumber === character.MemberNumber) {
 			this.switch = null;
 		}
-		if (this.stalker.MemberNumber === character.MemberNumber) {
+		if (this.stalker?.MemberNumber === character.MemberNumber) {
 			this.stalker = null;
 		}
-		if (this.fan.MemberNumber === character.MemberNumber) {
+		if (this.fan?.MemberNumber === character.MemberNumber) {
 			this.fan = null;
 		}
-		if (this.masochist.MemberNumber === character.MemberNumber) {
+		if (this.masochist?.MemberNumber === character.MemberNumber) {
 			this.masochist = null;
 		}
-		if (this.mistress.MemberNumber === character.MemberNumber) {
+		if (this.mistress?.MemberNumber === character.MemberNumber) {
 			this.mistress = null;
 		}
 
@@ -1713,11 +1713,14 @@ This bot was created using EllieThePink's version of Jomshir's BotAPI.
 		const gag1 = character.Appearance.AddItem(AssetGet("ItemMouth", "ClothGag"));
 		gag1?.Extended?.SetType("OTM");
 		gag1?.SetColor("#" + randomColor);
+		gag1.SetDifficulty(20);
 		const gag2 = character.Appearance.AddItem(AssetGet("ItemMouth2", "ClothGag"));
 		gag2?.Extended?.SetType("OTM");
+		gag2.SetDifficulty(20);
 		const gag3 = character.Appearance.AddItem(AssetGet("ItemMouth3", "ClothGag"));
 		gag3?.Extended?.SetType("OTM");
-		gag3?.SetColor("#" + randomColor);
+		gag3?.SetColor(character.Appearance.InventoryGet("HairFront").GetColor());
+		gag3.SetDifficulty(20);
 
 		for (const g of [gag1, gag2, gag3]) {
 			if (who === "kidnapper") {
@@ -1784,7 +1787,11 @@ This bot was created using EllieThePink's version of Jomshir's BotAPI.
 
 	clubMembersWin() {
 		// free everyone and tie up every kidnapper more strict
-		this.players.forEach(P => this.freePlayerInItemSlots(P, listOfUsedItemGroups));
+		for (const p of this.players) {
+			if (p.MemberNumber !== this.stalker?.MemberNumber && p.MemberNumber !== this.fan?.MemberNumber && this.persistent_copy_of_kidnappers.has(p)) {
+				this.freePlayerInItemSlots(p, listOfUsedItemGroups);
+			}
+		}
 
 		this.persistent_copy_of_kidnappers.forEach(K => this.tieUpCharacterAndRemove("club revenge", K));
 

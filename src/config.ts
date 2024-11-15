@@ -25,4 +25,7 @@ export interface ConfigFile {
     mongo_uri?: string;
     mongo_db?: string;
     members: number[];
+
+    user2: string;
+    password2: string;
 }

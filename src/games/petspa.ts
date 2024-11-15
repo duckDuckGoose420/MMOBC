@@ -52,10 +52,10 @@ const PERMITTED_WORDS = new Set([
     "bark",
     "growl",
     "grrr",
-    "awoo"
+    "awoo",
 ]);
 
-export const PET_EARS: BC_AppearanceItem = {
+const PET_EARS: BC_AppearanceItem = {
     Name: "HarnessCatMask",
     Group: "ItemHood",
     Color: ["#202020", "#FF00FF", "#ADADAD"],
@@ -206,7 +206,7 @@ export class PetSpa {
                 .split(/^a-z/)
                 .filter((word) => word.length > 3)
                 // replace duplicate end letters to allow "awoooooo" etc
-                .map((w) => w.replace(/(.)\1+$/, '$1'));
+                .map((w) => w.replace(/(.)\1+$/, "$1"));
 
             for (const w of words) {
                 if (!PERMITTED_WORDS.has(w)) {
@@ -273,7 +273,13 @@ export class PetSpa {
         character: API_Character,
     ) => {
         const currentArmItem = character.Appearance.InventoryGet("ItemArms");
-        if (currentArmItem?.Name === "ShinyPetSuit") {
+        console.log(
+            `${character} current arm item name: ${currentArmItem?.Name}`,
+        );
+        if (
+            currentArmItem?.Name === "ShinyPetSuit" ||
+            this.exitTime.has(character.MemberNumber)
+        ) {
             character.Tell("Whisper", "(You may now enter the spa!");
             this.conn.chatRoom.map.setObject(
                 HALLWAY_TO_PET_AREA_DOOR,
@@ -325,10 +331,7 @@ export class PetSpa {
 
         await wait(2000);
 
-        character.Tell(
-            "Whisper",
-            "(Scan complete. Preparing spa suit...",
-        );
+        character.Tell("Whisper", "(Scan complete. Preparing spa suit...");
 
         await wait(2000);
 
@@ -339,6 +342,13 @@ export class PetSpa {
 
         await wait(1000);
 
+        const characterHairColor =
+            character.Appearance.InventoryGet("HairFront").GetColor();
+        const characterHairSingleColor =
+            typeof characterHairColor === "object"
+                ? characterHairColor[0]
+                : characterHairColor;
+
         const petSuitItem = character.Appearance.AddItem(
             AssetGet("ItemArms", "ShinyPetSuit"),
         );
@@ -346,9 +356,7 @@ export class PetSpa {
             Name: `Pet Spa Suit`,
             Description: `A very comfy suit, specially made for ${character} to ensure the wearer complete, uniterrupted relaxation.`,
         });
-        petSuitItem.SetColor(
-            character.Appearance.InventoryGet("HairFront").GetColor(),
-        );
+        petSuitItem.SetColor(characterHairColor);
         petSuitItem.Extended.SetType("Classic");
 
         if (character.Appearance.InventoryGet("HairAccessory2") === null) {
@@ -381,10 +389,13 @@ export class PetSpa {
 
         character.Tell(
             "Whisper",
-            "(Thank you, you are now ready to enter the spa! Please enjoy your stay.",
+            "(Thank you, you are now ready to enter the spa! Please approach the door above and it will open for you.",
         );
 
-        this.conn.SendMessage("Emote", `An voice speaks over the tannoy: Please welcome our newest resident: ${character}!`);
+        this.conn.SendMessage(
+            "Emote",
+            `*A voice speaks over the tannoy: Please welcome our newest resident: ${character}!`,
+        );
 
         this.exitTime.set(character.MemberNumber, Date.now() + 30 * 60 * 1000);
     };
@@ -422,7 +433,7 @@ export class PetSpa {
         const residentsList = residents
             .map(
                 (c) =>
-                    `${c} (${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining)`,
+                    `${c} - ${remainingTimeString(this.exitTime.get(c.MemberNumber))} remaining`,
             )
             .join("\n");
         if (residentsList.length === 0) {
