@@ -246,7 +246,11 @@ export class API_Chatroom extends EventEmitter {
         Object.assign(charData.MapData, mapData);
 
         const char = this.findMember(memberNumber);
-        this.map.onCharacterMove(char, prevPos);
+        try {
+            this.map.onCharacterMove(char, prevPos);
+        } catch (e) {
+            console.log("Error handling character move", e);
+        }
     }
 
     public onReorder(memberNos: number[]): void {
