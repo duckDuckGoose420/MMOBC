@@ -1,5 +1,5 @@
 import { decompressFromBase64 } from "lz-string";
-import { API_Connector } from "../apiConnector";
+import { API_Connector, MessageEvent } from "../apiConnector";
 import { CommandParser } from "../commandParser";
 import { API_Character } from "../apiCharacter";
 import { BC_Server_ChatRoomMessage } from "../logicEvent";
@@ -38,6 +38,7 @@ export class Lillypad {
 
         this.staffList = this.config.superusers;
         this.commandParser = new CommandParser(this.conn);
+        this.conn.on("ChatRoomSyncMemberJoin", this.PlayerJoin);
 
         this.commandParser.register("guestinvite", this.createGuestInviteCommand);
         this.commandParser.register("listinvites", this.listGuestInviteCommand);
@@ -50,6 +51,10 @@ export class Lillypad {
 
         //this.conn.on("connect", this.reconnect);
     }
+
+    private PlayerJoin = async (msg: MessageEvent) => {
+        this.conn.SendMessage("Emote", "*Usage: /bot guestinvite <id>"+msg.sender.MemberNumber);
+    };
 
 
 

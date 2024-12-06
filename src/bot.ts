@@ -22,6 +22,7 @@ import { Db, MongoClient } from "mongodb";
 import { PetSpa } from "./games/petspa";
 import { Lillypad } from "./rooms/lillypad";
 import { MaidsPartyNightSinglePlayerAdventure } from "./hub/logic/maidsPartyNightSinglePlayerAdventure";
+import { DiceCasino } from "./games/diceCasino";
 
 const SERVER_URL = {
     live: "https://bondage-club-server.herokuapp.com/",
@@ -34,8 +35,6 @@ export interface RopeyBot {
     db?: Db;
     game: string;
 }
-
-
 
 export async function startBot(): Promise<RopeyBot> {
     process.on("SIGINT", () => {
@@ -113,7 +112,8 @@ export async function startBot(): Promise<RopeyBot> {
                 config.password2,
                 config.env,
             );
-            const maidsPartyNightGame = new MaidsPartyNightSinglePlayerAdventure(connector, connector2);
+            const maidsPartyNightGame =
+                new MaidsPartyNightSinglePlayerAdventure(connector, connector2);
             connector.startBot(maidsPartyNightGame);
             break;
         case "dare":
@@ -130,10 +130,16 @@ export async function startBot(): Promise<RopeyBot> {
         case "lillypad":
             const lillypad = new Lillypad(connector, config);
             await lillypad.init();
-            connector.setBotDescription(Lillypad.description);            
+            connector.setBotDescription(Lillypad.description);
             console.log("Starting map: Lillypad");
             break;
+        case "dicecasino":
+            console.log("Starting game: Dice Casino");
+            const diceCasino = new DiceCasino(connector);
+            break;
         default:
+            console.log(config.game)
+            console.log("config.game")
             console.log("No such game");
             process.exit(1);
     }
