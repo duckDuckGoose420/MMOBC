@@ -1789,6 +1789,7 @@ This bot was created using EllieThePink's version of Jomshir's BotAPI.
 		// free everyone and tie up every kidnapper more strict
 		for (const p of this.players) {
 			if (p.MemberNumber !== this.stalker?.MemberNumber && p.MemberNumber !== this.fan?.MemberNumber && this.persistent_copy_of_kidnappers.has(p)) {
+				console.log(`Freeing ${p}`);
 				this.freePlayerInItemSlots(p, listOfUsedItemGroups);
 			}
 		}
