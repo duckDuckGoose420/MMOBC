@@ -21,6 +21,8 @@ function getAssetGroup(groupName: AssetGroupName): AssetGroupDefinition {
 
 export function isClothing(item: BC_AppearanceItem): boolean {
     const group = getAssetGroup(item.Group);
+    if (!group) return false;
+
     // These slots are cosplay, not clothing, whatever the category actually thinks
     if (["HairAccessory2", "TailStraps", "Wings"].includes(item.Group))
         return false;
