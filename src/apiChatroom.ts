@@ -306,7 +306,7 @@ export class API_Chatroom extends EventEmitter {
         return info;
     }
 
-    public findMember(specifier: string | number) {
+    public findMember(specifier: string | number): API_Character | undefined {
         return this.characters.find(
             (c) =>
                 c.MemberNumber == specifier ||

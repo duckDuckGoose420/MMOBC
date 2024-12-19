@@ -60,13 +60,21 @@ export class CommandParser {
 
     private processCmdString(ev: MessageEvent, cmdString: string): void {
         const parts = cmdString.split(" ");
-        const cmd = parts.shift();
-        const cb = this.commands.get(cmd);
-        if (cb) {
-            try {
-                cb(ev.sender, ev.message, parts);
-            } catch (e) {
-                console.log("Command handler threw exception", e);
+        let cmd = parts.shift();
+
+        // try more words of the command until we run out of parts, so
+        // we can support multi-word commands
+        while (parts.length > 0) {
+            const cb = this.commands.get(cmd);
+            if (cb) {
+                try {
+                    cb(ev.sender, ev.message, parts);
+                } catch (e) {
+                    console.log("Command handler threw exception", e);
+                }
+                break;
+            } else {
+                cmd += " " + parts.shift();
             }
         }
     }
