@@ -14,7 +14,7 @@
 
 import { API_Character } from "./apiCharacter";
 import { API_Connector, MessageEvent } from "./apiConnector";
-import { BC_Server_ChatRoomMessage } from "./logicEvent";
+import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
 
 type CommandCallback = (
     sender: API_Character,

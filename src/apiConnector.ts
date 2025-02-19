@@ -68,7 +68,7 @@ export interface SyncMapDataPayload {
 }
 
 // What the bot advertises as its game version
-const GAMEVERSION = "R111";
+const GAMEVERSION = "R113";
 const LZSTRING_MAGIC = "╬";
 
 class PromiseResolve<T> {
@@ -548,11 +548,14 @@ export class API_Connector extends EventEmitter {
 
     private onAccountBeep = (payload: TBeepType) => {
         payload.Message = payload.Message.split("\n\n")[0];
+        // legacy
         this.bot?.onEvent({
             name: "Beep",
             connection: this,
             beep: payload,
         });
+        // new
+        this.emit("Beep", { payload });
     };
 
     private onAccountQueryResult = (payload: Record<string, any>) => {
@@ -705,8 +708,12 @@ export class API_Connector extends EventEmitter {
     }
 
     public accountUpdate(update: Partial<API_Character_Data>): void {
-        console.log("Sending account update", update);
-        this.wrappedSock.emit("AccountUpdate", update);
+        const actualUpdate = { ... update };
+        if (actualUpdate.Appearance === undefined) {
+            actualUpdate.Appearance = this.Player.Appearance.getAppearanceData();
+        }
+        console.log("Sending account update", actualUpdate);
+        this.wrappedSock.emit("AccountUpdate", actualUpdate);
     }
 
     public moveOnMap(x: number, y: number): void {

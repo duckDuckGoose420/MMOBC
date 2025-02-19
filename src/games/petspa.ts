@@ -20,6 +20,7 @@ import { AssetGet, BC_AppearanceItem } from "../item";
 import { wait } from "../hub/utils";
 import { CommandParser } from "../commandParser";
 import { BC_Server_ChatRoomMessage } from "../logicEvent";
+import { remainingTimeString } from "../util/time";
 
 const RECEPTION_AREA: MapRegion = {
     TopLeft: { X: 13, Y: 11 },
@@ -68,15 +69,6 @@ const PET_EARS: BC_AppearanceItem = {
         },
     },
 };
-
-function remainingTimeString(exitTime: number): string {
-    const remaining = exitTime - Date.now();
-    if (remaining < 0) return "0 seconds";
-    const minutes = Math.floor(remaining / (1000 * 60));
-    const seconds = Math.ceil((remaining % (1000 * 60)) / 1000);
-    if (minutes > 0) return `${minutes} minutes`;
-    return `${seconds} seconds`;
-}
 
 export class PetSpa {
     public static description = [

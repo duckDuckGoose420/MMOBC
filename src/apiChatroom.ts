@@ -295,6 +295,7 @@ export class API_Chatroom extends EventEmitter {
     }
 
     public usesMaps(): boolean {
+        if (this.data.MapData === undefined) return false;
         return this.data.MapData.Type !== "Never";
     }
 
