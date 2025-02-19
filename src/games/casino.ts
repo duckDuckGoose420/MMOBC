@@ -43,12 +43,18 @@ const makeBio = (leaderBoard: string) => `🎰🎰🎰 Welcome to the Casino! �
 All visitors will automatically ber awarded ${FREE_CHIPS} chips every day!
 Instead of chips, you may instead bet forefeits. If you win, you gain the corresponding
 amount of chips in the forfeits table. If you lose, the forfeit is applied. You bet forfeits by
-using the keyword in the table instead of a chip amount, eg. /bot bet red legbinder
+using the keyword in the table instead of a chip amount.
+
+Examples:
+eg.
+/bot bet red 10
+    bets 10 chips on red
+/bot bet 15 legbinder
+    bets the 'leg binder' forfeit (worth 7 chips) on number 15
 
 ℹ️ How To Play
 ==============
 ${ROULETTEHELP}
-
 🪢 Forfeit Table
 ================
 ${forfeitsString()}
