@@ -382,10 +382,8 @@ export class Casino {
 
         await wait(10000);
 
-        this.conn.SendMessage(
-            "Chat",
-            `The winning number is ${this.rouletteGame.getWinningNumberText(winningNumber, true)}`,
-        );
+        let message = `The winning number is ${this.rouletteGame.getWinningNumberText(winningNumber, true)}`;
+
         const sign = this.getSign();
         sign.setProperty(
             "Text",
@@ -405,19 +403,15 @@ export class Casino {
                 winnerMemberData.score += winnings;
                 await this.store.savePlayer(winnerMemberData);
 
-                this.conn.SendMessage(
-                    "Chat",
-                    `${bet.memberName} wins ${winnings} chips!`,
-                );
+                message += `\n${bet.memberName} wins ${winnings} chips!`;
             } else if (bet.stakeForfeit) {
                 this.applyForfeit(bet);
-                this.conn.SendMessage(
-                    "Chat",
-                    `${bet.memberName} lost and gets: ${FORFEITS[bet.stakeForfeit].name}!`,
-                );
+                message += `\n${bet.memberName} lost and gets: ${FORFEITS[bet.stakeForfeit].name}!`;
             }
             await wait(500);
         }
+
+        this.conn.SendMessage("Chat", message);
 
         this.rouletteGame.clear();
         await this.setBio();
