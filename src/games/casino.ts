@@ -46,7 +46,6 @@ amount of chips in the forfeits table. If you lose, the forfeit is applied. You 
 using the keyword in the table instead of a chip amount.
 
 Examples:
-eg.
 /bot bet red 10
     bets 10 chips on red
 /bot bet 15 legbinder
