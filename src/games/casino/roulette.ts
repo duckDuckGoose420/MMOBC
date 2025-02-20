@@ -68,6 +68,11 @@ export class RouletteGame {
             return;
         }
 
+        if (this.bets.find((b) => b.memberNumber === senderCharacter.MemberNumber)) {
+            senderCharacter.Tell("Whisper", "You already placed a bet.");
+            return;
+        }
+
         const betKind = args[0].toLowerCase();
 
         const stake = args[1];
@@ -162,7 +167,9 @@ export class RouletteGame {
 
     public getWinningNumberText(winningNumber: number, emoji = false): string {
         let text = `${winningNumber}`;
-        if (winningNumber > 0) {
+        if (winningNumber === 0) {
+            if (emoji) text += " 🟩";
+        } else {
             text += winningNumber % 2 ? " black" : " red";
             if (emoji) {
                 text += winningNumber % 2 ? " ⬛" : " 🟥";
