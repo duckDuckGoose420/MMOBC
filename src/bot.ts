@@ -116,6 +116,7 @@ export async function startBot(): Promise<RopeyBot> {
             break;
         case "dare":
             console.log("Starting game: dare");
+            connector.accountUpdate({ Nickname: "Dare Bot" });
             new Dare(connector);
             connector.setBotDescription(Dare.description);
             break;

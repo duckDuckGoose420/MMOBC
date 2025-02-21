@@ -41,7 +41,7 @@ function hasForfeitAlready(
 const makeBio = (leaderBoard: string) => `🎰🎰🎰 Welcome to the Casino! 🎰🎰🎰
 
 All visitors will automatically ber awarded ${FREE_CHIPS} chips every day!
-Instead of chips, you may instead bet forefeits. If you win, you gain the corresponding
+You can bet with either chips or forefeits. If you win when betting with a forfeit, you gain the corresponding
 amount of chips in the forfeits table. If you lose, the forfeit is applied. You bet forfeits by
 using the keyword in the table instead of a chip amount.
 
