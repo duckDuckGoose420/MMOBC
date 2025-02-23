@@ -291,7 +291,7 @@ export class API_Connector extends EventEmitter {
 
         const result = await this.onlineFriendsPromise.prom;
         return result.map((m) =>
-            this._chatRoom.findMember(m.MemberNumber + ""),
+            this._chatRoom.findMember(m.MemberNumber),
         );
     }
 

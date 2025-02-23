@@ -30,6 +30,14 @@ interface Outfit {
     items: BC_AppearanceItem[];
 }
 
+interface Purchase {
+    memberNumber: number;
+    memberName: string;
+    time: number;
+    service: string;
+    redeemed: boolean;
+}
+
 export class CasinoStore {
     private inited = false;
     private players: Collection<Player>;
@@ -95,5 +103,18 @@ export class CasinoStore {
             { $set: outfit },
             { upsert: true },
         );
+    }
+
+    public async addPurchase(purchase: Purchase): Promise<void> {
+        await this.init();
+        await this.db.collection<Purchase>("purchases").insertOne(purchase);
+    }
+
+    public async getUnredeemedPurchases(): Promise<Purchase[]> {
+        await this.init();
+        return this.db
+            .collection<Purchase>("purchases")
+            .find({ redeemed: false })
+            .toArray();
     }
 }

@@ -24,7 +24,7 @@ import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../item";
 import { wait } from "../hub/utils";
 import { remainingTimeString } from "../util/time";
 import { importBundle } from "../appearance";
-import { FORFEITS, forfeitsString } from "./casino/forfeits";
+import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
@@ -57,6 +57,16 @@ ${ROULETTEHELP}
 🪢 Forfeit Table
 ================
 ${forfeitsString()}
+
+🛒 Shop
+=======
+Restraint removal: /bot remove <name> (eg. /bot remove gag):
+${restraintsRemoveString()}
+
+Other:
+${servicesString()}
+
+(All services are subject to limits of the people involved, obviously)
 
 🏆 Leaderboard
 ==============
@@ -91,7 +101,9 @@ export class Casino {
         this.commandParser.register("odds", this.onCommandOdds);
         this.commandParser.register("chips", this.onCommandChips);
         this.commandParser.register("addfriend", this.onCommandAddFriend);
+        this.commandParser.register("remove", this.onCommandRemove);
         this.commandParser.register("buy", this.onCommandBuy);
+        this.commandParser.register("vouchers", this.onCommandVouchers);
 
         this.commandParser.register("wheel", (sender, msg, args) => {
             this.getWheel();
@@ -108,7 +120,9 @@ export class Casino {
 
         // hack because otherwise an account update goes through after this item update and clears the text out
         setTimeout(() => {
-            this.getWheel();
+            const wheel = this.getWheel();
+            wheel.setProperty("Texts", [" ", " ", " ", " ", " ", " ", " ", " "]);
+
             const sign = this.getSign();
             sign.setProperty("OverridePriority", { Text: 63 });
             sign.setProperty("Text", "Place bets!");
@@ -148,6 +162,7 @@ export class Casino {
 
     private async setBio(): Promise<void> {
         const topPlayers = await this.store.getTopPlayers(50);
+        const unredeemed = await this.store.getUnredeemedPurchases();
 
         this.conn.setBotDescription(
             makeBio(
@@ -155,7 +170,7 @@ export class Casino {
                     .map((player, idx) => {
                         return `${idx + 1}. ${player.name} (${player.memberNumber}): ${player.score} chips won`;
                     })
-                    .join("\n"),
+                    .join("\n")
             ),
         );
     }
@@ -182,42 +197,46 @@ export class Casino {
     };
 
     private onBeep = (beep: TBeepType) => {
-        if (beep.Message.startsWith("outfit add")) {
-            const parts = beep.Message.split(" ");
-            if (parts.length < 4) {
-                this.conn.AccountBeep(
-                    beep.MemberNumber,
-                    null,
-                    "Usage: outfit add <name> <code>",
-                );
-                return;
-            }
-            const code = parts[parts.length - 1];
-            const name = parts.slice(2, parts.length - 1).join(" ");
+        try {
+            if (beep.Message?.startsWith("outfit add")) {
+                const parts = beep.Message.split(" ");
+                if (parts.length < 4) {
+                    this.conn.AccountBeep(
+                        beep.MemberNumber,
+                        null,
+                        "Usage: outfit add <name> <code>",
+                    );
+                    return;
+                }
+                const code = parts[parts.length - 1];
+                const name = parts.slice(2, parts.length - 1).join(" ");
 
-            try {
-                const outfit = importBundle(code);
-                this.store.saveOutfit({
-                    name,
-                    addedBy: beep.MemberNumber,
-                    addedByName: beep.MemberName,
-                    items: outfit,
-                });
-                this.conn.AccountBeep(
-                    beep.MemberNumber,
-                    null,
-                    `Outfit ${name} added, thank you!`,
-                );
-            } catch (e) {
-                this.conn.AccountBeep(
-                    beep.MemberNumber,
-                    null,
-                    "Invalid outfit code",
-                );
-                return;
+                try {
+                    const outfit = importBundle(code);
+                    this.store.saveOutfit({
+                        name,
+                        addedBy: beep.MemberNumber,
+                        addedByName: beep.MemberName,
+                        items: outfit,
+                    });
+                    this.conn.AccountBeep(
+                        beep.MemberNumber,
+                        null,
+                        `Outfit ${name} added, thank you!`,
+                    );
+                } catch (e) {
+                    this.conn.AccountBeep(
+                        beep.MemberNumber,
+                        null,
+                        "Invalid outfit code",
+                    );
+                    return;
+                }
+            } else {
+                this.conn.AccountBeep(beep.MemberNumber, null, "Unknown command");
             }
-        } else {
-            this.conn.AccountBeep(beep.MemberNumber, null, "Unknown command");
+        } catch (e) {
+            console.error("Failed to process beep", e);
         }
     };
 
@@ -303,7 +322,7 @@ export class Casino {
             return;
         }
 
-        const toAdd = this.conn.chatRoom.findMember(args[0]);
+        const toAdd = this.conn.chatRoom.findCharacter(args[0]);
         if (!toAdd) {
             this.conn.reply(msg, "I can't find that person");
             return;
@@ -314,29 +333,138 @@ export class Casino {
         this.conn.reply(msg, `I am now friends with ${toAdd}! I like friends!`);
     };
 
+    private onCommandRemove = async (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        if (args.length < 1) {
+            this.conn.reply(msg, "Usage: /bot remove <restraint>");
+            return;
+        }
+
+        const restraintName = args[0].toLowerCase();
+        const restraint = FORFEITS[restraintName];
+        if (!restraint) {
+            this.conn.reply(msg, "Unknown restraint.");
+            return;
+        }
+
+        const player = await this.store.getPlayer(sender.MemberNumber);
+        if (player.credits < restraint.value * 4) {
+            this.conn.reply(msg, "You don't have enough chips.");
+            return;
+        }
+
+        if (!sender.Appearance.InventoryGet(restraint.items()[0].Group)) {
+            this.conn.reply(msg, `It doesn't look like you're wearing ${restraint.name}.`);
+            return;
+        }
+
+        player.credits -= restraint.value * 4;
+        await this.store.savePlayer(player);
+
+        sender.Appearance.RemoveItem(restraint.items()[0].Group);
+
+        this.conn.reply(
+            msg,
+            `Restraint removed. Enjoy your freedom, while it lasts.`,
+        );
+    };
+
     private onCommandBuy = async (
         sender: API_Character,
         msg: BC_Server_ChatRoomMessage,
         args: string[],
     ) => {
         if (args.length < 1) {
-            this.conn.reply(msg, "Usage: buy <amount>");
+            this.conn.reply(msg, "Usage: buy <service>");
             return;
         }
 
-        const amount = parseInt(args[0], 10);
-        if (isNaN(amount) || amount < 1) {
-            this.conn.reply(msg, "Invalid amount.");
+        const serviceName = args[0].toLowerCase();
+        const service = SERVICES[serviceName];
+        if (service === undefined) {
+            this.conn.reply(msg, "Unknown service.");
             return;
+        }
+
+        let target: API_Character | undefined;
+        if (serviceName === "player") {
+            if (args.length < 2) {
+                this.conn.reply(msg, "Usage: buy player <name or member number>");
+                return;
+            }
+            target = this.conn.chatRoom.findCharacter(args[1]);
+            if (!target) {
+                this.conn.reply(msg, "I can't find that person.");
+                return;
+            }
+
+            if (target.MemberNumber === sender.MemberNumber) {
+                this.conn.reply(msg, "You can't buy yourself.");
+                return;
+            }
+
+            if (target.Appearance.InventoryGet("ItemDevices")?.Name !== "Kennel") {
+                this.conn.reply(msg, "Sorry, that player is not for sale (yet...)");
+                return;
+            }
         }
 
         const player = await this.store.getPlayer(sender.MemberNumber);
-        player.credits += amount;
+        if (player.credits < service.value) {
+            this.conn.reply(msg, "You don't have enough chips.");
+            return;
+        }
+        player.credits -= service.value;
         await this.store.savePlayer(player);
+
+        if (serviceName === "player") {
+            target.Appearance.RemoveItem("ItemDevices");
+            if (!target.Appearance.InventoryGet("ItemNeck")) {
+                target.Appearance.AddItem(AssetGet("ItemNeck", "LeatherCollar"));
+            }
+            target.Appearance.AddItem(AssetGet("ItemNeckRestraints", "CollarLeash"));
+            const sign = target.Appearance.AddItem(
+                AssetGet("ItemMisc", "WoodenSign"),
+            );
+            sign.setProperty("Text", "Property of");
+            sign.setProperty("Text2", sender.toString());
+            this.conn.reply(msg, `Thanks for your purchase, have fun!`);
+            return;
+        }
+
+        await this.store.addPurchase({
+            memberNumber: sender.MemberNumber,
+            memberName: sender.toString(),
+            time: Date.now(),
+            service: serviceName,
+            redeemed: false,
+        });
+
+        this.conn.reply(msg, `You've bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`);
+    };
+
+    private onCommandVouchers = async (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        if (!sender.IsRoomAdmin()) {
+            this.conn.reply(msg, "Sorry, you need to be an admin");
+            return;
+        }
+
+        const purchases = await this.store.getUnredeemedPurchases();
+        if (purchases.length === 0) {
+            this.conn.reply(msg, "No vouchers outstanding");
+            return;
+        }
 
         this.conn.reply(
             msg,
-            `You bought ${amount} chips. You now have ${player.credits} chips.`,
+            purchases.map((p) => `${p.memberName} (${p.memberNumber}): ${SERVICES[p.service].name}`).join("\n"),
         );
     };
 

@@ -53,12 +53,56 @@ export const FORFEITS: Record<string, Forfeit> = {
     outfit: { name: "Outfit", value: 15, items: () => OUTFIT_HOUSE },
     cage: {
         name: "Cage",
-        value: 15,
+        value: 20,
         items: () => {
             const cage = AssetGet("ItemDevices", "Kennel");
             cage.Property = { TypeRecord: { d: 1, p: 1 } };
             return [cage];
         },
+    },
+};
+
+interface Service {
+    name: string;
+    description: string;
+    value: number;
+}
+
+export const SERVICES: Record<string, Service> = {
+    "player": {
+        name: "Buy a caged player",
+        description: "Why waste their misfortune?",
+        value: 200,
+    },
+    "massage": {
+        name: "Pixie Massage",
+        description: "Let Miss Ellie melt away those tensions with a soothing massage.",
+        value: 800,
+    },
+    "session": {
+        name: "Session with Miss Ellie",
+        description: "Name your fantasy and let Miss Ellie take you to the depths of your subby desires.",
+        value: 1000,
+    },
+    "kidnap": {
+        name: "Kidnapping Service",
+        description: "Tell Ellie your target as well as where and when they can be found.",
+        value: 1500,
+    },
+    "rent-a-pixie": {
+        name: "Rent-a-pixie™️",
+        description: "Ellie is at your service for up to 60 mins. Skills include bar work, pet walking and casino management.",
+        value: 2000,
+    },
+    "modelling": {
+        name: "Modelling",
+        description: "Ellie will wear an outfit of your choice (clothes only) for a full 24 hours. No nudity!",
+        value: 5000,
+    },
+    "pixiepet": {
+        name: "Pixie Pet",
+        description: "Your very own personal pet for 24 hours.",
+        value: 15000,
     },
 };
 
@@ -373,5 +417,22 @@ export const OUTFIT_HOUSE: BC_AppearanceItem[] = [
 export function forfeitsString(): string {
     return Object.entries(FORFEITS)
         .map(([name, f]) => `${name}: ${f.value} chips`)
+        .join("\n");
+}
+
+export function restraintsRemoveString(): string {
+    return Object.entries(FORFEITS)
+        .filter(([name]) => name !== "outfit")
+        .map(([name, forfeit]) => `${forfeit.name}: ${forfeit.value * 4} chips`)
+        .join("\n");
+}
+
+function commandForService(name: string): string {
+    return `/bot buy ${name}` + (name === "player" ? " <name or member number>" : "");
+}
+
+export function servicesString(): string {
+    return Object.entries(SERVICES)
+        .map(([name, s]) => `${s.name}: ${s.value} chips\n${s.description}\n${commandForService(name)}\n`)
         .join("\n");
 }

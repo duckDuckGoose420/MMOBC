@@ -74,8 +74,9 @@ export class CommandParser {
                 } catch (e) {
                     console.log("Command handler threw exception", e);
                 }
-                break;
+                return;
             }
         }
+        this.conn.reply(ev.message, "Unknown command");
     }
 }
