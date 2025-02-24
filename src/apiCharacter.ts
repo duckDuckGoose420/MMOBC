@@ -31,7 +31,7 @@ interface ScriptPermissionsType {
 }
 
 export interface OnlineSharedSettingsType {
-    GameVersion?: string;
+    GameVersion: string;
     ScriptPermissions?: ScriptPermissionsType;
 }
 

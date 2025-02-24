@@ -672,6 +672,7 @@ export class API_Connector extends EventEmitter {
     public setScriptPermissions(hide: boolean, block: boolean): void {
         this.accountUpdate({
             OnlineSharedSettings: {
+                GameVersion: GAMEVERSION,
                 ScriptPermissions: {
                     "Hide": {
                         "permission": hide ? 1 : 0,

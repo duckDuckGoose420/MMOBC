@@ -101,7 +101,7 @@ export const SERVICES: Record<string, Service> = {
     },
     "pixiepet": {
         name: "Pixie Pet",
-        description: "Your very own personal pet for 24 hours.",
+        description: "Your very own personal pet for 2 hours.",
         value: 15000,
     },
 };

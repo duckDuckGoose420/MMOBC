@@ -563,10 +563,13 @@ export class Casino {
         const items = FORFEITS[rouletteBet.stakeForfeit].items();
         if (items.length === 1) {
             const added = char.Appearance.AddItem(items[0]);
+            added.SetDifficulty(20);
             added.SetCraft({
                 Name: `Pixie Casino ${FORFEITS[rouletteBet.stakeForfeit].name}`,
                 Description:
                     "This item is property of Pixie Casino. Better luck next time!",
+                MemberName: this.conn.Player.toString(),
+                MemberNumber: this.conn.Player.MemberNumber,
             });
             added.lock("ExclusivePadlock", this.conn.Player.MemberNumber, {});
         } else {

@@ -32,6 +32,8 @@ interface PartialCraftingData {
     Name: string;
     Description: string;
     Property?: CraftingPropertyType;
+    MemberName?: string;
+    MemberNumber?: number;
 }
 
 /**
