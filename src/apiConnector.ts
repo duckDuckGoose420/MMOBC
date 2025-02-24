@@ -669,6 +669,21 @@ export class API_Connector extends EventEmitter {
         });
     }
 
+    public setScriptPermissions(hide: boolean, block: boolean): void {
+        this.accountUpdate({
+            OnlineSharedSettings: {
+                ScriptPermissions: {
+                    "Hide": {
+                        "permission": hide ? 1 : 0,
+                    },
+                    "Block": {
+                        "permission": block ? 1 : 0,
+                    }
+                }
+            },
+        });
+    }
+
     public updateCharacterItem(update: SingleItemUpdate): void {
         /*if (update.Target === this.Player.MemberNumber) {
             const payload = {

@@ -21,8 +21,18 @@ interface PoseObject {
     Name: string;
 }
 
+interface SingleScriptPermission {
+    permission: 1|0;
+}
+
+interface ScriptPermissionsType {
+    Block: SingleScriptPermission;
+    Hide: SingleScriptPermission;
+}
+
 export interface OnlineSharedSettingsType {
-    GameVersion: string;
+    GameVersion?: string;
+    ScriptPermissions?: ScriptPermissionsType;
 }
 
 export interface API_Character_Data {

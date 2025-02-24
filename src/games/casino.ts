@@ -132,6 +132,11 @@ export class Casino {
             this.setBio().catch((e) => {
                 console.error("Failed to set bio.", e);
             });
+
+            this.conn.setScriptPermissions(true, false);
+
+            const scriptItem = this.conn.Player.Appearance.AddItem(AssetGet("ItemScript", "Script"));
+            scriptItem.setProperty("Hide", ['Height', 'BodyUpper', 'ArmsLeft', 'ArmsRight', 'HandsLeft', 'HandsRight', 'BodyLower', 'HairFront', 'HairBack', 'Eyebrows', 'Eyes', 'Eyes2', 'Mouth', 'Nipples', 'Pussy', 'Pronouns', 'Head', 'Blush', 'Fluids', 'Emoticon', 'ItemNeck', 'ItemHead', 'Cloth', 'Bra', 'Socks', 'Shoes', 'ClothAccessory', 'Necklace', 'ClothLower', 'Panties', 'Suit', 'Gloves']);
         }, 500);
     }
 
