@@ -83,7 +83,7 @@ export class RouletteGame {
             stakeForfeit = stake;
         } else {
             stakeValue = parseInt(args[1], 10);
-            if (isNaN(stakeValue) || stakeValue < 1 || stakeValue > 100) {
+            if (isNaN(stakeValue) || stakeValue < 1) {
                 senderCharacter.Tell("Whisper", "Invalid stake.");
                 return;
             }
