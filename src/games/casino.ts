@@ -27,7 +27,7 @@ import { importBundle } from "../appearance";
 import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
 
 const FREE_CHIPS = 20;
-const TIME_UNTIL_SPIN_MS = 6000;
+const TIME_UNTIL_SPIN_MS = 60000;
 
 function canBetForfeit(
     char: API_Character,
