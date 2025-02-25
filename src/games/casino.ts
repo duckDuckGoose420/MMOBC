@@ -104,6 +104,7 @@ export class Casino {
         this.commandParser.register("remove", this.onCommandRemove);
         this.commandParser.register("buy", this.onCommandBuy);
         this.commandParser.register("vouchers", this.onCommandVouchers);
+        this.commandParser.register("give", this.onCommandGive);
 
         this.commandParser.register("wheel", (sender, msg, args) => {
             this.getWheel();
@@ -471,6 +472,44 @@ export class Casino {
             msg,
             purchases.map((p) => `${p.memberName} (${p.memberNumber}): ${SERVICES[p.service].name}`).join("\n"),
         );
+    };
+
+    private onCommandGive = async (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        if (args.length < 2) {
+            this.conn.reply(msg, "Usage: give <name or member number> <amount>");
+            return;
+        }
+
+        const amount = parseInt(args[1], 10);
+        if (isNaN(amount) || amount < 1) {
+            this.conn.reply(msg, "Invalid amount.");
+            return;
+        }
+
+        const target = this.conn.chatRoom.findCharacter(args[0]);
+        if (!target) {
+            this.conn.reply(msg, "I can't find that person.");
+            return;
+        }
+
+        const sourcePlayer = await this.store.getPlayer(sender.MemberNumber);
+        if (sourcePlayer.credits < amount) {
+            this.conn.reply(msg, "You don't have enough chips.");
+            return;
+        }
+
+        const targetPlayer = await this.store.getPlayer(target.MemberNumber);
+
+        sourcePlayer.credits -= amount;
+        await this.store.savePlayer(sourcePlayer);
+        targetPlayer.credits += amount;
+        await this.store.savePlayer(targetPlayer);
+
+        this.conn.SendMessage("Chat", `${sender} gave ${amount} chips to ${target}`);
     };
 
     private onSpinTimeout(): void {
