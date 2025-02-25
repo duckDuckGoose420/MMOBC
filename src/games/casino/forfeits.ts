@@ -12,12 +12,16 @@
  * limitations under the License.
  */
 
+import { API_Character } from "../../apiCharacter";
 import { AssetGet, BC_AppearanceItem } from "../../item";
+import { generatePassword } from "../../util/string";
+import { PET_EARS } from "../petspa";
 
 interface Forfeit {
     name: string;
     value: number;
     items: () => BC_AppearanceItem[];
+    applyItems?: (char: API_Character, lockMemberNumber: number) => void;
 }
 
 export const FORFEITS: Record<string, Forfeit> = {
@@ -50,7 +54,6 @@ export const FORFEITS: Record<string, Forfeit> = {
         value: 10,
         items: () => [AssetGet("ItemArms", "Yoke")],
     },
-    outfit: { name: "Outfit", value: 15, items: () => OUTFIT_HOUSE },
     cage: {
         name: "Cage",
         value: 20,
@@ -60,6 +63,12 @@ export const FORFEITS: Record<string, Forfeit> = {
             return [cage];
         },
     },
+    outfit: { name: "Outfit", value: 15, items: () => OUTFIT_HOUSE },
+    pet: { name: "Pet", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 0) },
+    pet1hour: { name: "Pet: 1 hour", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 1) },
+    pet2hours: { name: "Pet: 2 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 2) },
+    pet3hours: { name: "Pet: 2 hours", value: 35, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 3) },
+    pet4hours: { name: "Pet: 2 hours", value: 40, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 4) },
 };
 
 interface Service {
@@ -102,8 +111,71 @@ export const SERVICES: Record<string, Service> = {
     "pixiepet": {
         name: "Pixie Pet",
         description: "Your very own personal pet for 2 hours.",
-        value: 15000,
+        value: 10000,
     },
+};
+
+function makePet(hours: number, character: API_Character, lockMemberNumber: number): void {
+    const characterHairColor =
+        character.Appearance.InventoryGet("HairFront").GetColor();
+
+    const petSuitItem = character.Appearance.AddItem(
+        AssetGet("ItemArms", "ShinyPetSuit"),
+    );
+    petSuitItem.SetCraft({
+        Name: `Pixie Casino Pet Suit`,
+        Description:
+            `A bold but unfortunate bet from ${character} means that are now an official Pixie Casino Pet, ` +
+            `here to be adorable and helpless for all our patrons. Please enjoy their helplessness!`,
+    });
+    petSuitItem.SetColor(characterHairColor);
+    petSuitItem.Extended.SetType("Classic");
+    if (hours > 0) {
+        petSuitItem.lock("TimerPasswordPadlock", lockMemberNumber, {
+            Password: generatePassword(),
+            Hint: "Better luck next time!",
+            RemoveItem: true,
+            RemoveTimer: Date.now() + hours * 60 * 60 * 1000,
+            ShowTimer: true,
+            LockSet: true,
+        });
+    }
+
+    if (!character.Appearance.InventoryGet("HairAccessory2")) {
+        const ears = character.Appearance.AddItem(PET_EARS);
+        ears.SetColor(
+            character.Appearance.InventoryGet("HairFront").GetColor(),
+        );
+    }
+
+    if (!character.Appearance.InventoryGet("TailStraps")) {
+        const tail = character.Appearance.AddItem(
+            AssetGet("TailStraps", "PuppyTailStrap"),
+        );
+        tail.SetColor(
+            character.Appearance.InventoryGet("HairFront").GetColor(),
+        );
+    }
+
+    if (!character.Appearance.InventoryGet("ItemNeck")) {
+        const collar = character.Appearance.AddItem(
+            AssetGet("ItemNeck", "PetCollar"),
+        );
+        collar.lock("TimerPasswordPadlock", lockMemberNumber, {
+            Password: generatePassword(),
+            Hint: "Better luck next time!",
+            RemoveItem: true,
+            RemoveTimer: Date.now() + hours * 60 * 60 * 1000,
+            ShowTimer: true,
+            LockSet: true,
+        });
+        collar.SetCraft({
+            Name: `Pixie Casino Pet Collar`,
+            Description:
+                `A bold but unfortunate bet from ${character} means that are now an official Pixie Casino Pet. ` +
+                `This collar will remind them of their place until their time is up.`,
+        });
+    }
 };
 
 export const OUTFIT_HOUSE: BC_AppearanceItem[] = [

@@ -27,7 +27,7 @@ import { importBundle } from "../appearance";
 import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
 
 const FREE_CHIPS = 20;
-const TIME_UNTIL_SPIN_MS = 60000;
+const TIME_UNTIL_SPIN_MS = 6000;
 
 function canBetForfeit(
     char: API_Character,
@@ -560,8 +560,11 @@ export class Casino {
         const char = this.conn.chatRoom.findMember(rouletteBet.memberNumber);
         if (!char) return;
 
+        const applyFn = FORFEITS[rouletteBet.stakeForfeit].applyItems;
         const items = FORFEITS[rouletteBet.stakeForfeit].items();
-        if (items.length === 1) {
+        if (applyFn) {
+            applyFn(char, this.conn.Player.MemberNumber);
+        } else if (items.length === 1) {
             const added = char.Appearance.AddItem(items[0]);
             added.SetDifficulty(20);
             added.SetCraft({

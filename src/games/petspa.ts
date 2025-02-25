@@ -56,7 +56,7 @@ const PERMITTED_WORDS = new Set([
     "awoo",
 ]);
 
-const PET_EARS: BC_AppearanceItem = {
+export const PET_EARS: BC_AppearanceItem = {
     Name: "HarnessCatMask",
     Group: "ItemHood",
     Color: ["#202020", "#FF00FF", "#ADADAD"],
