@@ -258,7 +258,7 @@ export class AppearanceType {
         // clothing etc we can add in bulk
         const nonItems = filteredItems.filter((i) => !isBind(i));
         for (const item of nonItems) {
-            this.bulkAddItem(item).SetDifficulty(20);
+            this.bulkAddItem(item);
         }
 
         if (nonItems.length > 0) {
@@ -271,7 +271,7 @@ export class AppearanceType {
             if (haveAdded) {
                 await wait(300);
             }
-            this.AddItem(item);
+            this.AddItem(item).SetDifficulty(20);
             haveAdded = true;
         }
     }

@@ -29,12 +29,12 @@ import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesStr
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
 
-function hasForfeitAlready(
+function canBetForfeit(
     char: API_Character,
     items: BC_AppearanceItem[],
 ): boolean {
     return items.every(
-        (item) => char.Appearance.InventoryGet(item.Group)?.Name === item.Name,
+        (item) => char.Appearance.InventoryGet(item.Group)?.Name === undefined,
     );
 }
 
@@ -271,7 +271,7 @@ export class Casino {
             player.credits -= bet.stake;
             await this.store.savePlayer(player);
         } else {
-            if (hasForfeitAlready(sender, FORFEITS[bet.stakeForfeit].items())) {
+            if (!canBetForfeit(sender, FORFEITS[bet.stakeForfeit].items())) {
                 this.conn.reply(
                     msg,
                     `Looks like you're not in a position to be betting that`,
