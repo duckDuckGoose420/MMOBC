@@ -280,6 +280,14 @@ export class Casino {
                 );
                 return;
             }
+
+            const canInteract = await sender.GetAllowItem();
+            if (!canInteract) {
+                this.conn.reply(
+                    msg,
+                    "You'll need to open up your permissions or whitelist the bot to bet restraints.",
+                );
+                return;
         }
 
         this.rouletteGame.placeBet(bet);
