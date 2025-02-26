@@ -659,6 +659,12 @@ export class API_Connector extends EventEmitter {
         console.log("Connector started.");
     }
 
+    public setItemPermission(perm: number): void {
+        this.accountUpdate({
+            ItemPermission: perm,
+        });
+    }
+
     public startBot(bot: LogicBase) {
         this.bot = bot;
     }

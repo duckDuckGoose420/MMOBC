@@ -120,6 +120,8 @@ export class Casino {
             this.setTextColor("#ffffff");
         });
 
+        this.conn.setItemPermission(5);
+
         // hack because otherwise an account update goes through after this item update and clears the text out
         setTimeout(() => {
             const wheel = this.getWheel();
