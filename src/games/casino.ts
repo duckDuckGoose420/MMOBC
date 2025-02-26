@@ -25,6 +25,7 @@ import { wait } from "../hub/utils";
 import { remainingTimeString } from "../util/time";
 import { importBundle } from "../appearance";
 import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
+import { isBind } from "../assetHelpers";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
@@ -33,7 +34,7 @@ function canBetForfeit(
     char: API_Character,
     items: BC_AppearanceItem[],
 ): boolean {
-    return items.every(
+    return items.filter(i => isBind(i)).every(
         (item) => char.Appearance.InventoryGet(item.Group)?.Name === undefined,
     );
 }

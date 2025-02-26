@@ -63,12 +63,12 @@ export const FORFEITS: Record<string, Forfeit> = {
             return [cage];
         },
     },
+    pet: { name: "Pet", value: 12, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 0) },
+    pet1hour: { name: "Pet: 1 hour", value: 15, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 1) },
+    pet2hours: { name: "Pet: 2 hours", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 2) },
+    pet3hours: { name: "Pet: 3 hours", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 3) },
+    pet4hours: { name: "Pet: 4 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 4) },
     outfit: { name: "Outfit", value: 15, items: () => OUTFIT_HOUSE },
-    pet: { name: "Pet", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 0) },
-    pet1hour: { name: "Pet: 1 hour", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 1) },
-    pet2hours: { name: "Pet: 2 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 2) },
-    pet3hours: { name: "Pet: 3 hours", value: 35, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 3) },
-    pet4hours: { name: "Pet: 4 hours", value: 40, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 4) },
 };
 
 interface Service {
