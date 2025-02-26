@@ -373,9 +373,9 @@ export class Casino {
 
         sender.Appearance.RemoveItem(restraint.items()[0].Group);
 
-        this.conn.reply(
-            msg,
-            `Restraint removed. Enjoy your freedom, while it lasts.`,
+        this.conn.SendMessage(
+            "Chat",
+            `${sender} paid to remove their ${restraint.name}. Enjoy your freedom, while it lasts.`,
         );
     };
 
@@ -438,7 +438,9 @@ export class Casino {
             );
             sign.setProperty("Text", "Property of");
             sign.setProperty("Text2", sender.toString());
-            this.conn.reply(msg, `Thanks for your purchase, have fun!`);
+
+            this.conn.SendMessage("Chat", `${sender} has bought ${target} and is now the proud owner of an unfortunate gambler.`);
+
             return;
         }
 
@@ -450,7 +452,7 @@ export class Casino {
             redeemed: false,
         });
 
-        this.conn.reply(msg, `You've bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`);
+        this.conn.SendMessage("Chat", `${sender} has bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`);
     };
 
     private onCommandVouchers = async (
