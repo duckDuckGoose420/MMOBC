@@ -78,6 +78,11 @@ interface Service {
 }
 
 export const SERVICES: Record<string, Service> = {
+    "cocktail": {
+        name: "House Special Cocktail",
+        description: "Hand crafted by our expert mixologist. Please drink responsibly.",
+        value: 10,
+    },
     "player": {
         name: "Buy a caged player",
         description: "Why waste their misfortune?",

@@ -440,19 +440,26 @@ export class Casino {
             sign.setProperty("Text2", sender.toString());
 
             this.conn.SendMessage("Chat", `${sender} has bought ${target} and is now the proud owner of an unfortunate gambler.`);
+        } else if (serviceName === "cocktail") {
+            const cocktail = sender.Appearance.AddItem(AssetGet("ItemHandheld", "GlassFilled"));
+            cocktail.SetColor("#D77070");
+            cocktail.SetCraft({
+                Name: "Dragon's Kiss",
+                Description: "A deep, ruby red drink served in a coupe glass. Spiced rum, smokey Islay peated scotch, ginger beer, ghost pepper reduction and a dash of lime.",
+                MemberName: this.conn.Player.toString(),
+                MemberNumber: this.conn.Player.MemberNumber,
+            });
+        } else {
+            await this.store.addPurchase({
+                memberNumber: sender.MemberNumber,
+                memberName: sender.toString(),
+                time: Date.now(),
+                service: serviceName,
+                redeemed: false,
+            });
 
-            return;
+            this.conn.SendMessage("Chat", `${sender} has bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`);
         }
-
-        await this.store.addPurchase({
-            memberNumber: sender.MemberNumber,
-            memberName: sender.toString(),
-            time: Date.now(),
-            service: serviceName,
-            redeemed: false,
-        });
-
-        this.conn.SendMessage("Chat", `${sender} has bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`);
     };
 
     private onCommandVouchers = async (
