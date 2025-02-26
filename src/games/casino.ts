@@ -186,7 +186,7 @@ export class Casino {
         const player = await this.store.getPlayer(character.MemberNumber);
         player.name = character.toString();
 
-        const nextFreeCreditsAt = player.lastFreeCredits + 23 * 60 * 60 * 1000;
+        const nextFreeCreditsAt = player.lastFreeCredits + 20 * 60 * 60 * 1000;
         if (nextFreeCreditsAt < Date.now()) {
             player.credits += FREE_CHIPS;
             player.lastFreeCredits = Date.now();
