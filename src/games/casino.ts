@@ -290,6 +290,7 @@ export class Casino {
                     "You'll need to open up your permissions or whitelist the bot to bet restraints.",
                 );
                 return;
+            }
         }
 
         this.rouletteGame.placeBet(bet);
