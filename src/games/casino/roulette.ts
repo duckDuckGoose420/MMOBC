@@ -135,7 +135,7 @@ export class RouletteGame {
             } else {
                 this.conn.SendMessage(
                     "Chat",
-                    `${bet.memberName} bets ${FORFEITS[bet.stakeForfeit].name} for ${bet.stake} credits on ${bet.kind}`,
+                    `${bet.memberName} bets ${FORFEITS[bet.stakeForfeit].name} for ${bet.stake} chips on ${bet.kind}`,
                 );
             }
         } else {

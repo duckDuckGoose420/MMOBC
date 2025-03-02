@@ -319,7 +319,7 @@ export class API_Chatroom extends EventEmitter {
 
     public findCharacter(specifier: string): API_Character | undefined {
         const nameMatches = this.characters.filter(
-            (c) => c.NickName === specifier || c.Name === specifier,
+            (c) => c.NickName?.toLowerCase() === specifier.toLowerCase() || c.Name?.toLowerCase() === specifier.toLowerCase(),
         );
         if (nameMatches.length === 1) return nameMatches[0];
 
