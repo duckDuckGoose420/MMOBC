@@ -476,6 +476,8 @@ export class Casino {
                 MemberName: this.conn.Player.toString(),
                 MemberNumber: this.conn.Player.MemberNumber,
             });
+
+            this.conn.SendMessage("Chat", `Please enjoy your cocktail, ${sender}.`);
         } else {
             await this.store.addPurchase({
                 memberNumber: sender.MemberNumber,
