@@ -593,6 +593,12 @@ export class Casino {
 
         await wait(10000);
 
+        this.resetTimeout = setTimeout(() => {
+            sign.setProperty("Text", "Place bets!");
+            this.willSpinAt = undefined;
+            this.resetTimeout = undefined;
+        }, 12000);
+
         let message = `The winning number is ${this.rouletteGame.getWinningNumberText(winningNumber, true)}`;
 
         const sign = this.getSign();
@@ -619,19 +625,12 @@ export class Casino {
                 this.applyForfeit(bet);
                 message += `\n${bet.memberName} lost and gets: ${FORFEITS[bet.stakeForfeit].name}!`;
             }
-            await wait(500);
         }
 
         this.conn.SendMessage("Chat", message);
 
         this.rouletteGame.clear();
         await this.setBio();
-
-        this.resetTimeout = setTimeout(() => {
-            sign.setProperty("Text", "Place bets!");
-            this.willSpinAt = undefined;
-            this.resetTimeout = undefined;
-        }, 10000);
     }
 
     private applyForfeit(rouletteBet: RouletteBet): void {

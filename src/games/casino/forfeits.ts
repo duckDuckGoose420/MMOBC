@@ -180,14 +180,14 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
         const collar = character.Appearance.AddItem(
             AssetGet("ItemNeck", "PetCollar"),
         );
-        collar.lock("TimerPasswordPadlock", lockMemberNumber, {
+        /*collar.lock("TimerPasswordPadlock", lockMemberNumber, {
             Password: generatePassword(),
             Hint: "Better luck next time!",
             RemoveItem: true,
             RemoveTimer: Date.now() + hours * 60 * 60 * 1000,
             ShowTimer: true,
             LockSet: true,
-        });
+        });*/
         collar.SetCraft({
             Name: `Pixie Casino Pet Collar`,
             Description:
