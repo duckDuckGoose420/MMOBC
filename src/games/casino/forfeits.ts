@@ -35,6 +35,11 @@ export const FORFEITS: Record<string, Forfeit> = {
         value: 7,
         items: () => [AssetGet("ItemLegs", "ShinyLegBinder")],
     },
+    frogtie: {
+        name: "Frogtie straps",
+        value: 8,
+        items: () => [AssetGet("ItemLegs", "FrogtieStraps")],
+    },
     gag: {
         name: "Gag",
         value: 7,
@@ -42,6 +47,15 @@ export const FORFEITS: Record<string, Forfeit> = {
             const gag = AssetGet("ItemMouth", "HarnessBallGag");
             gag.Property = { TypeRecord: { typed: 2 } };
             return [gag];
+        },
+    },
+    mittens: {
+        name: "Mittens",
+        value: 9,
+        items: () => {
+            const mittens =  AssetGet("ItemHands", "LatexBondageMitts");
+            mittens.Property = { TypeRecord: { t: 1, w: 1, r: 0, l: 0 } };
+            return [mittens];
         },
     },
     armbinder: {
