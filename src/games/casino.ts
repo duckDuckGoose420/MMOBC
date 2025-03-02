@@ -26,6 +26,7 @@ import { remainingTimeString } from "../util/time";
 import { importBundle } from "../appearance";
 import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
 import { isBind } from "../assetHelpers";
+import { Cocktail, COCKTAILS } from "./casino/cocktails";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
@@ -79,6 +80,10 @@ This bot is made with ropeybot, fixes and improvements welcome!
 https://github.com/FriendsOfBC/ropeybot
 `;
 
+export interface CasinoConfig {
+    cocktail: string
+}
+
 export class Casino {
     private rouletteGame: RouletteGame;
     private commandParser: CommandParser;
@@ -86,14 +91,23 @@ export class Casino {
     private willSpinAt: number | undefined;
     private spinTimeout: NodeJS.Timeout | undefined;
     private resetTimeout: NodeJS.Timeout | undefined;
+    private cocktailOfTheDay: Cocktail | undefined;
 
     public constructor(
         private conn: API_Connector,
         db: Db,
+        config?: CasinoConfig,
     ) {
         this.rouletteGame = new RouletteGame(conn);
         this.store = new CasinoStore(db);
         this.commandParser = new CommandParser(conn);
+
+        if (config?.cocktail) {
+            this.cocktailOfTheDay = COCKTAILS[config.cocktail];
+            if (this.cocktailOfTheDay === undefined) {
+                throw new Error(`Unknown cocktail: ${config.cocktail}`);
+            }
+        }
 
         conn.on("CharacterEntered", this.onCharacterEntered);
         conn.on("Beep", this.onBeep);
@@ -452,11 +466,13 @@ export class Casino {
 
             this.conn.SendMessage("Chat", `${sender} has bought ${target} and is now the proud owner of an unfortunate gambler.`);
         } else if (serviceName === "cocktail") {
-            const cocktail = sender.Appearance.AddItem(AssetGet("ItemHandheld", "GlassFilled"));
-            cocktail.SetColor("#D77070");
-            cocktail.SetCraft({
-                Name: "Dragon's Kiss",
-                Description: "A deep, ruby red drink served in a coupe glass. Spiced rum, smokey Islay peated scotch, ginger beer, ghost pepper reduction and a dash of lime.",
+            const cocktail = this.cocktailOfTheDay ?? COCKTAILS[Math.floor(Math.random() * Object.keys(COCKTAILS).length)];
+
+            const cocktailItem = sender.Appearance.AddItem(AssetGet("ItemHandheld", "GlassFilled"));
+            cocktailItem.SetColor(cocktail.colour);
+            cocktailItem.SetCraft({
+                Name: cocktail.name,
+                Description: cocktail.description,
                 MemberName: this.conn.Player.toString(),
                 MemberNumber: this.conn.Player.MemberNumber,
             });

@@ -13,6 +13,7 @@
  */
 
 import { RoomDefinition } from "./apiConnector";
+import { CasinoConfig } from "./games/casino";
 
 export interface ConfigFile {
     user: string;
@@ -27,4 +28,6 @@ export interface ConfigFile {
 
     user2: string;
     password2: string;
+
+    casino?: CasinoConfig;
 }
