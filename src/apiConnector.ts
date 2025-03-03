@@ -547,7 +547,7 @@ export class API_Connector extends EventEmitter {
     };
 
     private onAccountBeep = (payload: TBeepType) => {
-        if (payload?.Message) payload.Message = payload.Message.split("\n\n")[0];
+        if (payload?.Message && typeof payload.Message === "string") payload.Message = payload.Message.split("\n\n")[0];
         // legacy
         this.bot?.onEvent({
             name: "Beep",
