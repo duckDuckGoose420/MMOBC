@@ -17,7 +17,10 @@ import { API_Connector } from "../../apiConnector";
 import { BC_Server_ChatRoomMessage } from "../../logicEvent";
 import { FORFEITS } from "./forfeits";
 
-export const ROULETTEHELP = `Roulette bets:
+export const ROULETTEHELP = `
+There are 37 numbers on the roulette wheel, 0 - 36. Even numbers are black, odd numbers are red. 0 is green.
+
+Roulette bets:
 /bot bet red <amount> - Bet on red. Odds: 1:1.
 /bot bet black <amount> - Bet on black. Odds: 1:1.
 /bot bet even <amount> - Bet on even. Odds: 1:1.

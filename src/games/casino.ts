@@ -305,6 +305,14 @@ export class Casino {
                 );
                 return;
             }
+
+            if (FORFEITS[bet.stakeForfeit].items().some(i => !sender.IsItemPermissionAccessible(i))) {
+                this.conn.reply(
+                    msg,
+                    "You can't bet that forfeit because you have some of the items blocked.",
+                );
+                return;
+            }
         }
 
         this.rouletteGame.placeBet(bet);

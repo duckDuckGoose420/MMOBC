@@ -76,13 +76,25 @@ export const FORFEITS: Record<string, Forfeit> = {
             cage.Property = { TypeRecord: { d: 1, p: 1 } };
             return [cage];
         },
+        applyItems: (character: API_Character, lockMemberNumber: number) => {
+            const cage = character.Appearance.AddItem(AssetGet("ItemDevices", "Kennel"));
+            cage.setProperty("TypeRecord", { d: 1, p: 1 });
+            cage.SetDifficulty(20);
+            cage.lock("TimerPasswordPadlock", lockMemberNumber, {
+                Password: generatePassword(),
+                Hint: "Better luck next time!",
+                RemoveItem: true,
+                RemoveTimer: Date.now() + 20 * 60 * 1000,
+                ShowTimer: true,
+                LockSet: true,
+            });
+        },
     },
     pet: { name: "Pet", value: 12, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 0) },
     pet1hour: { name: "Pet: 1 hour", value: 15, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 1) },
     pet2hours: { name: "Pet: 2 hours", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 2) },
     pet3hours: { name: "Pet: 3 hours", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 3) },
     pet4hours: { name: "Pet: 4 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 4) },
-    outfit: { name: "Outfit", value: 15, items: () => OUTFIT_HOUSE },
 };
 
 interface Service {
@@ -145,7 +157,7 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
         Name: `Pixie Casino Pet Suit`,
         Description:
             `A bold but unfortunate bet from ${character} means that are now an official Pixie Casino Pet, ` +
-            `here to be adorable and helpless for all our patrons. Please enjoy their helplessness!`,
+            `here to be adorable for all our patrons. Please enjoy their helplessness!`,
     });
     petSuitItem.SetColor(characterHairColor);
     petSuitItem.Extended.SetType("Classic");
@@ -197,314 +209,6 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
     }
 };
 
-export const OUTFIT_HOUSE: BC_AppearanceItem[] = [
-    {
-        Group: "ItemVulva",
-        Name: "VibratingEgg",
-        Color: ["Default"],
-        Property: {
-            TypeRecord: {
-                vibrating: 9,
-            },
-            Mode: "Edge",
-            Intensity: 0,
-            Effect: ["Egged", "Vibrating", "Edged"],
-        },
-    },
-    {
-        Group: "ItemVulvaPiercings",
-        Name: "TapedClitEgg",
-        Color: ["Default", "Default"],
-        Property: {
-            TypeRecord: {
-                vibrating: 9,
-            },
-            Mode: "Edge",
-            Intensity: 0,
-            Effect: ["Egged", "Vibrating", "Edged"],
-        },
-    },
-    {
-        Group: "ItemFeet",
-        Name: "HighStyleSteelAnkleCuffs",
-        Color: ["#A37B17", "#A37B17", "#A37B17"],
-        Property: {
-            TypeRecord: {
-                typed: 2,
-            },
-            Difficulty: 0,
-            Effect: ["Slow"],
-            OverridePriority: 26,
-        },
-    },
-    {
-        Group: "ItemNipples",
-        Name: "NippleTape",
-        Color: ["#A37B17"],
-        Property: {},
-    },
-    {
-        Group: "ItemNipplesPiercings",
-        Name: "VibeHeartPiercings",
-        Color: ["Default", "Default"],
-        Property: {
-            TypeRecord: {
-                vibrating: 4,
-            },
-            Mode: "Maximum",
-            Intensity: 3,
-            Effect: ["Egged", "Vibrating"],
-        },
-    },
-    {
-        Group: "ItemEars",
-        Name: "FuturisticEarphones",
-        Color: ["#A37B17", "#222", "Default"],
-        Property: {
-            TypeRecord: {
-                typed: 0,
-            },
-            Effect: [],
-        },
-    },
-    {
-        Group: "ItemTorso2",
-        Name: "ClassicLatexCorset",
-        Color: ["#222", "#A37B17", "Default"],
-        Property: {
-            OverridePriority: 25,
-        },
-    },
-    {
-        Group: "ItemTorso",
-        Name: "FuturisticHarness",
-        Color: ["#222", "#A37B17", "#889FA7", "Default"],
-        Property: {
-            TypeRecord: {
-                typed: 0,
-            },
-            Difficulty: 2,
-        },
-    },
-    {
-        Group: "ItemBoots",
-        Name: "MonoHeel",
-        Color: ["#A37B17", "#A37B17", "#999"],
-        Property: {
-            TypeRecord: {
-                typed: 1,
-            },
-            Difficulty: 0,
-            OverridePriority: 25,
-        },
-    },
-    {
-        Group: "ItemMouth",
-        Name: "FuturisticHarnessBallGag",
-        Color: ["#A37B17", "#A37B17", "#222", "#A37B17", "Default"],
-        Property: {
-            TypeRecord: {
-                g: 1,
-                p: 3,
-                t: 1,
-            },
-            Difficulty: 0,
-            ShowText: true,
-            OriginalSetting: 0,
-            BlinkState: false,
-            AutoPunishUndoTime: 0,
-            Block: [],
-            Effect: ["BlockMouth", "UseRemote", "GagMedium"],
-            Hide: ["Mouth"],
-            HideItem: [],
-            AllowActivity: [],
-            Attribute: ["FuturisticRecolor"],
-            AutoPunish: 3,
-            AutoPunishUndoTimeSetting: 300000,
-        },
-    },
-    {
-        Group: "ItemHead",
-        Name: "LeatherBlindfold",
-        Color: ["#222"],
-        Property: {
-            OverridePriority: 35,
-        },
-    },
-    {
-        Group: "ItemLegs",
-        Name: "SeamlessHobbleSkirt",
-        Color: ["#222222"],
-        Property: {},
-    },
-    {
-        Group: "ItemHands",
-        Name: "FuturisticMittens",
-        Color: ["#A37B17", "#1A1A1A", "#EAC873", "Default"],
-        Property: {
-            TypeRecord: {
-                typed: 0,
-            },
-            Difficulty: 8,
-            SelfUnlock: false,
-            Effect: ["Block", "BlockWardrobe", "MergedFingers"],
-            Block: ["ItemHandheld"],
-            Hide: ["ItemHandheld"],
-            HideItemExclude: [
-                "ItemHandheldFoxPlush",
-                "ItemHandheldBunPlush",
-                "ItemHandheldKarl",
-                "ItemHandheldShark",
-                "ItemHandheldPetPotato",
-            ],
-        },
-    },
-    {
-        Group: "ItemPelvis",
-        Name: "SciFiPleasurePanties",
-        Color: [
-            "#A37B17",
-            "#202020",
-            "#A37B17",
-            "#202020",
-            "#A37B17",
-            "#A37B17",
-            "Default",
-        ],
-        Property: {
-            TypeRecord: {
-                c: 3,
-                i: 0,
-                o: 1,
-                s: 0,
-            },
-            Difficulty: 0,
-            ShowText: true,
-            Block: ["ItemVulva", "ItemVulvaPiercings", "ItemButt"],
-            Effect: [
-                "UseRemote",
-                "Egged",
-                "UseRemote",
-                "Chaste",
-                "ButtChaste",
-                "DenialMode",
-            ],
-            Hide: ["Pussy"],
-            HideItem: [
-                "ItemButtAnalBeads2",
-                "ItemVulvaVibratingDildo",
-                "ItemVulvaClitSuctionCup",
-                "ItemVulvaInflatableVibeDildo",
-                "ItemVulvaHeavyWeightClamp",
-                "ItemVulvaPenisDildo",
-                "ItemVulvaShockDildo",
-                "ItemVulvaPiercingsVibeHeartClitPiercing",
-                "ItemVulvaPiercingsClitRing",
-                "ItemVulvaPiercingsChastityClitShield",
-                "ItemVulvaPiercingsHighSecurityVulvaShield",
-                "ItemVulvaPlasticChastityCage1",
-                "ItemVulvaPlasticChastityCage2",
-                "ItemVulvaTechnoChastityCage",
-                "ItemVulvaFlatChastityCage",
-                "ItemVulvaVibeEggPenisBase",
-            ],
-            AllowActivity: [],
-            Attribute: ["GenitaliaCover", "FuturisticRecolor"],
-            Intensity: -1,
-            ShockLevel: 0,
-            OverridePriority: 26,
-        },
-    },
-    {
-        Group: "ItemArms",
-        Name: "StraitLeotard",
-        Color: ["#222", "#222", "#222"],
-        Property: {
-            TypeRecord: {
-                cl: 1,
-                co: 1,
-                np: 1,
-                vp: 1,
-            },
-            Difficulty: 0,
-            Block: [
-                "ItemNipples",
-                "ItemNipplesPiercings",
-                "ItemVulva",
-                "ItemVulvaPiercings",
-                "ItemButt",
-                "ItemPelvis",
-                "ItemTorso",
-                "ItemTorso2",
-                "ItemBreast",
-                "ItemHands",
-                "ItemHandheld",
-            ],
-            Effect: ["Block", "BlockWardrobe"],
-            Hide: ["HandAccessoryLeft", "HandAccessoryRight"],
-            HideItem: [
-                "ItemButtAnalBeads2",
-                "ItemVulvaVibratingDildo",
-                "ItemVulvaInflatableVibeDildo",
-                "ItemVulvaClitSuctionCup",
-                "ItemNipplesLactationPump",
-            ],
-            AllowActivity: [],
-            Attribute: [],
-        },
-    },
-    {
-        Group: "Cloth",
-        Name: "LeatherCorsetTop1",
-        Color: ["#A37B17"],
-        Property: {},
-    },
-    {
-        Group: "ClothAccessory",
-        Name: "CatsuitCollar",
-        Color: ["#222"],
-        Property: {},
-    },
-    {
-        Group: "Necklace",
-        Name: "BodyChainNecklace",
-        Color: ["#A37B17", "Default"],
-        Property: {},
-    },
-    {
-        Group: "ClothLower",
-        Name: "BondageSkirt",
-        Color: ["#141414", "#A37B17", "#A37B17"],
-        Property: {
-            OverridePriority: 26,
-        },
-    },
-    {
-        Group: "Hat",
-        Name: "Band1",
-        Color: ["#A37B17"],
-        Property: {},
-    },
-    {
-        Group: "HairAccessory3",
-        Name: "HairFlower1",
-        Color: ["Default"],
-        Property: {},
-    },
-    {
-        Group: "HairAccessory1",
-        Name: "Ribbons4",
-        Color: ["#222"],
-        Property: {},
-    },
-    {
-        Group: "Mask",
-        Name: "FaceVeil",
-        Color: ["#222", "#A37B17"],
-        Property: {},
-    },
-];
-
 export function forfeitsString(): string {
     return Object.entries(FORFEITS)
         .map(([name, f]) => `${name}: ${f.value} chips`)
@@ -513,7 +217,6 @@ export function forfeitsString(): string {
 
 export function restraintsRemoveString(): string {
     return Object.entries(FORFEITS)
-        .filter(([name]) => name !== "outfit")
         .map(([name, forfeit]) => `${forfeit.name}: ${forfeit.value * 4} chips`)
         .join("\n");
 }

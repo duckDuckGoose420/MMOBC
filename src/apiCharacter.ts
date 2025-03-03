@@ -30,6 +30,10 @@ interface ScriptPermissionsType {
     Hide: SingleScriptPermission;
 }
 
+interface ItemPermissionList {
+    [groupName: string]: Record<string, string>;
+}
+
 export interface OnlineSharedSettingsType {
     GameVersion: string;
     ScriptPermissions?: ScriptPermissionsType;
@@ -48,6 +52,8 @@ export interface API_Character_Data {
     ItemPermission: number;
     FriendList: number[];
     MapData?: CoordObject;
+    BlockItems: ItemPermissionList;
+    LimitedItems: ItemPermissionList;
 }
 
 export function isNaked(character: API_Character): boolean {
@@ -143,7 +149,13 @@ export class API_Character {
         asset: BC_AppearanceItem,
         variant?: string,
     ): boolean {
-        // TODO
+        // XXX support variants too
+        if (this.data.BlockItems[asset.Group]?.[asset.Name]) {
+            return false;
+        }
+        if (this.data.LimitedItems[asset.Group]?.[asset.Name] && !this.WhiteList.includes(this.connection.Player.MemberNumber)) {
+            return false;
+        }
         return true;
     }
 
