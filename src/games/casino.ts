@@ -92,6 +92,7 @@ export class Casino {
     private spinTimeout: NodeJS.Timeout | undefined;
     private resetTimeout: NodeJS.Timeout | undefined;
     private cocktailOfTheDay: Cocktail | undefined;
+    private multiplier = 1;
 
     public constructor(
         private conn: API_Connector,
@@ -120,6 +121,7 @@ export class Casino {
         this.commandParser.register("buy", this.onCommandBuy);
         this.commandParser.register("vouchers", this.onCommandVouchers);
         this.commandParser.register("give", this.onCommandGive);
+        this.commandParser.register("bonus", this.onCommandBonusRound);
 
         this.commandParser.register("wheel", (sender, msg, args) => {
             this.getWheel();
@@ -559,6 +561,30 @@ export class Casino {
         this.conn.SendMessage("Chat", `${sender} gave ${amount} chips to ${target}`);
     };
 
+    private onCommandBonusRound = async (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        if (!sender.IsRoomAdmin()) {
+            this.conn.reply(msg, "Sorry, you need to be an admin");
+            return;
+        }
+
+        if (args.length > 0) {
+            const multiplier = parseInt(args[0], 10);
+            if (isNaN(multiplier) || multiplier < 1) {
+                this.conn.reply(msg, "Invalid multiplier.");
+                return;
+            }
+            this.multiplier = multiplier;
+        } else {
+            this.multiplier = 2;
+        }
+
+        this.conn.reply(msg, `⭐️⭐️⭐️ Bonus round! ⭐️⭐️⭐️ All forfeit bets are worth ${this.multiplier}x their normal value!`);
+    };
+
     private onSpinTimeout(): void {
         if (!this.willSpinAt) return;
 
@@ -619,8 +645,12 @@ export class Casino {
         await wait(2000);
 
         for (const bet of this.rouletteGame.getBets()) {
-            const winnings = this.rouletteGame.getWinnings(winningNumber, bet);
+            let winnings = this.rouletteGame.getWinnings(winningNumber, bet);
             if (winnings > 0) {
+                if (bet.stakeForfeit) {
+                    winnings *= this.multiplier;
+                }
+
                 const winnerMemberData = await this.store.getPlayer(
                     bet.memberNumber,
                 );
@@ -634,6 +664,8 @@ export class Casino {
                 message += `\n${bet.memberName} lost and gets: ${FORFEITS[bet.stakeForfeit].name}!`;
             }
         }
+
+        this.multiplier = 1;
 
         this.conn.SendMessage("Chat", message);
 
