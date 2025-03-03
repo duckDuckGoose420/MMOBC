@@ -582,7 +582,7 @@ export class Casino {
             this.multiplier = 2;
         }
 
-        this.conn.reply(msg, `⭐️⭐️⭐️ Bonus round! ⭐️⭐️⭐️ All forfeit bets are worth ${this.multiplier}x their normal value!`);
+        this.conn.SendMessage("Chat", `⭐️⭐️⭐️ Bonus round! ⭐️⭐️⭐️ All forfeit bets are worth ${this.multiplier}x their normal value!`);
     };
 
     private onSpinTimeout(): void {
