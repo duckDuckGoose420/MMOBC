@@ -308,13 +308,16 @@ export class Casino {
                 return;
             }
 
-            if (FORFEITS[bet.stakeForfeit].items().some(i => !sender.IsItemPermissionAccessible(i))) {
+            const blocked = FORFEITS[bet.stakeForfeit].items().filter(i => !sender.IsItemPermissionAccessible(i));
+            if (blocked.length > 0) {
                 this.conn.reply(
                     msg,
-                    "You can't bet that forfeit because you have some of the items blocked.",
+                    `You can't bet that forfeit because you've blocked: ${blocked.map(i => i.Name).join(", ")}.`,
                 );
                 return;
             }
+
+            bet.stake *= this.multiplier;
         }
 
         this.rouletteGame.placeBet(bet);
@@ -571,6 +574,11 @@ export class Casino {
             return;
         }
 
+        if (this.rouletteGame.getBets().length > 0) {
+            this.conn.reply(msg, "There are already bets placed.");
+            return;
+        }
+
         if (args.length > 0) {
             const multiplier = parseInt(args[0], 10);
             if (isNaN(multiplier) || multiplier < 1) {
@@ -647,10 +655,6 @@ export class Casino {
         for (const bet of this.rouletteGame.getBets()) {
             let winnings = this.rouletteGame.getWinnings(winningNumber, bet);
             if (winnings > 0) {
-                if (bet.stakeForfeit) {
-                    winnings *= this.multiplier;
-                }
-
                 const winnerMemberData = await this.store.getPlayer(
                     bet.memberNumber,
                 );
