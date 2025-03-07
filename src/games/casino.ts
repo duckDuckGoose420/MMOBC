@@ -25,19 +25,18 @@ import { wait } from "../hub/utils";
 import { remainingTimeString } from "../util/time";
 import { importBundle } from "../appearance";
 import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
-import { isBind } from "../assetHelpers";
 import { Cocktail, COCKTAILS } from "./casino/cocktails";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
 
-function canBetForfeit(
+function getItemsBlockingForfeit(
     char: API_Character,
     items: BC_AppearanceItem[],
-): boolean {
-    return items.filter(i => isBind(i)).every(
-        (item) => char.Appearance.InventoryGet(item.Group)?.Name === undefined,
-    );
+): API_AppearanceItem[] {
+    const slots = new Set(items.map((i) => i.Group));
+
+    return char.Appearance.Appearance.filter((i) => slots.has(i.Group));
 }
 
 const makeBio = (leaderBoard: string) => `🎰🎰🎰 Welcome to the Casino! 🎰🎰🎰
@@ -291,10 +290,12 @@ export class Casino {
             player.credits -= bet.stake;
             await this.store.savePlayer(player);
         } else {
-            if (!canBetForfeit(sender, FORFEITS[bet.stakeForfeit].items())) {
+            const blockers = getItemsBlockingForfeit(sender, FORFEITS[bet.stakeForfeit].items());
+            if (blockers.length > 0) {
+                console.log(`Blocked forfeit bet of ${bet.stakeForfeit} with blockers `, blockers);
                 this.conn.reply(
                     msg,
-                    `Looks like you're not in a position to be betting that`,
+                    `You can't bet that while you have: ${blockers.map((i) => i.Name).join(", ")}`,
                 );
                 return;
             }
@@ -308,7 +309,9 @@ export class Casino {
                 return;
             }
 
-            const blocked = FORFEITS[bet.stakeForfeit].items().filter(i => !sender.IsItemPermissionAccessible(i));
+            const needItems = [...FORFEITS[bet.stakeForfeit].items()];
+            if (FORFEITS[bet.stakeForfeit].lock) needItems.push(FORFEITS[bet.stakeForfeit].lock);
+            const blocked = needItems.filter(i => !sender.IsItemPermissionAccessible(i));
             if (blocked.length > 0) {
                 this.conn.reply(
                     msg,

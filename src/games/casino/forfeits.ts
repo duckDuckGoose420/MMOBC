@@ -21,6 +21,7 @@ interface Forfeit {
     name: string;
     value: number;
     items: () => BC_AppearanceItem[];
+    lock?: BC_AppearanceItem;
     applyItems?: (char: API_Character, lockMemberNumber: number) => void;
 }
 
@@ -74,8 +75,9 @@ export const FORFEITS: Record<string, Forfeit> = {
         items: () => {
             const cage = AssetGet("ItemDevices", "Kennel");
             cage.Property = { TypeRecord: { d: 1, p: 1 } };
-            return [cage, AssetGet("ItemMisc", "TimerPasswordPadlock")];
+            return [cage];
         },
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
         applyItems: (character: API_Character, lockMemberNumber: number) => {
             const cage = character.Appearance.AddItem(AssetGet("ItemDevices", "Kennel"));
             cage.setProperty("TypeRecord", { d: 1, p: 1 });
@@ -91,10 +93,10 @@ export const FORFEITS: Record<string, Forfeit> = {
         },
     },
     pet: { name: "Pet", value: 12, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 0) },
-    pet1hour: { name: "Pet: 1 hour", value: 15, items: () => [AssetGet("ItemArms", "ShinyPetSuit"), AssetGet("ItemMisc", "TimerPasswordPadlock")], applyItems: makePet.bind(null, 1) },
-    pet2hours: { name: "Pet: 2 hours", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit"), AssetGet("ItemMisc", "TimerPasswordPadlock")], applyItems: makePet.bind(null, 2) },
-    pet3hours: { name: "Pet: 3 hours", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit"), AssetGet("ItemMisc", "TimerPasswordPadlock")], applyItems: makePet.bind(null, 3) },
-    pet4hours: { name: "Pet: 4 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit"), AssetGet("ItemMisc", "TimerPasswordPadlock")], applyItems: makePet.bind(null, 4) },
+    pet1hour: { name: "Pet: 1 hour", value: 15, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 1) },
+    pet2hours: { name: "Pet: 2 hours", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 2) },
+    pet3hours: { name: "Pet: 3 hours", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 3) },
+    pet4hours: { name: "Pet: 4 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 4) },
 };
 
 interface Service {
