@@ -132,7 +132,7 @@ export class Casino {
 
             sign.setProperty("OverridePriority", { Text: 63 });
             sign.setProperty("Text", "Place bets!");
-            sign.setProperty("Text2", "");
+            sign.setProperty("Text2", " ");
             this.setTextColor("#ffffff");
         });
 
@@ -146,7 +146,7 @@ export class Casino {
             const sign = this.getSign();
             sign.setProperty("OverridePriority", { Text: 63 });
             sign.setProperty("Text", "Place bets!");
-            sign.setProperty("Text2", "");
+            sign.setProperty("Text2", " ");
             this.setTextColor("#ffffff");
 
             this.setBio().catch((e) => {
@@ -637,6 +637,7 @@ export class Casino {
 
         this.resetTimeout = setTimeout(() => {
             sign.setProperty("Text", "Place bets!");
+            sign.setProperty("Text2", " ");
             this.willSpinAt = undefined;
             this.resetTimeout = undefined;
         }, 12000);
