@@ -50,6 +50,11 @@ export const FORFEITS: Record<string, Forfeit> = {
             return [gag];
         },
     },
+    blindfold: {
+        name: "Blindfold",
+        value: 7,
+        items: () => [AssetGet("ItemHead", "LatexBlindfold")],
+    },
     mittens: {
         name: "Mittens",
         value: 9,
