@@ -20,7 +20,7 @@ type CommandCallback = (
     sender: API_Character,
     msg: BC_Server_ChatRoomMessage,
     args: string[],
-) => void;
+) => void | Promise<void>;
 
 const SLASH_BOT_PREFIX = "ChatRoomBot ";
 
@@ -70,7 +70,13 @@ export class CommandParser {
             const cb = this.commands.get(cmd.join(" "));
             if (cb) {
                 try {
-                    cb(ev.sender, ev.message, parts);
+                    const ret = cb(ev.sender, ev.message, parts);
+                    const promiseRet = ret as Promise<void>;
+                    if (promiseRet.catch) {
+                        promiseRet.catch((e) => {
+                            console.log("Command handler threw async exception", e);
+                        });
+                    }
                 } catch (e) {
                     console.log("Command handler threw exception", e);
                 }
