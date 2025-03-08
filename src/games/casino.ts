@@ -690,7 +690,20 @@ export class Casino {
         if (applyFn) {
             applyFn(char, this.conn.Player.MemberNumber);
         } else if (items.length === 1) {
+            const characterHairColor = char.Appearance.InventoryGet("HairFront").GetColor();
+
             const added = char.Appearance.AddItem(items[0]);
+            if (FORFEITS[rouletteBet.stakeForfeit].colourLayers) {
+                const colours = [];
+                for (let i = 0; i < Math.max(...FORFEITS[rouletteBet.stakeForfeit].colourLayers); i++) {
+                    if (FORFEITS[rouletteBet.stakeForfeit].colourLayers.includes(i)) {
+                        colours[i] = characterHairColor;
+                    } else {
+                        colours[i] = "Default";
+                    }
+                    added.SetColor(colours);
+                }
+            }
             added.SetDifficulty(20);
             added.SetCraft({
                 Name: `Pixie Casino ${FORFEITS[rouletteBet.stakeForfeit].name}`,

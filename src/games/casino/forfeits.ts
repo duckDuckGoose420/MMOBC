@@ -22,6 +22,7 @@ interface Forfeit {
     value: number;
     items: () => BC_AppearanceItem[];
     lock?: BC_AppearanceItem;
+    colourLayers?: number[];
     applyItems?: (char: API_Character, lockMemberNumber: number) => void;
 }
 
@@ -34,6 +35,7 @@ export const FORFEITS: Record<string, Forfeit> = {
     legbinder: {
         name: "Leg binder",
         value: 7,
+        colourLayers: [0],
         items: () => [AssetGet("ItemLegs", "ShinyLegBinder")],
     },
     frogtie: {
@@ -44,6 +46,7 @@ export const FORFEITS: Record<string, Forfeit> = {
     gag: {
         name: "Gag",
         value: 7,
+        colourLayers: [0],
         items: () => {
             const gag = AssetGet("ItemMouth", "HarnessBallGag");
             gag.Property = { TypeRecord: { typed: 2 } };
@@ -58,6 +61,7 @@ export const FORFEITS: Record<string, Forfeit> = {
     mittens: {
         name: "Mittens",
         value: 9,
+        colourLayers: [0],
         items: () => {
             const mittens =  AssetGet("ItemHands", "LatexBondageMitts");
             mittens.Property = { TypeRecord: { t: 1, w: 1, r: 0, l: 0 } };
@@ -66,6 +70,7 @@ export const FORFEITS: Record<string, Forfeit> = {
     },
     armbinder: {
         name: "Armbinder",
+        colourLayers: [0],
         value: 10,
         items: () => [AssetGet("ItemArms", "ShinyArmbinder")],
     },
