@@ -337,10 +337,21 @@ export class API_Chatroom extends EventEmitter {
         if (!char) {
             char = new API_Character(data, this.conn, this);
             this.characterCache.set(char.MemberNumber, char);
+
+            if (this.characterCache.size > 20) this.pruneCharacterCache();
         } else {
             char.update(data);
         }
 
         return char;
+    }
+
+    private pruneCharacterCache() {
+        const memberNumbers = new Set(this.data.Character.map((c) => c.MemberNumber));
+        for (const memberNumber of this.characterCache.keys()) {
+            if (!memberNumbers.has(memberNumber)) {
+                this.characterCache.delete(memberNumber);
+            }
+        }
     }
 }
