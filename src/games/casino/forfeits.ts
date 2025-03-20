@@ -124,7 +124,7 @@ export const SERVICES: Record<string, Service> = {
     "player": {
         name: "Buy a caged player",
         description: "Why waste their misfortune?",
-        value: 200,
+        value: 100,
     },
     "massage": {
         name: "Pixie Massage",
@@ -133,13 +133,8 @@ export const SERVICES: Record<string, Service> = {
     },
     "session": {
         name: "Session with Miss Ellie",
-        description: "Name your fantasy and let Miss Ellie take you to the depths of your subby desires.",
+        description: "Something you'd like to try? Need to give up control? Name your kink and let Miss Ellie take you to the depths of your subby desires.",
         value: 1000,
-    },
-    "kidnap": {
-        name: "Kidnapping Service",
-        description: "Tell Ellie your target as well as where and when they can be found.",
-        value: 1500,
     },
     "rent-a-pixie": {
         name: "Rent-a-pixie™️",
