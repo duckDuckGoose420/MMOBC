@@ -181,6 +181,7 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
 
     if (!character.Appearance.InventoryGet("HairAccessory2")) {
         const ears = character.Appearance.AddItem(PET_EARS);
+        ears.SetDifficulty(20);
         ears.SetColor(
             character.Appearance.InventoryGet("HairFront").GetColor(),
         );
