@@ -32,6 +32,7 @@ Roulette bets:
 /bot bet 25-36 <amount> - Bet on 25 - 36. Odds: 2:1.
 /bot bet <number> <amount> - Bet on a single number. Odds: 35:1.
 /bot chips - Show your current chip balance.
+/bot give <name or member number> <amount> - Give chips to another player.
 /bot odds - Show this help
 `;
 
@@ -67,7 +68,7 @@ export class RouletteGame {
         args: string[],
     ): RouletteBet | undefined {
         if (args.length < 2) {
-            this.conn.reply(msg, ROULETTEHELP);
+            senderCharacter.Tell("Whisper", ROULETTEHELP);
             return;
         }
 
