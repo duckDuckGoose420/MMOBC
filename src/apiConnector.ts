@@ -22,6 +22,7 @@ import { compressToUTF16 } from "lz-string";
 import { EventEmitter } from "stream";
 import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
 import { SocketWrapper } from "./socketWrapper";
+import { wait } from "./hub/utils";
 
 export enum LeaveReason {
     DISCONNECT = "ServerDisconnect",
@@ -128,6 +129,7 @@ export class API_Connector extends EventEmitter {
     private roomSynced = new PromiseResolve<void>();
 
     private roomJoinPromise: PromiseResolve<string>;
+    private roomCreatePromise: PromiseResolve<string>;
     private roomSearchPromise: PromiseResolve<RoomDefinition[]>; // (type not quite right: has 'Creator', MemberCount, MemberLimit)
     private onlineFriendsPromise: PromiseResolve<OnlineFriendResult[]>;
     private itemAllowQueries = new Map<
@@ -333,8 +335,9 @@ export class API_Connector extends EventEmitter {
         this.loggedIn.resolve();
     };
 
-    private onChatRoomCreateResponse = (resp: any) => {
+    private onChatRoomCreateResponse = (resp: string) => {
         console.log("Got chat room create response", resp);
+        this.roomCreatePromise.resolve(resp);
     };
 
     private onChatRoomUpdateResponse = (resp: any) => {
@@ -593,40 +596,71 @@ export class API_Connector extends EventEmitter {
             return false;
         }
 
+        console.log("Room joined");
+
         await this.roomSynced.prom;
         this._player.chatRoom = this._chatRoom;
 
         this.roomJoinPromise = undefined;
 
+        this.emit("RoomJoin");
+
         return true;
+    }
+
+    public async ChatRoomCreate(roomDef: RoomDefinition): Promise<boolean> {
+        if (this.roomCreatePromise) {
+            const result = await this.roomCreatePromise.prom;
+            return result === "ChatRoomCreated";
+        }
+
+        console.log("creating room");
+        this.roomCreatePromise = new PromiseResolve();
+        this.wrappedSock.emit("ChatRoomCreate", {
+            Admin: [this._player.MemberNumber],
+            ...roomDef,
+        });
+
+        const createResult = await this.roomCreatePromise.prom;
+        if (createResult !== "ChatRoomCreated") {
+            console.log("Failed to create room", createResult);
+            return false;
+        }
+
+        console.log("Room created");
+
+        await this.roomSynced.prom;
+        this._player.chatRoom = this._chatRoom;
+
+        this.roomCreatePromise = undefined;
+
+        this.emit("RoomCreate");
+
+        return true;
+    }
+
+    public async joinOrCreateRoom(roomDef: RoomDefinition): Promise<void> {
+        await this.loggedIn.prom;
+
+        // after a void, we can race between creating the room and other players
+        // reappearing and creating it, so we need to try both until one works
+        while (true) {
+            console.log("Trying to join room...", roomDef);
+            const joinResult = await this.ChatRoomJoin(roomDef.Name);
+            if (joinResult) return;
+
+            console.log("Failed to join room, trying to create...", roomDef);
+            const createResult = await this.ChatRoomCreate(roomDef);
+            if (createResult) return;
+
+            await wait(3000);
+        }
     }
 
     public ChatRoomLeave() {
         this.roomSynced = new PromiseResolve<void>();
         this.wrappedSock.emit("ChatRoomLeave", "");
         this.roomJoined = undefined;
-    }
-
-    public async joinOrCreateRoom(roomDef: RoomDefinition): Promise<void> {
-        await this.loggedIn.prom;
-
-        console.log("Trying to join room", roomDef);
-        const joinResult = await this.ChatRoomJoin(roomDef.Name);
-        if (!joinResult) {
-            console.log("creating room");
-            this.wrappedSock.emit("ChatRoomCreate", {
-                Admin: [this._player.MemberNumber],
-                ...roomDef,
-            });
-
-            await this.roomSynced.prom;
-            this._player.chatRoom = this._chatRoom;
-            console.log("Room created");
-            this.emit("RoomCreate");
-        } else {
-            this.emit("RoomJoin");
-        }
-        this.roomJoined = roomDef;
     }
 
     private searchRooms(
