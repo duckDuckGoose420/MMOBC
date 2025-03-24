@@ -18,6 +18,8 @@ import { API_Connector, CoordObject, SingleItemUpdate } from "./apiConnector";
 import { API_Map } from "./apiMap";
 import { API_AppearanceItem } from "./item";
 
+export type ChatRoomAccessVisibility = "All" | "Whitelist" | "Admin";
+
 // This should be ServerChatRoomData
 export interface API_Chatroom_Data {
     Name: string;
@@ -26,6 +28,8 @@ export interface API_Chatroom_Data {
     Admin: number[];
     Ban: number[];
     Private: boolean;
+    Access: ChatRoomAccessVisibility[]
+    Visibility: ChatRoomAccessVisibility[]
     Limit: number;
     Background: string;
     Locked: boolean;

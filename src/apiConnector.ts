@@ -14,7 +14,7 @@
 
 import { io } from "socket.io-client";
 import { API_Character, API_Character_Data } from "./apiCharacter";
-import { API_Chatroom, API_Chatroom_Data } from "./apiChatroom";
+import { API_Chatroom, API_Chatroom_Data, ChatRoomAccessVisibility } from "./apiChatroom";
 import { Socket } from "socket.io-client";
 import { LogicBase } from "./logicBase";
 import { API_AppearanceItem, BC_AppearanceItem } from "./item";
@@ -37,8 +37,10 @@ export interface RoomDefinition {
     Name: string;
     Description: string;
     Background: string;
-    Private: boolean;
-    Locked: boolean | null;
+    Private?: boolean;
+    Locked?: boolean | null;
+    Access: ChatRoomAccessVisibility[];
+    Visibility: ChatRoomAccessVisibility[];
     Space: ServerChatRoomSpace;
     Admin: number[];
     Ban: number[];
@@ -356,8 +358,8 @@ export class API_Connector extends EventEmitter {
             Name: resp.Name,
             Description: resp.Description,
             Background: resp.Background,
-            Private: resp.Private,
-            Locked: resp.Locked,
+            Access: resp.Access,
+            Visibility: resp.Visibility,
             Space: resp.Space,
             Admin: resp.Admin,
             Ban: resp.Ban,
@@ -418,6 +420,24 @@ export class API_Connector extends EventEmitter {
     private onChatRoomSyncRoomProperties = (resp: API_Chatroom_Data) => {
         console.log("sync room properties", resp);
         this._chatRoom.update(resp);
+
+        // sync some data back to the definition of the room we're joined to so that, after
+        // a void, we recreate the room with the same settings
+        this.roomJoined.Access = resp.Access;
+        this.roomJoined.Visibility = resp.Visibility;
+        this.roomJoined.Ban = resp.Ban;
+        this.roomJoined.Limit = resp.Limit;
+        this.roomJoined.BlockCategory = resp.BlockCategories;
+        this.roomJoined.Game = resp.Game;
+        this.roomJoined.Name = resp.Name;
+        this.roomJoined.Description = resp.Description;
+        this.roomJoined.Background = resp.Background;
+
+        // remove these if they're there. The server will have converted to new
+        // Access / Visibility fields and won't accept a ChatRoomCreate with both
+        // Private/Locked and Access/Visibility
+        delete this.roomJoined.Private;
+        delete this.roomJoined.Locked;
     };
 
     private onChatRoomSyncCharacter = (resp: any) => {
