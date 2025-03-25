@@ -186,16 +186,14 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
     });
     petSuitItem.SetColor(characterHairColor);
     petSuitItem.Extended.SetType("Classic");
-    if (hours > 0) {
-        petSuitItem.lock("TimerPasswordPadlock", lockMemberNumber, {
-            Password: generatePassword(),
-            Hint: "Better luck next time!",
-            RemoveItem: true,
-            RemoveTimer: Date.now() + hours * 60 * 60 * 1000,
-            ShowTimer: true,
-            LockSet: true,
-        });
-    }
+    petSuitItem.lock("TimerPasswordPadlock", lockMemberNumber, {
+        Password: generatePassword(),
+        Hint: "Better luck next time!",
+        RemoveItem: true,
+        RemoveTimer: Date.now() + (hours > 0 ?  hours * 60 * 60 * 1000 : 20 * 60 * 1000),
+        ShowTimer: true,
+        LockSet: true,
+    });
 
     if (!character.Appearance.InventoryGet("HairAccessory2")) {
         const ears = character.Appearance.AddItem(PET_EARS);
