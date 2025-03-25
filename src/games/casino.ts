@@ -214,12 +214,12 @@ export class Casino {
             await this.store.savePlayer(player);
             character.Tell(
                 "Whisper",
-                `Welcome to the Casino, ${character}! Here are your ${FREE_CHIPS} free chips for today. Good luck!`,
+                `Welcome to the Casino, ${character}! Here are your ${FREE_CHIPS} free chips for today. See my bio for how to play. Good luck!`,
             );
         } else {
             character.Tell(
                 "Whisper",
-                `Welcome back, ${character}. ${remainingTimeString(nextFreeCreditsAt)} until your next free chips.`,
+                `Welcome back, ${character}. ${remainingTimeString(nextFreeCreditsAt)} until your next free chips. See my bio for how to play.`,
             );
         }
     };
