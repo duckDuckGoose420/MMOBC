@@ -164,10 +164,7 @@ export class API_Character {
         if (this.data.BlockItems[asset.Group]?.[asset.Name]) {
             return false;
         }
-        if (
-            [ItemPermissionLevel.OwnerLoverWhitelist, ItemPermissionLevel.OwnerLoverWhitelistDominants].includes(this.ItemPermission) &&
-            this.data.LimitedItems[asset.Group]?.[asset.Name] &&
-            !this.WhiteList.includes(this.connection.Player.MemberNumber)) {
+        if (this.data.LimitedItems[asset.Group]?.[asset.Name] && !this.WhiteList.includes(this.connection.Player.MemberNumber)) {
             return false;
         }
         return true;

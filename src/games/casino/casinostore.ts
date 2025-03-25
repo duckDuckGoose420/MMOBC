@@ -15,12 +15,13 @@
 import { Collection, Db } from "mongodb";
 import { BC_AppearanceItem } from "../../item";
 
-interface Player {
+export interface Player {
     memberNumber: number;
     name: string;
     credits: number;
     score: number;
     lastFreeCredits: number;
+    cheatStrikes: number;
 }
 
 interface Outfit {
@@ -63,6 +64,7 @@ export class CasinoStore {
             data.score = data.score ?? 0;
             data.credits = data.credits ?? 0;
             data.lastFreeCredits = data.lastFreeCredits ?? 0;
+            data.cheatStrikes = data.cheatStrikes ?? 0;
             return data;
         }
         return {
@@ -71,12 +73,19 @@ export class CasinoStore {
             score: 0,
             lastFreeCredits: 0,
             name: "",
+            cheatStrikes: 0,
         };
     }
 
     public getTopPlayers(limit: number): Promise<Player[]> {
         return this.players
-            .find({ score: { $gt: 0 } })
+            .find({
+                score: { $gt: 0 },
+                $or: [
+                    { cheatStrikes: { $lt: 3 } },
+                    { cheatStrikes: { $exists: false } },
+                ],
+            })
             .sort({ score: -1 })
             .limit(limit)
             .toArray();

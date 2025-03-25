@@ -18,7 +18,7 @@ import { CommandParser } from "../commandParser";
 import { RouletteBet, RouletteGame, ROULETTEHELP } from "./casino/roulette";
 import { API_Character, ItemPermissionLevel } from "../apiCharacter";
 import { BC_Server_ChatRoomMessage, TBeepType } from "../logicEvent";
-import { CasinoStore } from "./casino/casinostore";
+import { CasinoStore, Player } from "./casino/casinostore";
 import { ROULETTE_WHEEL } from "./casino/rouletteWheelBundle";
 import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../item";
 import { wait } from "../hub/utils";
@@ -26,6 +26,7 @@ import { remainingTimeString } from "../util/time";
 import { importBundle } from "../appearance";
 import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
 import { Cocktail, COCKTAILS } from "./casino/cocktails";
+import { generatePassword } from "../util/string";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
@@ -57,6 +58,8 @@ Examples:
 ${ROULETTEHELP}
 🪢 Forfeit Table
 ================
+Restraints are for 20 minutes, unless otherwise stated.
+
 ${forfeitsString()}
 
 🛒 Shop
@@ -92,6 +95,7 @@ export class Casino {
     private resetTimeout: NodeJS.Timeout | undefined;
     private cocktailOfTheDay: Cocktail | undefined;
     private multiplier = 1;
+    private lockedItems: Map<number, Map<AssetGroupName, number>> = new Map();
 
     public constructor(
         private conn: API_Connector,
@@ -323,6 +327,19 @@ export class Casino {
             bet.stake *= this.multiplier;
         }
 
+        if (FORFEITS[bet.stakeForfeit]?.items().length === 1) {
+            const forfeitItem = FORFEITS[bet.stakeForfeit].items()[0];
+            if (Date.now() < this.lockedItems.get(sender.MemberNumber)?.get(forfeitItem.Group)) {
+                console.log(`CHEATER DETECTED: ${sender} tried to bet ${bet.stakeForfeit} which should be locked`);
+                ++player.cheatStrikes;
+                await this.store.savePlayer(player);
+
+                this.cheatPunishment(sender, player);
+
+                return;
+            }
+        }
+
         this.rouletteGame.placeBet(bet);
 
         if (this.willSpinAt === undefined) {
@@ -465,6 +482,7 @@ export class Casino {
             this.conn.reply(msg, "You don't have enough chips.");
             return;
         }
+
         player.credits -= service.value;
         await this.store.savePlayer(player);
 
@@ -645,7 +663,7 @@ export class Casino {
             this.resetTimeout = undefined;
         }, 12000);
 
-        let message = `The winning number is ${this.rouletteGame.getWinningNumberText(winningNumber, true)}`;
+        let message = `${this.rouletteGame.getWinningNumberText(winningNumber, true)} wins.`;
 
         const sign = this.getSign();
         sign.setProperty(
@@ -687,6 +705,15 @@ export class Casino {
 
         const applyFn = FORFEITS[rouletteBet.stakeForfeit].applyItems;
         const items = FORFEITS[rouletteBet.stakeForfeit].items();
+
+        if (items.length === 1) {
+            const lockTime = FORFEITS[rouletteBet.stakeForfeit].lockTimeMs;
+            if (lockTime) {
+                this.lockedItems.set(rouletteBet.memberNumber, this.lockedItems.get(rouletteBet.memberNumber) ?? new Map());
+                this.lockedItems.get(rouletteBet.memberNumber)?.set(items[0].Group, Date.now() + lockTime);
+            }
+        }
+
         if (applyFn) {
             applyFn(char, this.conn.Player.MemberNumber);
         } else if (items.length === 1) {
@@ -712,9 +739,32 @@ export class Casino {
                 MemberName: this.conn.Player.toString(),
                 MemberNumber: this.conn.Player.MemberNumber,
             });
-            added.lock("ExclusivePadlock", this.conn.Player.MemberNumber, {});
+            if (FORFEITS[rouletteBet.stakeForfeit].lockTimeMs) {
+                added.lock("TimerPasswordPadlock", this.conn.Player.MemberNumber, {
+                    Password: generatePassword(),
+                    Hint: "Better luck next time!",
+                    RemoveItem: true,
+                    RemoveTimer: Date.now() + FORFEITS[rouletteBet.stakeForfeit].lockTimeMs,
+                    ShowTimer: true,
+                    LockSet: true,
+                });
+            }
         } else {
             char.Appearance.slowlyApplyBundle(items);
+        }
+    }
+
+    private cheatPunishment(char: API_Character, player: Player): void {
+        if (player.cheatStrikes === 1) {
+            char.Tell("Whisper", "Cheating in the casino, hmm?");
+        } else if (player.cheatStrikes === 2) {
+            char.Tell("Whisper", `Still trying to cheat, ${char}?`);
+        } else {
+            const dunceHat = char.Appearance.AddItem(AssetGet("Hat", "CollegeDunce"));
+            dunceHat.SetColor("#741010");
+            const sign = char.Appearance.AddItem(AssetGet("ItemMisc", "WoodenSign"));
+            sign.setProperty("Text", "Cheater");
+            sign.setProperty("Text2", "");
         }
     }
 }

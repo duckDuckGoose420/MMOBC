@@ -22,6 +22,7 @@ interface Forfeit {
     value: number;
     items: () => BC_AppearanceItem[];
     lock?: BC_AppearanceItem;
+    lockTimeMs?: number;
     colourLayers?: number[];
     applyItems?: (char: API_Character, lockMemberNumber: number) => void;
 }
@@ -30,22 +31,30 @@ export const FORFEITS: Record<string, Forfeit> = {
     boots: {
         name: "Boots",
         value: 5,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         items: () => [AssetGet("ItemBoots", "BalletHeels")],
     },
     legbinder: {
         name: "Leg binder",
         value: 7,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         colourLayers: [0],
         items: () => [AssetGet("ItemLegs", "ShinyLegBinder")],
     },
     frogtie: {
         name: "Frogtie straps",
         value: 8,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         items: () => [AssetGet("ItemLegs", "FrogtieStraps")],
     },
     gag: {
         name: "Gag",
         value: 7,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         colourLayers: [0],
         items: () => {
             const gag = AssetGet("ItemMouth", "HarnessBallGag");
@@ -56,11 +65,15 @@ export const FORFEITS: Record<string, Forfeit> = {
     blindfold: {
         name: "Blindfold",
         value: 7,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         items: () => [AssetGet("ItemHead", "LatexBlindfold")],
     },
     mittens: {
         name: "Mittens",
         value: 9,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         colourLayers: [0],
         items: () => {
             const mittens =  AssetGet("ItemHands", "LatexBondageMitts");
@@ -72,11 +85,15 @@ export const FORFEITS: Record<string, Forfeit> = {
         name: "Armbinder",
         colourLayers: [0],
         value: 10,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         items: () => [AssetGet("ItemArms", "ShinyArmbinder")],
     },
     yoke: {
         name: "Yoke",
         value: 10,
+        lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         items: () => [AssetGet("ItemArms", "Yoke")],
     },
     cage: {
@@ -88,6 +105,7 @@ export const FORFEITS: Record<string, Forfeit> = {
             return [cage];
         },
         lock: AssetGet("ItemMisc", "TimerPasswordPadlock"),
+        lockTimeMs: 20 * 60 * 1000,
         applyItems: (character: API_Character, lockMemberNumber: number) => {
             const cage = character.Appearance.AddItem(AssetGet("ItemDevices", "Kennel"));
             cage.setProperty("TypeRecord", { d: 1, p: 1 });
@@ -96,17 +114,17 @@ export const FORFEITS: Record<string, Forfeit> = {
                 Password: generatePassword(),
                 Hint: "Better luck next time!",
                 RemoveItem: true,
-                RemoveTimer: Date.now() + 20 * 60 * 1000,
+                RemoveTimer: Date.now() + FORFEITS.cage.lockTimeMs,
                 ShowTimer: true,
                 LockSet: true,
             });
         },
     },
-    pet: { name: "Pet", value: 12, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], applyItems: makePet.bind(null, 0) },
-    pet1hour: { name: "Pet: 1 hour", value: 15, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 1) },
-    pet2hours: { name: "Pet: 2 hours", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 2) },
-    pet3hours: { name: "Pet: 3 hours", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 3) },
-    pet4hours: { name: "Pet: 4 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), applyItems: makePet.bind(null, 4) },
+    pet: { name: "Pet", value: 12, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), lockTimeMs: 20 * 60 * 1000, applyItems: makePet.bind(null, 0) },
+    pet1hour: { name: "Pet: 1 hour", value: 15, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), lockTimeMs: 1 * 60 * 60 * 1000, applyItems: makePet.bind(null, 1) },
+    pet2hours: { name: "Pet: 2 hours", value: 20, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), lockTimeMs: 2 * 60 * 60 * 1000, applyItems: makePet.bind(null, 2) },
+    pet3hours: { name: "Pet: 3 hours", value: 25, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), lockTimeMs: 3 * 60 * 60 * 1000, applyItems: makePet.bind(null, 3) },
+    pet4hours: { name: "Pet: 4 hours", value: 30, items: () => [AssetGet("ItemArms", "ShinyPetSuit")], lock: AssetGet("ItemMisc", "TimerPasswordPadlock"), lockTimeMs: 4 * 60 * 60 * 1000, applyItems: makePet.bind(null, 4) },
 };
 
 interface Service {
