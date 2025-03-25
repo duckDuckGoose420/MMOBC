@@ -34,6 +34,15 @@ interface ItemPermissionList {
     [groupName: string]: Record<string, string>;
 }
 
+export enum ItemPermissionLevel {
+    EveryoneNoExceptions = 0,
+    EveryoneExceptBlacklist = 1,
+    OwnerLoverWhitelistDominants = 2,
+    OwnerLoverWhitelist = 3,
+    OwnerLover = 4,
+    OwnerOnly = 5,
+}
+
 export interface OnlineSharedSettingsType {
     GameVersion: string;
     ScriptPermissions?: ScriptPermissionsType;
@@ -49,7 +58,7 @@ export interface API_Character_Data {
     ActivePose: AssetPoseName[];
     WhiteList: number[];
     OnlineSharedSettings: OnlineSharedSettingsType;
-    ItemPermission: number;
+    ItemPermission: ItemPermissionLevel;
     FriendList: number[];
     MapData?: CoordObject;
     BlockItems: ItemPermissionList;
@@ -106,7 +115,7 @@ export class API_Character {
     public get OnlineSharedSettings(): OnlineSharedSettingsType {
         return this.data.OnlineSharedSettings;
     }
-    public get ItemPermission(): number {
+    public get ItemPermission(): ItemPermissionLevel {
         return this.data.ItemPermission;
     }
     public get ChatRoomPosition(): number {
@@ -149,11 +158,16 @@ export class API_Character {
         asset: BC_AppearanceItem,
         variant?: string,
     ): boolean {
+        if (this.ItemPermission >= ItemPermissionLevel.OwnerLover) return false;
+
         // XXX support variants too
         if (this.data.BlockItems[asset.Group]?.[asset.Name]) {
             return false;
         }
-        if (this.data.LimitedItems[asset.Group]?.[asset.Name] && !this.WhiteList.includes(this.connection.Player.MemberNumber)) {
+        if (
+            [ItemPermissionLevel.OwnerLoverWhitelist, ItemPermissionLevel.OwnerLoverWhitelistDominants].includes(this.ItemPermission) &&
+            this.data.LimitedItems[asset.Group]?.[asset.Name] &&
+            !this.WhiteList.includes(this.connection.Player.MemberNumber)) {
             return false;
         }
         return true;

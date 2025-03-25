@@ -16,7 +16,7 @@ import { Db } from "mongodb";
 import { API_Connector } from "../apiConnector";
 import { CommandParser } from "../commandParser";
 import { RouletteBet, RouletteGame, ROULETTEHELP } from "./casino/roulette";
-import { API_Character } from "../apiCharacter";
+import { API_Character, ItemPermissionLevel } from "../apiCharacter";
 import { BC_Server_ChatRoomMessage, TBeepType } from "../logicEvent";
 import { CasinoStore } from "./casino/casinostore";
 import { ROULETTE_WHEEL } from "./casino/rouletteWheelBundle";
@@ -135,7 +135,7 @@ export class Casino {
             this.setTextColor("#ffffff");
         });
 
-        this.conn.setItemPermission(5);
+        this.conn.setItemPermission(ItemPermissionLevel.OwnerOnly);
 
         // hack because otherwise an account update goes through after this item update and clears the text out
         setTimeout(() => {

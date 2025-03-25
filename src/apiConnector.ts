@@ -13,7 +13,7 @@
  */
 
 import { io } from "socket.io-client";
-import { API_Character, API_Character_Data } from "./apiCharacter";
+import { API_Character, API_Character_Data, ItemPermissionLevel } from "./apiCharacter";
 import { API_Chatroom, API_Chatroom_Data, ChatRoomAccessVisibility } from "./apiChatroom";
 import { Socket } from "socket.io-client";
 import { LogicBase } from "./logicBase";
@@ -713,7 +713,7 @@ export class API_Connector extends EventEmitter {
         console.log("Connector started.");
     }
 
-    public setItemPermission(perm: number): void {
+    public setItemPermission(perm: ItemPermissionLevel): void {
         this.accountUpdate({
             ItemPermission: perm,
         });
