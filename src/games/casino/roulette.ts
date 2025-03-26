@@ -69,12 +69,12 @@ export class RouletteGame {
         args: string[],
     ): RouletteBet | undefined {
         if (args.length !== 2) {
-            senderCharacter.Tell("Whisper", "I couldn't understand that bet. Try, eg. /bot bet red 10 or /bot bet red 1-12 boots");
+            this.conn.reply(msg, "I couldn't understand that bet. Try, eg. /bot bet red 10 or /bot bet red 1-12 boots");
             return;
         }
 
         if (this.bets.find((b) => b.memberNumber === senderCharacter.MemberNumber)) {
-            senderCharacter.Tell("Whisper", "You already placed a bet. Use !cancel to cancel it.");
+            this.conn.reply(msg, "You already placed a bet. Use !cancel to cancel it.");
             return;
         }
 
@@ -88,12 +88,12 @@ export class RouletteGame {
             stakeForfeit = stake;
         } else {
             if (!/^\d+$/.test(stake)) {
-                senderCharacter.Tell("Whisper", "Invalid stake.");
+                this.conn.reply(msg, "Invalid stake.");
                 return;
             }
-            stakeValue = parseInt(args[1], 10);
+            stakeValue = parseInt(stake, 10);
             if (isNaN(stakeValue) || stakeValue < 1) {
-                senderCharacter.Tell("Whisper", "Invalid stake.");
+                this.conn.reply(msg, "Invalid stake.");
                 return;
             }
         }
@@ -115,11 +115,15 @@ export class RouletteGame {
                     stakeForfeit,
                     kind: betKind,
                 };
-                break;
             default:
+                // single number: ensure it's actually a number
+                if (!/^\d+$/.test(betKind)) {
+                    this.conn.reply(msg, "Invalid bet.");
+                    return;
+                }
                 const betNumber = parseInt(betKind, 10);
                 if (isNaN(betNumber) || betNumber < 0 || betNumber > 36) {
-                    senderCharacter.Tell("Whisper", "Invalid bet.");
+                    this.conn.reply(msg, "Invalid bet.");
                     return;
                 }
                 return {
