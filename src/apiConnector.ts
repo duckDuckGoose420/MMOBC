@@ -788,7 +788,7 @@ export class API_Connector extends EventEmitter {
         if (actualUpdate.Appearance === undefined) {
             actualUpdate.Appearance = this.Player.Appearance.getAppearanceData();
         }
-        console.log("Sending account update", actualUpdate);
+        //console.log("Sending account update", actualUpdate);
         this.wrappedSock.emit("AccountUpdate", actualUpdate);
     }
 
