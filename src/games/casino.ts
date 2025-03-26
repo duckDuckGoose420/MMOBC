@@ -119,7 +119,7 @@ export class Casino {
 
         this.commandParser.register("bet", this.onCommandBet);
         this.commandParser.register("cancel", this.onCommandCancel);
-        this.commandParser.register("odds", this.onCommandOdds);
+        this.commandParser.register("help", this.onCommandHelp);
         this.commandParser.register("chips", this.onCommandChips);
         this.commandParser.register("addfriend", this.onCommandAddFriend);
         this.commandParser.register("remove", this.onCommandRemove);
@@ -377,7 +377,7 @@ export class Casino {
         this.conn.reply(msg, "Bet cancelled.");
     }
 
-    private onCommandOdds = (
+    private onCommandHelp = (
         sender: API_Character,
         msg: BC_Server_ChatRoomMessage,
         args: string[],

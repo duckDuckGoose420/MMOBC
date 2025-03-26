@@ -519,9 +519,9 @@ export class API_Connector extends EventEmitter {
 
     private onChatRoomMessage = (msg: BC_Server_ChatRoomMessage) => {
         // Don't log BCX spam
-        if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg") {
+        /*if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg") {
             console.log("chat room message", msg);
-        }
+        }*/
 
         const char = this._chatRoom.getCharacter(msg.Sender);
 
@@ -753,7 +753,7 @@ export class API_Connector extends EventEmitter {
             };
             this.accountUpdate(payload);
         } else {*/
-        console.log("sending ChatRoomCharacterItemUpdate", update);
+        //console.log("sending ChatRoomCharacterItemUpdate", update);
         this.wrappedSock.emit("ChatRoomCharacterItemUpdate", update);
         //}
     }

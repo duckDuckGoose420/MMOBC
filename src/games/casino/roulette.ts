@@ -31,9 +31,10 @@ Roulette bets:
 /bot bet 13-24 <amount> - Bet on 13 - 24. Odds: 2:1.
 /bot bet 25-36 <amount> - Bet on 25 - 36. Odds: 2:1.
 /bot bet <number> <amount> - Bet on a single number. Odds: 35:1.
+/bot cancel - Cancel your bet.
 /bot chips - Show your current chip balance.
 /bot give <name or member number> <amount> - Give chips to another player.
-/bot odds - Show this help
+/bot help - Show this help
 `;
 
 type RouletteBetKind =
@@ -67,13 +68,13 @@ export class RouletteGame {
         msg: BC_Server_ChatRoomMessage,
         args: string[],
     ): RouletteBet | undefined {
-        if (args.length < 2) {
-            senderCharacter.Tell("Whisper", ROULETTEHELP);
+        if (args.length !== 2) {
+            senderCharacter.Tell("Whisper", "I couldn't understand that bet. Try, eg. /bot bet red 10 or /bot bet red 1-12 boots");
             return;
         }
 
         if (this.bets.find((b) => b.memberNumber === senderCharacter.MemberNumber)) {
-            senderCharacter.Tell("Whisper", "You already placed a bet.");
+            senderCharacter.Tell("Whisper", "You already placed a bet. Use !cancel to cancel it.");
             return;
         }
 
@@ -86,6 +87,10 @@ export class RouletteGame {
             stakeValue = FORFEITS[stake].value;
             stakeForfeit = stake;
         } else {
+            if (!/^\d+$/.test(stake)) {
+                senderCharacter.Tell("Whisper", "Invalid stake.");
+                return;
+            }
             stakeValue = parseInt(args[1], 10);
             if (isNaN(stakeValue) || stakeValue < 1) {
                 senderCharacter.Tell("Whisper", "Invalid stake.");

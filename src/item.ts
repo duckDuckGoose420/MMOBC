@@ -339,7 +339,8 @@ export function getAssetDef(
 ): AssetDefinition | undefined {
     const grp = AssetFemale3DCG.find((g) => g.Group === desc.Group);
     if (!grp) {
-        console.warn("Invalid item group: " + desc.Group);
+        // We could add support for the echo slots, but until then, don't spam about them
+        if (!desc.Group.includes("Luzi")) console.warn("Invalid item group: " + desc.Group);
         return undefined;
     }
 
