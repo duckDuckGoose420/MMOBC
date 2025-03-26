@@ -187,6 +187,14 @@ export class RouletteGame {
         return this.bets;
     }
 
+    public getBetsForPlayer(memberNumber: number): RouletteBet[] {
+        return this.bets.filter((b) => b.memberNumber === memberNumber);
+    }
+
+    public clearBetsForPlayer(memberNumber: number): undefined {
+        this.bets = this.bets.filter((b) => b.memberNumber !== memberNumber);
+    }
+
     public getWinnings(winningNumber: number, bet: RouletteBet): number {
         if (bet.kind === "single" && bet.number === winningNumber) {
             return bet.stake * 36;

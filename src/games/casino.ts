@@ -30,6 +30,7 @@ import { generatePassword } from "../util/string";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
+const BET_CANCEL_THRESHOLD_MS = 3000;
 
 function getItemsBlockingForfeit(
     char: API_Character,
@@ -117,6 +118,7 @@ export class Casino {
         conn.on("Beep", this.onBeep);
 
         this.commandParser.register("bet", this.onCommandBet);
+        this.commandParser.register("cancel", this.onCommandCancel);
         this.commandParser.register("odds", this.onCommandOdds);
         this.commandParser.register("chips", this.onCommandChips);
         this.commandParser.register("addfriend", this.onCommandAddFriend);
@@ -355,6 +357,26 @@ export class Casino {
         }
     };
 
+    private onCommandCancel = (
+        sender: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        if (this.rouletteGame.getBetsForPlayer(sender.MemberNumber).length === 0) {
+            this.conn.reply(msg, "You don't have a bet in play.");
+            return;
+        }
+
+        const timeLeft = this.willSpinAt - Date.now();
+        if (timeLeft <= BET_CANCEL_THRESHOLD_MS) {
+            this.conn.reply(msg, "You can't cancel your bet now.");
+            return;
+        }
+
+        this.rouletteGame.clearBetsForPlayer(sender.MemberNumber);
+        this.conn.reply(msg, "Bet cancelled.");
+    }
+
     private onCommandOdds = (
         sender: API_Character,
         msg: BC_Server_ChatRoomMessage,
@@ -368,8 +390,23 @@ export class Casino {
         msg: BC_Server_ChatRoomMessage,
         args: string[],
     ) => {
-        const player = await this.store.getPlayer(sender.MemberNumber);
-        this.conn.reply(msg, `You have ${player.credits} chips.`);
+        if (args.length > 0) {
+            if (!sender.IsRoomAdmin()) {
+                this.conn.reply(msg, "Only admins can see other people's balances.");
+                return;
+            }
+
+            const target = this.conn.chatRoom.findCharacter(args[0]);
+            if (!target) {
+                this.conn.reply(msg, "I can't find that person.");
+                return;
+            }
+            const player = await this.store.getPlayer(target.MemberNumber);
+            this.conn.reply(msg, `${target} has ${player.credits} chips.`);
+        } else {
+            const player = await this.store.getPlayer(sender.MemberNumber);
+            this.conn.reply(msg, `${sender}, you have ${player.credits} chips.`);
+        }
     };
 
     private onCommandAddFriend = (
