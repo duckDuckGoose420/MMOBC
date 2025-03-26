@@ -32,6 +32,9 @@ eg. !dare add take off one item of clothing
 !dare draw
 Draws a dare card (you can do this in the public room)
 
+!pick
+Chooses someone in the room who isn't the bot or yourself (for dares that involve someone else)
+
 Rules
 =====
 1. Everyone rolls a d100 (/dice 100) to start and placed in the room from lowest to highest.
