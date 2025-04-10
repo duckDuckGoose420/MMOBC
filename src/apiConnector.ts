@@ -606,22 +606,25 @@ export class API_Connector extends EventEmitter {
         }
 
         this.roomJoinPromise = new PromiseResolve();
-        this.wrappedSock.emit("ChatRoomJoin", {
-            Name: name,
-        });
 
-        const joinResult = await this.roomJoinPromise.prom;
-        if (joinResult !== "JoinedRoom") {
-            console.log("Failed to join room", joinResult);
-            return false;
+        try {
+            this.wrappedSock.emit("ChatRoomJoin", {
+                Name: name,
+            });
+
+            const joinResult = await this.roomJoinPromise.prom;
+            if (joinResult !== "JoinedRoom") {
+                console.log("Failed to join room", joinResult);
+                return false;
+            }
+        } finally {
+            this.roomJoinPromise = undefined;
         }
 
         console.log("Room joined");
 
         await this.roomSynced.prom;
         this._player.chatRoom = this._chatRoom;
-
-        this.roomJoinPromise = undefined;
 
         this.emit("RoomJoin");
 
@@ -636,23 +639,26 @@ export class API_Connector extends EventEmitter {
 
         console.log("creating room");
         this.roomCreatePromise = new PromiseResolve();
-        this.wrappedSock.emit("ChatRoomCreate", {
-            Admin: [this._player.MemberNumber],
-            ...roomDef,
-        });
 
-        const createResult = await this.roomCreatePromise.prom;
-        if (createResult !== "ChatRoomCreated") {
-            console.log("Failed to create room", createResult);
-            return false;
+        try {
+            this.wrappedSock.emit("ChatRoomCreate", {
+                Admin: [this._player.MemberNumber],
+                ...roomDef,
+            });
+
+            const createResult = await this.roomCreatePromise.prom;
+            if (createResult !== "ChatRoomCreated") {
+                console.log("Failed to create room", createResult);
+                return false;
+            }
+        } finally {
+            this.roomCreatePromise = undefined;
         }
 
         console.log("Room created");
 
         await this.roomSynced.prom;
         this._player.chatRoom = this._chatRoom;
-
-        this.roomCreatePromise = undefined;
 
         this.emit("RoomCreate");
 
