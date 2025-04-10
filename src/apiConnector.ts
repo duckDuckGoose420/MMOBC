@@ -521,10 +521,9 @@ export class API_Connector extends EventEmitter {
 
     private onChatRoomMessage = (msg: BC_Server_ChatRoomMessage) => {
         // Don't log BCX spam
-        /*if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg") {
+        if (msg.Type !== "Hidden" && !["BCXMsg", "BCEMsg", "LSCGMsg", "bctMsg", "MPA", "dogsMsg", "bccMsg", "ECHO_INFO2"].includes(msg.Content)) {
             console.log("chat room message", msg);
-        }*/
-       console.log("chat room message", msg);
+        }
 
         const char = this._chatRoom.getCharacter(msg.Sender);
 
