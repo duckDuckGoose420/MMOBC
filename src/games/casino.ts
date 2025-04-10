@@ -468,6 +468,8 @@ export class Casino {
 
         sender.Appearance.RemoveItem(restraint.items()[0].Group);
 
+        this.lockedItems.get(sender.MemberNumber)?.delete(restraint.items()[0].Group);
+
         this.conn.SendMessage(
             "Chat",
             `${sender} paid to remove their ${restraint.name}. Enjoy your freedom, while it lasts.`,
