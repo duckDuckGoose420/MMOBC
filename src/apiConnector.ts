@@ -231,6 +231,8 @@ export class API_Connector extends EventEmitter {
             msg = msg.substring(0, 1000);
         }
 
+        console.log(`Sending ${type}`, msg);
+
         const payload = { Type: type, Content: msg } as Record<string, any>;
         if (target) payload.Target = target;
         if (dict) payload.Dictionary = dict;
@@ -522,6 +524,7 @@ export class API_Connector extends EventEmitter {
         /*if (msg.Type !== "Hidden" && msg.Content !== "BCXMsg") {
             console.log("chat room message", msg);
         }*/
+       console.log("chat room message", msg);
 
         const char = this._chatRoom.getCharacter(msg.Sender);
 
