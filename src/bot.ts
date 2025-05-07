@@ -23,6 +23,7 @@ import { PetSpa } from "./games/petspa";
 import { Lillypad } from "./rooms/lillypad";
 import { MaidsPartyNightSinglePlayerAdventure } from "./hub/logic/maidsPartyNightSinglePlayerAdventure";
 import { DiceCasino } from "./games/diceCasino";
+import { Casino } from "./games/casino";
 
 const SERVER_URL = {
     live: "https://bondage-club-server.herokuapp.com/",
@@ -118,6 +119,7 @@ export async function startBot(): Promise<RopeyBot> {
             break;
         case "dare":
             console.log("Starting game: dare");
+            connector.accountUpdate({ Nickname: "Dare Bot" });
             new Dare(connector);
             connector.setBotDescription(Dare.description);
             break;
@@ -136,6 +138,10 @@ export async function startBot(): Promise<RopeyBot> {
         case "dicecasino":
             console.log("Starting game: Dice Casino");
             const diceCasino = new DiceCasino(connector);
+            break;
+        case "casino":
+            console.log("Starting game: Casino");
+            new Casino(connector, db, config.casino);
             break;
         default:
             console.log(config.game)

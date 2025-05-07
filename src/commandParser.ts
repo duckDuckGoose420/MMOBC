@@ -14,13 +14,13 @@
 
 import { API_Character } from "./apiCharacter";
 import { API_Connector, MessageEvent } from "./apiConnector";
-import { BC_Server_ChatRoomMessage } from "./logicEvent";
+import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
 
 type CommandCallback = (
     sender: API_Character,
     msg: BC_Server_ChatRoomMessage,
     args: string[],
-) => void;
+) => void | Promise<void>;
 
 const SLASH_BOT_PREFIX = "ChatRoomBot ";
 
@@ -60,14 +60,29 @@ export class CommandParser {
 
     private processCmdString(ev: MessageEvent, cmdString: string): void {
         const parts = cmdString.toLowerCase().split(" ");
-        const cmd = parts.shift();
-        const cb = this.commands.get(cmd);
-        if (cb) {
-            try {
-                cb(ev.sender, ev.message, parts);
-            } catch (e) {
-                console.log("Command handler threw exception", e);
+        let cmd = [];
+
+        // try more words of the command until we run out of parts, so
+        // we can support multi-word commands
+        while (parts.length > 0) {
+            cmd.push(parts.shift());
+
+            const cb = this.commands.get(cmd.join(" "));
+            if (cb) {
+                try {
+                    const ret = cb(ev.sender, ev.message, parts);
+                    const promiseRet = ret as Promise<void>;
+                    if (promiseRet.catch) {
+                        promiseRet.catch((e) => {
+                            console.log("Command handler threw async exception", e);
+                        });
+                    }
+                } catch (e) {
+                    console.log("Command handler threw exception", e);
+                }
+                return;
             }
         }
+        this.conn.reply(ev.message, "Unknown command");
     }
 }

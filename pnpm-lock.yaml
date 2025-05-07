@@ -6,8 +6,8 @@ settings:
 
 dependencies:
   bc-stubs:
-    specifier: ^108.0.0
-    version: 108.0.0
+    specifier: ^111.0.0
+    version: 111.0.0
   lodash:
     specifier: ^4.17.21
     version: 4.17.21
@@ -495,8 +495,8 @@ packages:
       '@types/webidl-conversions': 7.0.3
     dev: false
 
-  /bc-stubs@108.0.0:
-    resolution: {integrity: sha512-b3ko8zl9zn5umYKC7uMQjEtOQxcbAdalUvJ7DoOPyJX4WcsdJFq+R76Rr8bhTtcRq7aW3tk7DtDjTy9awd7CRw==}
+  /bc-stubs@111.0.0:
+    resolution: {integrity: sha512-Y4lUnQsbvtG001M+ViZwJG6Re7PGZFF+9S5bspGrgOc1XxJE8/ufuTpPAeTu3zJvOY87v/Gkii6f5GovTYCv8w==}
     dependencies:
       socket.io-client: 4.6.1
     transitivePeerDependencies:

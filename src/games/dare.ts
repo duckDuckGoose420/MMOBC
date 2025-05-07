@@ -32,6 +32,9 @@ eg. !dare add take off one item of clothing
 !dare draw
 Draws a dare card (you can do this in the public room)
 
+!pick
+Chooses someone in the room who isn't the bot or yourself (for dares that involve someone else)
+
 Rules
 =====
 1. Everyone rolls a d100 (/dice 100) to start and placed in the room from lowest to highest.
@@ -53,6 +56,7 @@ Rules
     public constructor(private conn: API_Connector) {
         this.commandParser = new CommandParser(conn);
 
+        this.commandParser.register("pick", this.onPick);
         this.commandParser.register("dare", this.onDare);
         this.loadDares();
     }
@@ -146,4 +150,18 @@ Rules
                 return;
         }
     };
+
+    onPick = async (
+        senderCharacter: API_Character,
+        msg: BC_Server_ChatRoomMessage,
+        args: string[],
+    ) => {
+        this.conn.SendMessage("Emote", `*${senderCharacter} randomly selects a room member...`);
+        await wait(2000);
+
+        const possibleMembers = this.conn.chatRoom.characters.filter((m) => ![senderCharacter.MemberNumber, this.conn.Player.MemberNumber].includes(m.MemberNumber));
+        const n = Math.floor(Math.random() * possibleMembers.length);
+        const target = possibleMembers[n];
+        this.conn.SendMessage("Emote", `*${target} has been selected!`);
+    }
 }

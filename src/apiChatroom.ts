@@ -18,6 +18,8 @@ import { API_Connector, CoordObject, SingleItemUpdate } from "./apiConnector";
 import { API_Map } from "./apiMap";
 import { API_AppearanceItem } from "./item";
 
+export type ChatRoomAccessVisibility = "All" | "Whitelist" | "Admin";
+
 // This should be ServerChatRoomData
 export interface API_Chatroom_Data {
     Name: string;
@@ -26,6 +28,8 @@ export interface API_Chatroom_Data {
     Admin: number[];
     Ban: number[];
     Private: boolean;
+    Access: ChatRoomAccessVisibility[]
+    Visibility: ChatRoomAccessVisibility[]
     Limit: number;
     Background: string;
     Locked: boolean;
@@ -250,7 +254,11 @@ export class API_Chatroom extends EventEmitter {
         Object.assign(charData.MapData, mapData);
 
         const char = this.findMember(memberNumber);
-        this.map.onCharacterMove(char, prevPos);
+        try {
+            this.map.onCharacterMove(char, prevPos);
+        } catch (e) {
+            console.log("Error handling character move", e);
+        }
     }
 
     public onReorder(memberNos: number[]): void {
@@ -295,6 +303,7 @@ export class API_Chatroom extends EventEmitter {
     }
 
     public usesMaps(): boolean {
+        if (this.data.MapData === undefined) return false;
         return this.data.MapData.Type !== "Never";
     }
 
@@ -306,12 +315,9 @@ export class API_Chatroom extends EventEmitter {
         return info;
     }
 
-    public findMember(specifier: string | number) {
+    public findMember(specifier: number): API_Character | undefined {
         return this.characters.find(
-            (c) =>
-                c.MemberNumber == specifier ||
-                c.NickName === specifier ||
-                c.Name === specifier,
+            (c) => c.MemberNumber == specifier
         );
     }
 
@@ -321,7 +327,7 @@ export class API_Chatroom extends EventEmitter {
 
     public findCharacter(specifier: string): API_Character | undefined {
         const nameMatches = this.characters.filter(
-            (c) => c.NickName === specifier || c.Name === specifier,
+            (c) => c.NickName?.toLowerCase() === specifier.toLowerCase() || c.Name?.toLowerCase() === specifier.toLowerCase(),
         );
         if (nameMatches.length === 1) return nameMatches[0];
 
@@ -339,6 +345,8 @@ export class API_Chatroom extends EventEmitter {
         if (!char) {
             char = new API_Character(data, this.conn, this);
             this.characterCache.set(char.MemberNumber, char);
+
+            if (this.characterCache.size > 20) this.pruneCharacterCache();
         } else {
             char.update(data);
         }
@@ -354,5 +362,14 @@ export class API_Chatroom extends EventEmitter {
         }
         console.log
         this.conn.ChatRoomUpdate({ MapData: this.data.MapData });
+    }
+
+    private pruneCharacterCache() {
+        const memberNumbers = new Set(this.data.Character.map((c) => c.MemberNumber));
+        for (const memberNumber of this.characterCache.keys()) {
+            if (!memberNumbers.has(memberNumber)) {
+                this.characterCache.delete(memberNumber);
+            }
+        }
     }
 }

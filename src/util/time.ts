@@ -12,23 +12,13 @@
  * limitations under the License.
  */
 
-import { RoomDefinition } from "./apiConnector";
-import { CasinoConfig } from "./games/casino";
-
-export interface ConfigFile {
-    user: string;
-    password: string;
-    env: "live" | "test";
-    url?: string;
-    game: string;
-    superusers: number[];
-    room: RoomDefinition;
-    mongo_uri?: string;
-    mongo_db?: string;
-    members: number[];
-
-    user2: string;
-    password2: string;
-
-    casino?: CasinoConfig;
+export function remainingTimeString(until: number): string {
+    const remaining = until - Date.now();
+    if (remaining < 0) return "0 seconds";
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
+    const minutes = Math.floor(remaining / (1000 * 60));
+    const seconds = Math.ceil((remaining % (1000 * 60)) / 1000);
+    if (hours > 0) return `${hours} hours`;
+    if (minutes > 0) return `${minutes} minutes`;
+    return `${seconds} seconds`;
 }

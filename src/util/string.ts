@@ -12,23 +12,11 @@
  * limitations under the License.
  */
 
-import { RoomDefinition } from "./apiConnector";
-import { CasinoConfig } from "./games/casino";
-
-export interface ConfigFile {
-    user: string;
-    password: string;
-    env: "live" | "test";
-    url?: string;
-    game: string;
-    superusers: number[];
-    room: RoomDefinition;
-    mongo_uri?: string;
-    mongo_db?: string;
-    members: number[];
-
-    user2: string;
-    password2: string;
-
-    casino?: CasinoConfig;
+export function generatePassword() : string {
+    const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let retVal = "";
+    for (let i = 0, n = charset.length; i < 8; ++i) {
+        retVal += charset.charAt(Math.floor(Math.random() * n));
+    }
+    return retVal;
 }

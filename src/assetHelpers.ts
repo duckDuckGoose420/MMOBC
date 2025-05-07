@@ -57,5 +57,5 @@ export function isBody(item: BC_AppearanceItem): boolean {
 
 export function isBind(item: BC_AppearanceItem): boolean {
     const group = getAssetGroup(item.Group);
-    return group.Category === "Item" && !group.BodyCosplay;
+    return group?.Category === "Item" && !group.BodyCosplay;
 }

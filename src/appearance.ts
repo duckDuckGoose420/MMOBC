@@ -271,7 +271,7 @@ export class AppearanceType {
             if (haveAdded) {
                 await wait(300);
             }
-            this.AddItem(item);
+            this.AddItem(item).SetDifficulty(20);
             haveAdded = true;
         }
     }

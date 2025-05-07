@@ -7,7 +7,7 @@
         "start": "tsx src/main.ts"
     },
     "dependencies": {
-        "bc-stubs": "^108.0.0",
+        "bc-stubs": "^111.0.0",
         "lodash": "^4.17.21",
         "lz-string": "^1.5.0",
         "mongodb": "^6.9.0",
