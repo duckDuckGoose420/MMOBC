@@ -59,7 +59,7 @@ export class CommandParser {
     };
 
     private processCmdString(ev: MessageEvent, cmdString: string): void {
-        const parts = cmdString.split(" ");
+        const parts = cmdString.toLowerCase().split(" ");
         let cmd = [];
 
         // try more words of the command until we run out of parts, so

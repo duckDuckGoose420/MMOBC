@@ -4,6 +4,7 @@
     "env": "live",
     "game": "dare",
     "superusers": [],
+    "members": [],
     "room": {
         "Name": "Your room name",
         "Description": "This is my room!",

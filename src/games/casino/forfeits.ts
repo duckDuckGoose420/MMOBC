@@ -134,17 +134,17 @@ interface Service {
 }
 
 export const SERVICES: Record<string, Service> = {
-    "cocktail": {
+    /*"cocktail": {
         name: "House Special Cocktail",
         description: "Hand crafted by our expert mixologist. Please drink responsibly.",
         value: 10,
-    },
+    },*/
     "player": {
         name: "Buy a caged player",
         description: "Why waste their misfortune?",
         value: 100,
     },
-    "massage": {
+    /*"massage": {
         name: "Pixie Massage",
         description: "Let Miss Ellie melt away those tensions with a soothing massage.",
         value: 800,
@@ -168,7 +168,7 @@ export const SERVICES: Record<string, Service> = {
         name: "Pixie Pet",
         description: "Your very own personal pet for 2 hours.",
         value: 10000,
-    },
+    },*/
 };
 
 function makePet(hours: number, character: API_Character, lockMemberNumber: number): void {
@@ -181,7 +181,7 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
     petSuitItem.SetCraft({
         Name: `Pixie Casino Pet Suit`,
         Description:
-            `A bold but unfortunate bet from ${character} means that are now an official Pixie Casino Pet, ` +
+            `A bold but unfortunate bet from ${character} means that they are now an official Pixie Casino Pet, ` +
             `here to be adorable for all our patrons. Please enjoy their helplessness!`,
     });
     petSuitItem.SetColor(characterHairColor);
@@ -227,7 +227,7 @@ function makePet(hours: number, character: API_Character, lockMemberNumber: numb
         collar.SetCraft({
             Name: `Pixie Casino Pet Collar`,
             Description:
-                `A bold but unfortunate bet from ${character} means that are now an official Pixie Casino Pet. ` +
+                `A bold but unfortunate bet from ${character} means that they are now an official Pixie Casino Pet. ` +
                 `This collar will remind them of their place until their time is up.`,
         });
     }

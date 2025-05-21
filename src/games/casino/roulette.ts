@@ -18,7 +18,7 @@ import { BC_Server_ChatRoomMessage } from "../../logicEvent";
 import { FORFEITS } from "./forfeits";
 
 export const ROULETTEHELP = `
-There are 37 numbers on the roulette wheel, 0 - 36. Even numbers are black, odd numbers are red. 0 is green.
+There are 37 numbers on the roulette wheel, 0 - 36. 0 is green.
 
 Roulette bets:
 /bot bet red <amount> - Bet on red. Odds: 1:1.
@@ -57,6 +57,17 @@ export interface RouletteBet {
     kind: RouletteBetKind;
     number?: number;
 }
+
+export type Color = "Red" | "Black" | "Green";
+
+export const rouletteColors: Color[] = [
+    'Green', // 0
+    'Red', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red', 'Black',
+    'Black', 'Red', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red',
+    'Red', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red',
+    'Black', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red', 'Black', 'Red',
+  ];
+  
 
 export class RouletteGame {
     private bets: RouletteBet[] = [];
@@ -183,9 +194,13 @@ export class RouletteGame {
         if (winningNumber === 0) {
             if (emoji) text += " 🟩";
         } else {
-            text += winningNumber % 2 ? " black" : " red";
-            if (emoji) {
-                text += winningNumber % 2 ? " ⬛" : " 🟥";
+            const color = rouletteColors[winningNumber];
+            if (color === "Red") {
+                text += " red";
+                if (emoji) text += " 🟥";
+            } else if (color === "Black") {
+                text += " black";
+                if (emoji) text += " ⬛";
             }
         }
 
@@ -209,9 +224,8 @@ export class RouletteGame {
             return bet.stake * 36;
         } else if (
             (bet.kind === "red" &&
-                winningNumber !== 0 &&
-                winningNumber % 2 === 0) ||
-            (bet.kind === "black" && winningNumber % 2 === 1) ||
+                rouletteColors[winningNumber] == "Red") ||
+            (bet.kind === "black" && rouletteColors[winningNumber] == "Black") ||
             (bet.kind === "even" &&
                 winningNumber !== 0 &&
                 winningNumber % 2 === 0) ||

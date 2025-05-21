@@ -15,7 +15,12 @@
 import { Db } from "mongodb";
 import { API_Connector } from "../apiConnector";
 import { CommandParser } from "../commandParser";
-import { RouletteBet, RouletteGame, ROULETTEHELP } from "./casino/roulette";
+import {
+    RouletteBet,
+    rouletteColors,
+    RouletteGame,
+    ROULETTEHELP,
+} from "./casino/roulette";
 import { API_Character, ItemPermissionLevel } from "../apiCharacter";
 import { BC_Server_ChatRoomMessage, TBeepType } from "../logicEvent";
 import { CasinoStore, Player } from "./casino/casinostore";
@@ -24,12 +29,19 @@ import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../item";
 import { wait } from "../hub/utils";
 import { remainingTimeString } from "../util/time";
 import { importBundle } from "../appearance";
-import { FORFEITS, forfeitsString, restraintsRemoveString, SERVICES, servicesString } from "./casino/forfeits";
+import {
+    FORFEITS,
+    forfeitsString,
+    restraintsRemoveString,
+    SERVICES,
+    servicesString,
+} from "./casino/forfeits";
 import { Cocktail, COCKTAILS } from "./casino/cocktails";
 import { generatePassword } from "../util/string";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
+// const TIME_UNTIL_SPIN_MS = 6000;
 const BET_CANCEL_THRESHOLD_MS = 3000;
 
 function getItemsBlockingForfeit(
@@ -84,7 +96,7 @@ https://github.com/FriendsOfBC/ropeybot
 `;
 
 export interface CasinoConfig {
-    cocktail: string
+    cocktail: string;
 }
 
 export class Casino {
@@ -146,7 +158,16 @@ export class Casino {
         // hack because otherwise an account update goes through after this item update and clears the text out
         setTimeout(() => {
             const wheel = this.getWheel();
-            wheel.setProperty("Texts", [" ", " ", " ", " ", " ", " ", " ", " "]);
+            wheel.setProperty("Texts", [
+                " ",
+                " ",
+                " ",
+                " ",
+                " ",
+                " ",
+                " ",
+                " ",
+            ]);
 
             const sign = this.getSign();
             sign.setProperty("OverridePriority", { Text: 63 });
@@ -160,8 +181,43 @@ export class Casino {
 
             this.conn.setScriptPermissions(true, false);
 
-            const scriptItem = this.conn.Player.Appearance.AddItem(AssetGet("ItemScript", "Script"));
-            scriptItem.setProperty("Hide", ['Height', 'BodyUpper', 'ArmsLeft', 'ArmsRight', 'HandsLeft', 'HandsRight', 'BodyLower', 'HairFront', 'HairBack', 'Eyebrows', 'Eyes', 'Eyes2', 'Mouth', 'Nipples', 'Pussy', 'Pronouns', 'Head', 'Blush', 'Fluids', 'Emoticon', 'ItemNeck', 'ItemHead', 'Cloth', 'Bra', 'Socks', 'Shoes', 'ClothAccessory', 'Necklace', 'ClothLower', 'Panties', 'Suit', 'Gloves']);
+            const scriptItem = this.conn.Player.Appearance.AddItem(
+                AssetGet("ItemScript", "Script"),
+            );
+            scriptItem.setProperty("Hide", [
+                "Height",
+                "BodyUpper",
+                "ArmsLeft",
+                "ArmsRight",
+                "HandsLeft",
+                "HandsRight",
+                "BodyLower",
+                "HairFront",
+                "HairBack",
+                "Eyebrows",
+                "Eyes",
+                "Eyes2",
+                "Mouth",
+                "Nipples",
+                "Pussy",
+                "Pronouns",
+                "Head",
+                "Blush",
+                "Fluids",
+                "Emoticon",
+                "ItemNeck",
+                "ItemHead",
+                "Cloth",
+                "Bra",
+                "Socks",
+                "Shoes",
+                "ClothAccessory",
+                "Necklace",
+                "ClothLower",
+                "Panties",
+                "Suit",
+                "Gloves",
+            ]);
         }, 500);
     }
 
@@ -200,7 +256,7 @@ export class Casino {
                     .map((player, idx) => {
                         return `${idx + 1}. ${player.name} (${player.memberNumber}): ${player.score} chips won`;
                     })
-                    .join("\n")
+                    .join("\n"),
             ),
         );
     }
@@ -263,7 +319,11 @@ export class Casino {
                     return;
                 }
             } else {
-                this.conn.AccountBeep(beep.MemberNumber, null, "Unknown command");
+                this.conn.AccountBeep(
+                    beep.MemberNumber,
+                    null,
+                    "Unknown command",
+                );
             }
         } catch (e) {
             console.error("Failed to process beep", e);
@@ -296,9 +356,15 @@ export class Casino {
             player.credits -= bet.stake;
             await this.store.savePlayer(player);
         } else {
-            const blockers = getItemsBlockingForfeit(sender, FORFEITS[bet.stakeForfeit].items());
+            const blockers = getItemsBlockingForfeit(
+                sender,
+                FORFEITS[bet.stakeForfeit].items(),
+            );
             if (blockers.length > 0) {
-                console.log(`Blocked forfeit bet of ${bet.stakeForfeit} with blockers `, blockers);
+                console.log(
+                    `Blocked forfeit bet of ${bet.stakeForfeit} with blockers `,
+                    blockers,
+                );
                 this.conn.reply(
                     msg,
                     `You can't bet that while you have: ${blockers.map((i) => i.Name).join(", ")}`,
@@ -316,12 +382,15 @@ export class Casino {
             }
 
             const needItems = [...FORFEITS[bet.stakeForfeit].items()];
-            if (FORFEITS[bet.stakeForfeit].lock) needItems.push(FORFEITS[bet.stakeForfeit].lock);
-            const blocked = needItems.filter(i => !sender.IsItemPermissionAccessible(i));
+            if (FORFEITS[bet.stakeForfeit].lock)
+                needItems.push(FORFEITS[bet.stakeForfeit].lock);
+            const blocked = needItems.filter(
+                (i) => !sender.IsItemPermissionAccessible(i),
+            );
             if (blocked.length > 0) {
                 this.conn.reply(
                     msg,
-                    `You can't bet that forfeit because you've blocked: ${blocked.map(i => i.Name).join(", ")}.`,
+                    `You can't bet that forfeit because you've blocked: ${blocked.map((i) => i.Name).join(", ")}.`,
                 );
                 return;
             }
@@ -331,8 +400,15 @@ export class Casino {
 
         if (FORFEITS[bet.stakeForfeit]?.items().length === 1) {
             const forfeitItem = FORFEITS[bet.stakeForfeit].items()[0];
-            if (Date.now() < this.lockedItems.get(sender.MemberNumber)?.get(forfeitItem.Group)) {
-                console.log(`CHEATER DETECTED: ${sender} tried to bet ${bet.stakeForfeit} which should be locked`);
+            if (
+                Date.now() <
+                this.lockedItems
+                    .get(sender.MemberNumber)
+                    ?.get(forfeitItem.Group)
+            ) {
+                console.log(
+                    `CHEATER DETECTED: ${sender} tried to bet ${bet.stakeForfeit} which should be locked`,
+                );
                 ++player.cheatStrikes;
                 await this.store.savePlayer(player);
 
@@ -357,12 +433,14 @@ export class Casino {
         }
     };
 
-    private onCommandCancel = (
+    private onCommandCancel = async (
         sender: API_Character,
         msg: BC_Server_ChatRoomMessage,
         args: string[],
     ) => {
-        if (this.rouletteGame.getBetsForPlayer(sender.MemberNumber).length === 0) {
+        if (
+            this.rouletteGame.getBetsForPlayer(sender.MemberNumber).length === 0
+        ) {
             this.conn.reply(msg, "You don't have a bet in play.");
             return;
         }
@@ -373,9 +451,15 @@ export class Casino {
             return;
         }
 
+        const player = await this.store.getPlayer(sender.MemberNumber);
+        this.rouletteGame.getBetsForPlayer(sender.MemberNumber).forEach(b => {
+            player.credits += b.stake;
+        });
+        await this.store.savePlayer(player);
+
         this.rouletteGame.clearBetsForPlayer(sender.MemberNumber);
         this.conn.reply(msg, "Bet cancelled.");
-    }
+    };
 
     private onCommandHelp = (
         sender: API_Character,
@@ -392,7 +476,10 @@ export class Casino {
     ) => {
         if (args.length > 0) {
             if (!sender.IsRoomAdmin()) {
-                this.conn.reply(msg, "Only admins can see other people's balances.");
+                this.conn.reply(
+                    msg,
+                    "Only admins can see other people's balances.",
+                );
                 return;
             }
 
@@ -405,7 +492,10 @@ export class Casino {
             this.conn.reply(msg, `${target} has ${player.credits} chips.`);
         } else {
             const player = await this.store.getPlayer(sender.MemberNumber);
-            this.conn.reply(msg, `${sender}, you have ${player.credits} chips.`);
+            this.conn.reply(
+                msg,
+                `${sender}, you have ${player.credits} chips.`,
+            );
         }
     };
 
@@ -459,7 +549,10 @@ export class Casino {
         }
 
         if (!sender.Appearance.InventoryGet(restraint.items()[0].Group)) {
-            this.conn.reply(msg, `It doesn't look like you're wearing ${restraint.name}.`);
+            this.conn.reply(
+                msg,
+                `It doesn't look like you're wearing ${restraint.name}.`,
+            );
             return;
         }
 
@@ -468,7 +561,9 @@ export class Casino {
 
         sender.Appearance.RemoveItem(restraint.items()[0].Group);
 
-        this.lockedItems.get(sender.MemberNumber)?.delete(restraint.items()[0].Group);
+        this.lockedItems
+            .get(sender.MemberNumber)
+            ?.delete(restraint.items()[0].Group);
 
         this.conn.SendMessage(
             "Chat",
@@ -496,7 +591,10 @@ export class Casino {
         let target: API_Character | undefined;
         if (serviceName === "player") {
             if (args.length < 2) {
-                this.conn.reply(msg, "Usage: buy player <name or member number>");
+                this.conn.reply(
+                    msg,
+                    "Usage: buy player <name or member number>",
+                );
                 return;
             }
             target = this.conn.chatRoom.findCharacter(args[1]);
@@ -510,8 +608,13 @@ export class Casino {
                 return;
             }
 
-            if (target.Appearance.InventoryGet("ItemDevices")?.Name !== "Kennel") {
-                this.conn.reply(msg, "Sorry, that player is not for sale (yet...)");
+            if (
+                target.Appearance.InventoryGet("ItemDevices")?.Name !== "Kennel"
+            ) {
+                this.conn.reply(
+                    msg,
+                    "Sorry, that player is not for sale (yet...)",
+                );
                 return;
             }
         }
@@ -528,20 +631,33 @@ export class Casino {
         if (serviceName === "player") {
             target.Appearance.RemoveItem("ItemDevices");
             if (!target.Appearance.InventoryGet("ItemNeck")) {
-                target.Appearance.AddItem(AssetGet("ItemNeck", "LeatherCollar"));
+                target.Appearance.AddItem(
+                    AssetGet("ItemNeck", "LeatherCollar"),
+                );
             }
-            target.Appearance.AddItem(AssetGet("ItemNeckRestraints", "CollarLeash"));
+            target.Appearance.AddItem(
+                AssetGet("ItemNeckRestraints", "CollarLeash"),
+            );
             const sign = target.Appearance.AddItem(
                 AssetGet("ItemMisc", "WoodenSign"),
             );
             sign.setProperty("Text", "Property of");
             sign.setProperty("Text2", sender.toString());
 
-            this.conn.SendMessage("Chat", `${sender} has bought ${target} and is now the proud owner of an unfortunate gambler.`);
+            this.conn.SendMessage(
+                "Chat",
+                `${sender} has bought ${target} and is now the proud owner of an unfortunate gambler.`,
+            );
         } else if (serviceName === "cocktail") {
-            const cocktail = this.cocktailOfTheDay ?? COCKTAILS[Math.floor(Math.random() * Object.keys(COCKTAILS).length)];
+            const cocktail =
+                this.cocktailOfTheDay ??
+                COCKTAILS[
+                    Math.floor(Math.random() * Object.keys(COCKTAILS).length)
+                ];
 
-            const cocktailItem = sender.Appearance.AddItem(AssetGet("ItemHandheld", "GlassFilled"));
+            const cocktailItem = sender.Appearance.AddItem(
+                AssetGet("ItemHandheld", "GlassFilled"),
+            );
             cocktailItem.SetColor(cocktail.colour);
             cocktailItem.SetCraft({
                 Name: cocktail.name,
@@ -550,7 +666,10 @@ export class Casino {
                 MemberNumber: this.conn.Player.MemberNumber,
             });
 
-            this.conn.SendMessage("Chat", `Please enjoy your cocktail, ${sender}.`);
+            this.conn.SendMessage(
+                "Chat",
+                `Please enjoy your cocktail, ${sender}.`,
+            );
         } else {
             await this.store.addPurchase({
                 memberNumber: sender.MemberNumber,
@@ -560,7 +679,10 @@ export class Casino {
                 redeemed: false,
             });
 
-            this.conn.SendMessage("Chat", `${sender} has bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`);
+            this.conn.SendMessage(
+                "Chat",
+                `${sender} has bought a voucher for ${service.name}! Please contact Ellie to redeem your service.`,
+            );
         }
     };
 
@@ -582,7 +704,12 @@ export class Casino {
 
         this.conn.reply(
             msg,
-            purchases.map((p) => `${p.memberName} (${p.memberNumber}): ${SERVICES[p.service].name}`).join("\n"),
+            purchases
+                .map(
+                    (p) =>
+                        `${p.memberName} (${p.memberNumber}): ${SERVICES[p.service].name}`,
+                )
+                .join("\n"),
         );
     };
 
@@ -592,7 +719,10 @@ export class Casino {
         args: string[],
     ) => {
         if (args.length < 2) {
-            this.conn.reply(msg, "Usage: give <name or member number> <amount>");
+            this.conn.reply(
+                msg,
+                "Usage: give <name or member number> <amount>",
+            );
             return;
         }
 
@@ -621,7 +751,10 @@ export class Casino {
         targetPlayer.credits += amount;
         await this.store.savePlayer(targetPlayer);
 
-        this.conn.SendMessage("Chat", `${sender} gave ${amount} chips to ${target}`);
+        this.conn.SendMessage(
+            "Chat",
+            `${sender} gave ${amount} chips to ${target}`,
+        );
     };
 
     private onCommandBonusRound = async (
@@ -650,7 +783,10 @@ export class Casino {
             this.multiplier = 2;
         }
 
-        this.conn.SendMessage("Chat", `⭐️⭐️⭐️ Bonus round! ⭐️⭐️⭐️ All forfeit bets are worth ${this.multiplier}x their normal value!`);
+        this.conn.SendMessage(
+            "Chat",
+            `⭐️⭐️⭐️ Bonus round! ⭐️⭐️⭐️ All forfeit bets are worth ${this.multiplier}x their normal value!`,
+        );
     };
 
     private onSpinTimeout(): void {
@@ -679,10 +815,26 @@ export class Casino {
 
         const winningNumber = this.rouletteGame.generateWinningNumber();
 
-        const prevSection = Math.floor(prevAngle / (360 / 8));
-        const targetSection =
-            (prevSection + (prevSection % 2 === winningNumber % 2 ? 2 : 1)) % 8;
-        const targetAngle = (targetSection * 45 + 67) % 360;
+        const prevSection = Math.ceil(prevAngle / (360 / 8));
+        let targetSection;
+        if ([0, 2, 4, 6].includes(prevSection)) {
+            // If it is on red
+            targetSection =
+                prevSection + (rouletteColors[winningNumber] === "Red" ? 2 : 1);
+        } else {
+            // if it is on black
+            targetSection =
+                prevSection +
+                (rouletteColors[winningNumber] === "Black" ? 2 : 1);
+        }
+        if (winningNumber === 0) {
+            if (prevSection === 0) {
+                targetSection = 7.5;
+            } else {
+                targetSection = 0.5;
+            }
+        }
+        const targetAngle = (targetSection * 45 - 22.5) % 360;
 
         console.log(`Winning number: ${winningNumber}`);
         console.log(`Prev angle: ${prevAngle}`);
@@ -748,15 +900,21 @@ export class Casino {
         if (items.length === 1) {
             const lockTime = FORFEITS[rouletteBet.stakeForfeit].lockTimeMs;
             if (lockTime) {
-                this.lockedItems.set(rouletteBet.memberNumber, this.lockedItems.get(rouletteBet.memberNumber) ?? new Map());
-                this.lockedItems.get(rouletteBet.memberNumber)?.set(items[0].Group, Date.now() + lockTime);
+                this.lockedItems.set(
+                    rouletteBet.memberNumber,
+                    this.lockedItems.get(rouletteBet.memberNumber) ?? new Map(),
+                );
+                this.lockedItems
+                    .get(rouletteBet.memberNumber)
+                    ?.set(items[0].Group, Date.now() + lockTime);
             }
         }
 
         if (applyFn) {
             applyFn(char, this.conn.Player.MemberNumber);
         } else if (items.length === 1) {
-            const characterHairColor = char.Appearance.InventoryGet("HairFront").GetColor();
+            const characterHairColor =
+                char.Appearance.InventoryGet("HairFront").GetColor();
 
             const added = char.Appearance.AddItem(items[0]);
             added.SetColor(characterHairColor);
@@ -769,14 +927,20 @@ export class Casino {
                 MemberNumber: this.conn.Player.MemberNumber,
             });
             if (FORFEITS[rouletteBet.stakeForfeit].lockTimeMs) {
-                added.lock("TimerPasswordPadlock", this.conn.Player.MemberNumber, {
-                    Password: generatePassword(),
-                    Hint: "Better luck next time!",
-                    RemoveItem: true,
-                    RemoveTimer: Date.now() + FORFEITS[rouletteBet.stakeForfeit].lockTimeMs,
-                    ShowTimer: true,
-                    LockSet: true,
-                });
+                added.lock(
+                    "TimerPasswordPadlock",
+                    this.conn.Player.MemberNumber,
+                    {
+                        Password: generatePassword(),
+                        Hint: "Better luck next time!",
+                        RemoveItem: true,
+                        RemoveTimer:
+                            Date.now() +
+                            FORFEITS[rouletteBet.stakeForfeit].lockTimeMs,
+                        ShowTimer: true,
+                        LockSet: true,
+                    },
+                );
             }
         } else {
             char.Appearance.slowlyApplyBundle(items);
@@ -789,9 +953,13 @@ export class Casino {
         } else if (player.cheatStrikes === 2) {
             char.Tell("Whisper", `Still trying to cheat, ${char}?`);
         } else {
-            const dunceHat = char.Appearance.AddItem(AssetGet("Hat", "CollegeDunce"));
+            const dunceHat = char.Appearance.AddItem(
+                AssetGet("Hat", "CollegeDunce"),
+            );
             dunceHat.SetColor("#741010");
-            const sign = char.Appearance.AddItem(AssetGet("ItemMisc", "WoodenSign"));
+            const sign = char.Appearance.AddItem(
+                AssetGet("ItemMisc", "WoodenSign"),
+            );
             sign.setProperty("Text", "Cheater");
             sign.setProperty("Text2", "");
         }

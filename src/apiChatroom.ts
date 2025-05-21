@@ -80,6 +80,10 @@ export class API_Chatroom extends EventEmitter {
         return this.data.Character.length;
     }
 
+    public set Admin(value: number[]) {
+        this.data.Admin = value;
+    }
+
     public update(data: Partial<API_Chatroom_Data>) {
         Object.assign(this.data, data);
         if (data.MapData) {
@@ -348,6 +352,16 @@ export class API_Chatroom extends EventEmitter {
         }
 
         return char;
+    }
+
+    public useMap(useMap: boolean)  {
+        if (useMap) {
+            this.data.MapData.Type = "Always";
+        }else{
+            this.data.MapData.Type = "Never";
+        }
+        console.log
+        this.conn.ChatRoomUpdate({ MapData: this.data.MapData });
     }
 
     private pruneCharacterCache() {

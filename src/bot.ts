@@ -35,6 +35,8 @@ export interface RopeyBot {
     game: string;
 }
 
+
+
 export async function startBot(): Promise<RopeyBot> {
     process.on("SIGINT", () => {
         console.log("SIGINT received, exiting");
@@ -131,7 +133,7 @@ export async function startBot(): Promise<RopeyBot> {
             new Casino(connector, db, config.casino);
             break;
         default:
-            console.log("No such game");
+            console.log("No such game " + config.game);
             process.exit(1);
     }
 

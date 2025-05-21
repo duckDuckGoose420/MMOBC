@@ -75,7 +75,7 @@ export class PetSpa {
         "This is an example to show how to use the ropeybot API to create a simple game.",
         "Commands:",
         "",
-        "/bot resisdents - List the current residents of the spa",
+        "/bot residents - List the current residents of the spa",
         "/bot freeandleave - Immediately removes any restraints added and kicks you from the room",
         "Code at https://github.com/FriendsOfBC/ropeybot",
     ].join("\n");

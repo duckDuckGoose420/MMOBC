@@ -265,7 +265,7 @@ export class API_Connector extends EventEmitter {
         } as ChatRoomAdmin;
         if (payload.Room.Limit !== undefined)
             payload.Room.Limit = payload.Room.Limit + "";
-        console.log("Updating chat room", payload);
+        //console.log("Updating chat room", payload);
         this.chatRoomAdmin(payload);
     }
 
@@ -420,7 +420,7 @@ export class API_Connector extends EventEmitter {
     };
 
     private onChatRoomSyncRoomProperties = (resp: API_Chatroom_Data) => {
-        console.log("sync room properties", resp);
+        //console.log("sync room properties", resp);
         this._chatRoom.update(resp);
 
         // sync some data back to the definition of the room we're joined to so that, after
@@ -521,7 +521,7 @@ export class API_Connector extends EventEmitter {
 
     private onChatRoomMessage = (msg: BC_Server_ChatRoomMessage) => {
         // Don't log BCX spam
-        if (msg.Type !== "Hidden" && !["BCXMsg", "BCEMsg", "LSCGMsg", "bctMsg", "MPA", "dogsMsg", "bccMsg", "ECHO_INFO2", "MoonCEBC"].includes(msg.Content)) {
+        if (msg.Type !== "Hidden" && !["BCXMsg", "BCEMsg", "LSCGMsg", "bctMsg", "MPA", "dogsMsg", "bccMsg", "ECHO_INFO2", "MoonCEBC"].includes(msg.Content) && msg.Sender !== this.Player.MemberNumber) {
             console.log("chat room message", msg);
         }
 
