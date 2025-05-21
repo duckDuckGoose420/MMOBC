@@ -52,9 +52,9 @@ The bot can either be run locally or via the Docker image.
  * Create a config file as in the steps for running locally
  * Run the bot, mapping in the config file you just made:
  `docker run --rm -it -v ${PWD}/config.json:/bot/cfg/config.json ghcr.io/FriendsOfBC/ropeybot:main`
- * Alternatively you can build the docker yourself:
+ * Alternatively you can build the docker container yourself:
  `docker build --tag ropeybot .`
- * And then run said docker with the config file mapped in
+ * And then run said container with the config file mapped in
  `docker run --rm -it -v ${PWD}/config.json:/bot/cfg/config.json ropeybot`
 
 ## Games

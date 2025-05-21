@@ -3,3 +3,7 @@ config.json
 out
 
 package-lock.json
+pnpm-lock.yaml
+
+config*.json
+!config.sample.json

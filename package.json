@@ -4,23 +4,24 @@
     "scripts": {
         "types": "tsc",
         "bundle": "esbuild src/main.ts --bundle --platform=node --outfile=out/bundle.js --sourcemap",
-        "start": "tsx src/main.ts"
+        "start": "tsx src/main.ts",
+        "docker": "pnpm run bundle && docker build -t ropeybot --no-cache ."
     },
     "dependencies": {
-        "bc-stubs": "^111.0.0",
+        "bc-stubs": "^116.0.0",
         "lodash": "^4.17.21",
         "lz-string": "^1.5.0",
-        "mongodb": "^6.9.0",
-        "prettier": "^3.3.3",
+        "mongodb": "^6.16.0",
+        "prettier": "^3.5.3",
         "prom-client": "^14.2.0",
-        "socket.io-client": "^4.7.2"
+        "socket.io-client": "^4.8.1"
     },
     "devDependencies": {
-        "@tsconfig/node18": "^18.2.1",
-        "@types/lodash": "^4.14.198",
-        "@types/node": "^20.6.0",
-        "esbuild": "^0.19.4",
-        "tsx": "^4.19.1",
-        "typescript": "^5.2.2"
+        "@tsconfig/node18": "^18.2.4",
+        "@types/lodash": "^4.17.17",
+        "@types/node": "^20.17.50",
+        "esbuild": "^0.19.12",
+        "tsx": "^4.19.4",
+        "typescript": "^5.8.3"
     }
 }
