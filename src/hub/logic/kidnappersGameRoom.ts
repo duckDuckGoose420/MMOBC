@@ -348,7 +348,7 @@ export class KidnappersGameRoom extends AdministrationLogic {
 	static readonly description = `
 KIDNAPPERS - The Game
 ===================================================================
-by D. Davidoff / A. Plotkin, room concept by Claudia & Clare, using EllieThePink's version of Jomshir's BotAPI
+by D. Davidoff / A. Plotkin, room concept by Claudia & Clare, using ropeybot.
 
 The game needs five to nine players. 'Kidnappers' is based on a social deduction game to some maybe known as 'Mafia' or 'Werewolf' (modern digital variants are 'Town of Salem' or 'Among us') and is a special variant the bondage club's Kidnappers League sometimes hosts for registered members of the league. One game takes around 30 minutes, depending on the amount of players.
 
@@ -472,7 +472,8 @@ Contact us
 You can whisper any feedback (including bug reports) for the authors of the room to the bot, by starting your message with '!feedback' (e.g. !feedback I want to tell you that...).
 In urgent cases, you can also contact EllieThePink, on BondageClub discord.
 
-This bot was created using EllieThePink's version of Jomshir's BotAPI.
+This bot is made with ropeybot, from Jomshir's original BotAPI code. Fixes and improvements welcome!
+https://github.com/FriendsOfBC/ropeybot
 `.trim();
 
 
