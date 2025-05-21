@@ -20,9 +20,7 @@ import { readFile } from "fs/promises";
 import { ConfigFile } from "./config";
 import { Db, MongoClient } from "mongodb";
 import { PetSpa } from "./games/petspa";
-import { Lillypad } from "./rooms/lillypad";
 import { MaidsPartyNightSinglePlayerAdventure } from "./hub/logic/maidsPartyNightSinglePlayerAdventure";
-import { DiceCasino } from "./games/diceCasino";
 import { Casino } from "./games/casino";
 
 const SERVER_URL = {
@@ -129,16 +127,6 @@ export async function startBot(): Promise<RopeyBot> {
             const petSpaGame = new PetSpa(connector);
             await petSpaGame.init();
             connector.setBotDescription(PetSpa.description);
-            break;
-        case "lillypad":
-            const lillypad = new Lillypad(connector, config);
-            await lillypad.init();
-            connector.setBotDescription(Lillypad.description);            
-            console.log("Starting map: Lillypad");
-            break;
-        case "dicecasino":
-            console.log("Starting game: Dice Casino");
-            const diceCasino = new DiceCasino(connector);
             break;
         case "casino":
             console.log("Starting game: Casino");
