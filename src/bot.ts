@@ -133,9 +133,7 @@ export async function startBot(): Promise<RopeyBot> {
             new Casino(connector, db, config.casino);
             break;
         default:
-            console.log(config.game)
-            console.log("config.game")
-            console.log("No such game");
+            console.log("No such game " + config.game);
             process.exit(1);
     }
 
