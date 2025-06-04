@@ -2,9 +2,7 @@
  * Copied from the original bot hub, with permission.
  */
 
-import { logger, BC_PermissionLevel } from "../../../src/api";
-import type { API_Connector } from "../../../src/apiConnector";
-import type { API_Character } from "../../../src/apiCharacter";
+import { logger, BC_PermissionLevel, type API_Connector, type API_Character, AssetGet, BC_Server_ChatRoomMessage } from "bc-bot";
 
 import promClient from "prom-client";
 
@@ -13,8 +11,6 @@ import { AdministrationLogic } from "./administrationLogic";
 import { MatchmakingNotifier } from "../gameroomMatchmaking";
 
 import _ from "lodash";
-import { AssetGet } from "../../../src/item";
-import { BC_Server_ChatRoomMessage } from "../../../src/logicEvent";
 import { ConfigFile } from "../../config";
 
 /** INSTRUCTIONS TO ADD A NEW ROLE

@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 
-import { RoomDefinition } from "../src/apiConnector";
-import { CasinoConfig } from "./games/casino";
+import { type RoomDefinition } from "bc-bot";
+import { type CasinoConfig } from "./games/casino";
 
 export interface ConfigFile {
     user: string;

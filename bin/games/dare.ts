@@ -13,11 +13,8 @@
  */
 
 import { readFile, writeFile } from "fs/promises";
-import { API_Connector } from "../../src/apiConnector";
-import { CommandParser } from "../../src/commandParser";
+import { API_Connector, CommandParser,API_Character,BC_Server_ChatRoomMessage, } from "bc-bot";
 import { wait } from "../hub/utils";
-import { API_Character } from "../../src/apiCharacter";
-import { BC_Server_ChatRoomMessage } from "../../src/logicEvent";
 
 export class Dare {
     public static description = `Dares

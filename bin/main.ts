@@ -12,8 +12,8 @@
  * limitations under the License.
  */
 
+import { API_Connector } from "bc-bot";
 import { KidnappersGameRoom } from "./hub/logic/kidnappersGameRoom";
-import { API_Connector } from "../src/apiConnector";
 import { RoleplaychallengeGameRoom } from "./hub/logic/roleplaychallengeGameRoom";
 import { Dare } from "./games/dare";
 import { readFile } from "fs/promises";
