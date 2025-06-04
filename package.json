@@ -3,8 +3,8 @@
     "license": "Apache-2.0",
     "scripts": {
         "types": "tsc",
-        "bundle": "esbuild src/main.ts --bundle --platform=node --outfile=out/bundle.js --sourcemap",
-        "start": "tsx src/main.ts",
+        "bundle": "esbuild bin/main.ts --bundle --platform=node --outfile=out/bundle.js --sourcemap",
+        "start": "tsx bin/main.ts",
         "docker": "pnpm run bundle && docker build -t ropeybot --no-cache ."
     },
     "dependencies": {

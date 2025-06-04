@@ -13,14 +13,14 @@
  */
 
 import { decompressFromBase64 } from "lz-string";
-import { API_Connector, CoordObject, MessageEvent } from "../apiConnector";
-import { makeDoorRegion, MapRegion } from "../apiMap";
-import { API_Character } from "../apiCharacter";
-import { AssetGet, BC_AppearanceItem } from "../item";
+import { API_Connector, CoordObject, MessageEvent } from "../../src/apiConnector";
+import { makeDoorRegion, MapRegion } from "../../src/apiMap";
+import { API_Character } from "../../src/apiCharacter";
+import { AssetGet, BC_AppearanceItem } from "../../src/item";
 import { wait } from "../hub/utils";
-import { CommandParser } from "../commandParser";
-import { BC_Server_ChatRoomMessage } from "../logicEvent";
-import { remainingTimeString } from "../util/time";
+import { CommandParser } from "../../src/commandParser";
+import { BC_Server_ChatRoomMessage } from "../../src/logicEvent";
+import { remainingTimeString } from "../../src/util/time";
 
 const RECEPTION_AREA: MapRegion = {
     TopLeft: { X: 13, Y: 11 },

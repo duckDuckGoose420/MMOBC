@@ -2,11 +2,11 @@
  * Copied from the original bot hub, with permission.
  */
 
-import { logger } from "../../api";
-import { API_Character } from "../../apiCharacter";
-import { API_Connector } from "../../apiConnector";
-import { LogicBase } from "../../logicBase";
-import { AnyCharacterEvent, BC_Server_AccountBeep, BC_Server_ChatRoomMessage } from "../../logicEvent";
+import { logger } from "../../../src/api";
+import { API_Character } from "../../../src/apiCharacter";
+import { API_Connector } from "../../../src/apiConnector";
+import { LogicBase } from "../../../src/logicBase";
+import { AnyCharacterEvent, BC_Server_AccountBeep, BC_Server_ChatRoomMessage } from "../../../src/logicEvent";
 
 export class LoggingLogic extends LogicBase {
 	/**

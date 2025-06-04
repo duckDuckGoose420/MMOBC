@@ -13,7 +13,7 @@
  */
 
 import { Collection, Db } from "mongodb";
-import { BC_AppearanceItem } from "../../item";
+import { BC_AppearanceItem } from "../../../src/item";
 
 export interface Player {
     memberNumber: number;

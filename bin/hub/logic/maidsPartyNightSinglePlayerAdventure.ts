@@ -5,18 +5,18 @@
 import promClient from "prom-client";
 
 import { wait } from "../utils";
-import * as JMod from "../../jmod"
+import * as JMod from "../../../src/jmod"
 
 const SUPERUSERS: number[] = [];
 
 import _ from "lodash";
 import fs from "fs";
 import { LoggingLogic } from "./loggingLogic";
-import { API_Character } from "../../apiCharacter";
-import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../../item";
-import { logger } from "../../api";
-import { API_Connector } from "../../apiConnector";
-import { AnyCharacterEvent, BC_Server_ChatRoomMessage } from "../../logicEvent";
+import { API_Character } from "../../../src/apiCharacter";
+import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../../../src/item";
+import { logger } from "../../../src/api";
+import { API_Connector } from "../../../src/apiConnector";
+import { AnyCharacterEvent, BC_Server_ChatRoomMessage } from "../../../src/logicEvent";
 
 /** The following enums are structuring the overall story scene and have values that
  * mean "Chapter-Part-Branch" with nomenclature [C00-C99]-[P00-P99]-[A-Z]-[*] or END */

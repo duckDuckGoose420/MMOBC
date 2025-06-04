@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 
-import { API_Character } from "../../apiCharacter";
-import { API_Connector } from "../../apiConnector";
-import { BC_Server_ChatRoomMessage } from "../../logicEvent";
+import { API_Character } from "../../../src/apiCharacter";
+import { API_Connector } from "../../../src/apiConnector";
+import { BC_Server_ChatRoomMessage } from "../../../src/logicEvent";
 import { FORFEITS } from "./forfeits";
 
 export const ROULETTEHELP = `

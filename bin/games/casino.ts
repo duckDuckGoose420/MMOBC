@@ -13,22 +13,22 @@
  */
 
 import { Db } from "mongodb";
-import { API_Connector } from "../apiConnector";
-import { CommandParser } from "../commandParser";
+import { API_Connector } from "../../src/apiConnector";
+import { CommandParser } from "../../src/commandParser";
 import {
     RouletteBet,
     rouletteColors,
     RouletteGame,
     ROULETTEHELP,
 } from "./casino/roulette";
-import { API_Character, ItemPermissionLevel } from "../apiCharacter";
-import { BC_Server_ChatRoomMessage, TBeepType } from "../logicEvent";
+import { API_Character, ItemPermissionLevel } from "../../src/apiCharacter";
+import { BC_Server_ChatRoomMessage, TBeepType } from "../../src/logicEvent";
 import { CasinoStore, Player } from "./casino/casinostore";
 import { ROULETTE_WHEEL } from "./casino/rouletteWheelBundle";
-import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../item";
+import { API_AppearanceItem, AssetGet, BC_AppearanceItem } from "../../src/item";
 import { wait } from "../hub/utils";
-import { remainingTimeString } from "../util/time";
-import { importBundle } from "../appearance";
+import { remainingTimeString } from "../../src/util/time";
+import { importBundle } from "../../src/appearance";
 import {
     FORFEITS,
     forfeitsString,
@@ -37,7 +37,7 @@ import {
     servicesString,
 } from "./casino/forfeits";
 import { Cocktail, COCKTAILS } from "./casino/cocktails";
-import { generatePassword } from "../util/string";
+import { generatePassword } from "../../src/util/string";
 
 const FREE_CHIPS = 20;
 const TIME_UNTIL_SPIN_MS = 60000;
