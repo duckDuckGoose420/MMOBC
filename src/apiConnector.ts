@@ -22,7 +22,7 @@ import { compressToUTF16 } from "lz-string";
 import { EventEmitter } from "stream";
 import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
 import { SocketWrapper } from "./socketWrapper";
-import { wait } from "./hub/utils";
+import { wait } from "./util/wait";
 
 export enum LeaveReason {
     DISCONNECT = "ServerDisconnect",

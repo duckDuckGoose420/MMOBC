@@ -14,7 +14,7 @@
 
 import { API_Character, API_Character_Data } from "./apiCharacter";
 import { isBind, isBody, isClothing, isCosplay } from "./assetHelpers";
-import { wait } from "./hub/utils";
+import { wait } from "./util/wait";
 import { API_AppearanceItem, BC_AppearanceItem } from "./item";
 import { decompressFromBase64, compressToBase64 } from "lz-string";
 
