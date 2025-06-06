@@ -118,7 +118,22 @@ interface OnlineFriendResult {
     Type: string;
 }
 
-export class API_Connector extends EventEmitter {
+interface ConnectorEvents {
+    PoseChange: [{character: API_Character}];
+    Message: [message: MessageEvent];
+    Beep: [{ payload: TBeepType }];
+    RoomJoin: [];
+    RoomCreate: [];
+    CharacterEntered: [character: API_Character];
+    CharacterLeft: [{
+        sourceMemberNumber: number,
+        character: API_Character,
+        leaveMessage: string | null,
+        intentional: boolean,
+    }];
+}
+
+export class API_Connector extends EventEmitter<ConnectorEvents> {
     private sock: Socket;
     private wrappedSock: SocketWrapper;
     private _player: API_Character | undefined;
