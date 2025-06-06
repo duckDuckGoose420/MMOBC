@@ -76,7 +76,11 @@ export function makeDoorRegion(
     return region;
 }
 
-export class API_Map extends EventEmitter {
+interface MapEvents {
+    MapUpdate: [];
+}
+
+export class API_Map extends EventEmitter<MapEvents> {
     private updateTask: NodeJS.Immediate;
     private tileTriggers = new Map<number, TileTrigger[]>();
     private enterRegionTriggers: RegionTrigger[] = [];

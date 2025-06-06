@@ -40,7 +40,13 @@ export interface API_Chatroom_Data {
     MapData?: ServerChatRoomMapData;
 }
 
-export class API_Chatroom extends EventEmitter {
+interface ChatRoomEvents {
+    ItemAdd: [character: API_Character, item: API_AppearanceItem];
+    ItemRemove: [character: API_Character, items: API_AppearanceItem[]];
+    ItemChange: [character: API_Character, oldItem: API_AppearanceItem, newItem: API_AppearanceItem];
+}
+
+export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
     private characterCache = new Map<number, API_Character>();
 
     private reorderWatcher = new EventEmitter();
