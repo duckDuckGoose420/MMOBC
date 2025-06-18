@@ -13,11 +13,11 @@
  */
 
 import { decompressFromBase64 } from "lz-string";
-import { API_Character } from "./apiCharacter";
-import { API_Chatroom_Data } from "./apiChatroom";
-import { API_Connector } from "./apiConnector";
+import { API_Character } from "./apiCharacter.ts";
+import { API_Chatroom_Data } from "./apiChatroom.ts";
+import { API_Connector } from "./apiConnector.ts";
 import { EventEmitter } from "stream";
-import { ChatRoomMapViewObjectList, ChatRoomMapViewTileList } from "./bcdata/ChatRoomMap";
+import { ChatRoomMapViewObjectList, ChatRoomMapViewTileList } from "./bcdata/ChatRoomMap.ts";
 
 export interface MapRegion {
     TopLeft: ChatRoomMapPos;

@@ -13,10 +13,10 @@
  */
 
 import { EventEmitter } from "stream";
-import { API_Character, API_Character_Data } from "./apiCharacter";
-import { API_Connector, SingleItemUpdate } from "./apiConnector";
-import { API_Map } from "./apiMap";
-import { API_AppearanceItem } from "./item";
+import { API_Character, API_Character_Data } from "./apiCharacter.ts";
+import { API_Connector, SingleItemUpdate } from "./apiConnector.ts";
+import { API_Map } from "./apiMap.ts";
+import { API_AppearanceItem } from "./item.ts";
 
 export type ChatRoomAccessVisibility = "All" | "Whitelist" | "Admin";
 

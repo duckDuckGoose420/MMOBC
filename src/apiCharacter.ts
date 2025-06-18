@@ -12,10 +12,10 @@
  * limitations under the License.
  */
 
-import { API_Chatroom } from "./apiChatroom";
-import { API_Connector, TellType } from "./apiConnector";
-import { AppearanceType } from "./appearance";
-import { BC_AppearanceItem } from "./item";
+import { API_Chatroom } from "./apiChatroom.ts";
+import { API_Connector, TellType } from "./apiConnector.ts";
+import { AppearanceType } from "./appearance.ts";
+import { BC_AppearanceItem } from "./item.ts";
 
 interface PoseObject {
     Name: string;

@@ -13,16 +13,16 @@
  */
 
 import { io } from "socket.io-client";
-import { API_Character, API_Character_Data, ItemPermissionLevel } from "./apiCharacter";
-import { API_Chatroom, API_Chatroom_Data, ChatRoomAccessVisibility } from "./apiChatroom";
+import { API_Character, API_Character_Data, ItemPermissionLevel } from "./apiCharacter.ts";
+import { API_Chatroom, API_Chatroom_Data, ChatRoomAccessVisibility } from "./apiChatroom.ts";
 import { Socket } from "socket.io-client";
-import { LogicBase } from "./logicBase";
-import { API_AppearanceItem, BC_AppearanceItem } from "./item";
+import { LogicBase } from "./logicBase.ts";
+import { API_AppearanceItem, BC_AppearanceItem } from "./item.ts";
 import { compressToUTF16 } from "lz-string";
 import { EventEmitter } from "stream";
-import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent";
-import { SocketWrapper } from "./socketWrapper";
-import { wait } from "./util/wait";
+import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent.ts";
+import { SocketWrapper } from "./socketWrapper.ts";
+import { wait } from "./util/wait.ts";
 
 export enum LeaveReason {
     DISCONNECT = "ServerDisconnect",
