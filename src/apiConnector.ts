@@ -340,7 +340,7 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
     };
 
     private onServerInfo = (info: any) => {
-        console.log("Server info: ", info);
+        //console.log("Server info: ", info);
     };
 
     private onLoginResponse = (resp: API_Character_Data) => {
@@ -513,7 +513,7 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
     };
 
     private onChatRoomSyncItem = (update: SyncItemPayload) => {
-        console.log("Chat room sync item", update);
+        //console.log("Chat room sync item", update);
         this._chatRoom.characterItemUpdate(update.Item);
         if (update.Item.Target === this._player.MemberNumber) {
             const payload = {
@@ -525,7 +525,7 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
     };
 
     private onChatRoomSyncMapData = (update: SyncMapDataPayload) => {
-        console.log("chat room map data", update);
+        //console.log("chat room map data", update);
         this._chatRoom.mapPositionUpdate(update.MemberNumber, update.MapData.Pos);
     };
 
