@@ -4,3 +4,7 @@ dist/
 
 config*.json
 !config.sample.json
+/.vs/MMOBC/FileContentIndex
+/.vs/MMOBC/v17
+.vs/slnx.sqlite
+players

@@ -8,7 +8,7 @@ export interface IQuest {
     failMessage: string;
 
     prerequisite(): boolean;
-    failCondition(): boolean;
+    failCondition(gracePeriod: Map<number,number>): boolean;
     successCondition(): boolean;
     bonus(): boolean;
 

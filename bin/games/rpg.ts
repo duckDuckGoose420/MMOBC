@@ -34,8 +34,9 @@ const ENTER_INTRODUCTION_AREA: MapRegion = {
     TopLeft: { X: 0, Y: 14 },
     BottomRight: { X: 4, Y: 23 },
 };
-const REROLL_CD = 5 * 60 * 1000;
-const QUEST_CD = 15 * 60 * 1000;
+const REROLL_CD = 3 * 60 * 1000;
+const QUEST_CD = 10 * 60 * 1000;
+const GRACE_PERIOD = 20 * 60 * 1000;
 export class RPG {
 
     private isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
@@ -44,6 +45,7 @@ export class RPG {
         "This is a WIP for a quest based bondage room.",
         "Commands:",
         "",
+        "/bot help - Will show these commands",
         "/bot quest - Check the quest currently assigned to you",
         "/bot reroll - Cancel your current quest, you can use this every 10 mins",
         "/bot stats - Check your money and level",
@@ -56,8 +58,18 @@ export class RPG {
         "Developed with https://github.com/FriendsOfBC/ropeybot",
     ].join("\n");
 
+    public static helpText = [
+        "( /bot help - Will show these commands",
+        "/bot quest - Check the quest currently assigned to you",
+        "/bot reroll - Cancel your current quest, you can use this every 10 mins",
+        "/bot stats - Check your money and level",
+        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
+        "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
+    ].join("\n");
+
     private rerollCD = new Map<number, number>();    
     private questCD = new Map<number, number>();
+    private gracePeriods = new Map<number, number>();
     private commandParser: CommandParser;
     private questManager: QuestManager;
     private playerService: PlayerService = new PlayerService();
@@ -76,6 +88,7 @@ export class RPG {
         this.commandParser.register("stats", this.onCommandStats.bind(this));
         this.commandParser.register("buy", this.onCommandBuy.bind(this));
         this.commandParser.register("bounty", this.onCommandBounty.bind(this));
+        this.commandParser.register("help", this.onCommandHelp.bind(this));
     }
 
     public async init(): Promise<void> {
@@ -220,6 +233,10 @@ export class RPG {
         }
     }
 
+    private onCommandHelp = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        this.conn.SendMessage("Whisper", RPG.helpText, sender.MemberNumber);
+    }
+
     private canReroll(memberNumber: number): boolean {
         const cooldown = this.rerollCD.get(memberNumber);
         if (!cooldown)
@@ -277,25 +294,27 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
     }
 
     private runLoop() {
-        this.questManager.assignQuests(this.conn, this.questCD);
-        const failedQuests = this.questManager.cancelQuests();
-        for (const quest of failedQuests) {
-            this.conn.SendMessage("Whisper", quest.failMessage, quest.owner);
-            this.questCD.delete(quest.owner);
-        }
+        
+        
 
         const completedQuests = this.questManager.completeQuests();
         for (const quest of completedQuests) {
-            
             let player = this.playerService.get(quest.owner);
             player.money += 100;
             this.playerService.save(player);
             this.questCD.set(quest.owner, Date.now() + (QUEST_CD));
-            this.conn.SendMessage("Whisper", "(You've completed your quest! Enjoy your time with the target, you'll be assigned a new one in " + remainingTimeString(Date.now() + QUEST_CD) + ")", quest.owner);
+            this.gracePeriods.set(quest.owner, Date.now() + (GRACE_PERIOD));
+            this.conn.SendMessage("Whisper", "(You've completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private [partner]\" [TODO] )", quest.owner);
         }
 
+        const failedQuests = this.questManager.cancelQuests(this.gracePeriods);
+        for (const quest of failedQuests) {
+            this.conn.SendMessage("Whisper", quest.failMessage, quest.owner);
+            this.questCD.delete(quest.owner);
+        }
+        this.questManager.assignQuests(this.conn, this.questCD, this.gracePeriods);
+
         this.checkBounties();
-        
     }
 
 

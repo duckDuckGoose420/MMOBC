@@ -9,8 +9,8 @@ export class LockQuest extends AbstractQuest {
     }
 
     // In short, if someone else locked the target's arms, 
-    failCondition(): boolean {
-        if (super.failCondition())
+    failCondition(gracePeriods: Map<number, number>): boolean {
+        if (super.failCondition(gracePeriods))
             return true;
         const lockOwner = this.chatRoom
             .findMember(this.targetPlayer)

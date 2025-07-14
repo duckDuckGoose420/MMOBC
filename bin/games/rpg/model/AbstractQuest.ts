@@ -18,10 +18,15 @@ export abstract class AbstractQuest implements IQuest {
     
     abstract prerequisite(): boolean;
 
-    failCondition() {
+    failCondition(gracePeriods: Map<number, number>) {
         let c = this.chatRoom.findMember(this.targetPlayer);
         if (c == null) {
             this.failMessage = "(Your quest target left the room, you'll be assigned a new quest)";
+            return true;
+        }
+        const grace = gracePeriods.get(this.targetPlayer);
+        if (grace && Date.now() < grace) {
+            this.failMessage = "(Your quest target completed their quest, we'll give you a new quest to not bother their possible session)";
             return true;
         }
         return false;

@@ -52,10 +52,10 @@ export class QuestManager {
         return null;
     }
 
-    cancelQuests(): IQuest[] {
+    cancelQuests(gracePeriods: Map<number, number>): IQuest[] {
         const [active, canceled]: [IQuest[], IQuest[]] = [[], []];
         for (const quest of this.quests.getAll()) {
-            if (!quest.failCondition()) {
+            if (!quest.failCondition(gracePeriods)) {
                 active.push(quest);
             } else {
                 canceled.push(quest);
@@ -82,21 +82,21 @@ export class QuestManager {
             return false;
     }
 
-    assignQuests(conn: API_Connector, questCD: Map<number, number>): void {
+    assignQuests(conn: API_Connector, questCD: Map<number, number>, gracePeriods: Map<number, number>): void {
         this.chatRoom.characters.forEach((character) => {
             if (!this.playerHasQuestAssigned(character.MemberNumber) && this.isPlayerSafe.get(character.MemberNumber) == false && !this.isQuestAssignmentInCD(questCD, character.MemberNumber)) {
-                this.assignQuestToPlayer(conn, character.MemberNumber);
+                this.assignQuestToPlayer(conn, character.MemberNumber, gracePeriods);
             }
         });
     }
 
-    async assignQuestToPlayer(conn: API_Connector, memberNumber: number): void {
+    async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods:Map<number,number>): void {
         const maxAttempts = 10;
 
         for (let i = 0; i < maxAttempts; i++) {
             const quest = this.generateRandomQuest(memberNumber);
 
-            if (quest) {
+            if (quest && !this.isInGracePeriod(gracePeriods, quest.targetPlayer)) {
                 this.quests.add(quest);
                 conn.SendMessage("Whisper", "(You've been assigned a new quest, you can check it with /bot quest)", memberNumber);
                 return;
@@ -148,5 +148,13 @@ export class QuestManager {
             return false;
         else
             return true;
+    }
+
+    private isInGracePeriod(gracePeriods: Map<number, number>, targetPlayer: number) {
+        const grace = gracePeriods.get(targetPlayer);
+        if (grace && Date.now() < grace) {
+            return true;
+        } else
+            return false;
     }
 }
