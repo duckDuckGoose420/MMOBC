@@ -360,7 +360,7 @@ export function getExtendedAssetDef(
 ): AssetArchetypeConfig {
     const grp = AssetFemale3DCGExtended[desc.Group];
     if (!grp) {
-        console.warn("Invalid item group: " + desc.Group);
+        //console.warn("Invalid item group: " + desc.Group);
         return undefined;
     }
 

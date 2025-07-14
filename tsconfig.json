@@ -1,11 +1,12 @@
 {
   "compilerOptions": {
-      "allowJs": true,
-      "noEmit": true,
-      "strict": false,
-      "module": "nodenext",
-      "moduleResolution": "nodenext",
-      "esModuleInterop": true
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "strict": false,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true
   },
   "extends": "@tsconfig/node18/tsconfig.json",
   "include": [

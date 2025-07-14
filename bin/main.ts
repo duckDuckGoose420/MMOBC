@@ -22,6 +22,7 @@ import { Db, MongoClient } from "mongodb";
 import { PetSpa } from "./games/petspa";
 import { MaidsPartyNightSinglePlayerAdventure } from "./hub/logic/maidsPartyNightSinglePlayerAdventure";
 import { Casino } from "./games/casino";
+import { RPG } from "./games/rpg";
 
 const SERVER_URL = {
     live: "https://bondage-club-server.herokuapp.com/",
@@ -131,6 +132,12 @@ export async function startBot(): Promise<RopeyBot> {
         case "casino":
             console.log("Starting game: Casino");
             new Casino(connector, db, config.casino);
+            break;
+        case "rpg":
+            console.log("Starting game: RPG");
+            const rpgGame = new RPG(connector);
+            await rpgGame.init();
+            connector.setBotDescription(RPG.description);
             break;
         default:
             console.log("No such game " + config.game);
