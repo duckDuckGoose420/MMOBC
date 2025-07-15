@@ -33,7 +33,6 @@ class QuestList {
 }
 
 export class QuestManager {
-    
     quests: QuestList;
     private chatRoom: API_Chatroom;
     private isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
@@ -82,23 +81,23 @@ export class QuestManager {
             return false;
     }
 
-    assignQuests(conn: API_Connector, questCD: Map<number, number>, gracePeriods: Map<number, number>): void {
+    assignQuests(conn: API_Connector, questCD: Map<number, number>, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): void {
         this.chatRoom.characters.forEach((character) => {
             if (!this.playerHasQuestAssigned(character.MemberNumber) && this.isPlayerSafe.get(character.MemberNumber) == false && !this.isQuestAssignmentInCD(questCD, character.MemberNumber)) {
-                this.assignQuestToPlayer(conn, character.MemberNumber, gracePeriods);
+                this.assignQuestToPlayer(conn, character.MemberNumber, gracePeriods, lastTargetBeforeReroll);
             }
         });
     }
 
-    async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods:Map<number,number>): void {
+    async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): void {
         const maxAttempts = 10;
 
         for (let i = 0; i < maxAttempts; i++) {
             const quest = this.generateRandomQuest(memberNumber);
-
-            if (quest && !this.isInGracePeriod(gracePeriods, quest.targetPlayer)) {
+            const lastTarget = lastTargetBeforeReroll.get(memberNumber);
+            if (quest && !this.isInGracePeriod(gracePeriods, quest.targetPlayer) && quest.targetPlayer != lastTarget) {
                 this.quests.add(quest);
-                conn.SendMessage("Whisper", "(You've been assigned a new quest, you can check it with /bot quest)", memberNumber);
+                conn.SendMessage("Whisper", "(You've been assigned a new quest, you can check it with /bot quest. If you don't like your target or they're busy, you can /bot reroll)", memberNumber);
                 return;
             }
 

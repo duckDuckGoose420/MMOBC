@@ -41,13 +41,15 @@ export class RPG {
 
     private isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
     private bounties: Map<number, number> = new Map<number, number>();
+    private lastTargetBeforeReroll: Map<number, number> = new Map<number, number>();
+
     public static description = [
         "This is a WIP for a quest based bondage room.",
         "Commands:",
         "",
         "/bot help - Will show these commands",
         "/bot quest - Check the quest currently assigned to you",
-        "/bot reroll - Cancel your current quest, you can use this every 10 mins",
+        "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot stats - Check your money and level",
         "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
@@ -61,7 +63,7 @@ export class RPG {
     public static helpText = [
         "( /bot help - Will show these commands",
         "/bot quest - Check the quest currently assigned to you",
-        "/bot reroll - Cancel your current quest, you can use this every 10 mins",
+        "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot stats - Check your money and level",
         "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
@@ -131,6 +133,8 @@ export class RPG {
             LEAVE_SAFE_AREA_1,
             this.onLeaveSafeArea.bind(this)
         );
+
+        this.conn.chatRoom.map.addLeaveRegionTrigger
     };
 
     
@@ -167,6 +171,10 @@ export class RPG {
         args: string[],
     ) => {
         if (this.canReroll(sender.MemberNumber)) {
+            const currentQuest = this.questManager.playerHasQuestAssigned(sender.MemberNumber);
+            if (currentQuest) {
+                this.lastTargetBeforeReroll.set(sender.MemberNumber, currentQuest.targetPlayer);
+            }
             this.questManager.cancelQuestForPlayer(sender.MemberNumber);
             this.rerollCD.set(sender.MemberNumber, Date.now() + (REROLL_CD));
             this.conn.SendMessage("Whisper", "(Your quest has been cancelled, you'll receive a new one in a short time)", sender.MemberNumber);
@@ -295,8 +303,6 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
     private runLoop() {
         
-        
-
         const completedQuests = this.questManager.completeQuests();
         for (const quest of completedQuests) {
             let player = this.playerService.get(quest.owner);
@@ -312,7 +318,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             this.conn.SendMessage("Whisper", quest.failMessage, quest.owner);
             this.questCD.delete(quest.owner);
         }
-        this.questManager.assignQuests(this.conn, this.questCD, this.gracePeriods);
+        this.questManager.assignQuests(this.conn, this.questCD, this.gracePeriods, this.lastTargetBeforeReroll);
 
         this.checkBounties();
     }
