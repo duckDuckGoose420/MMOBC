@@ -140,6 +140,12 @@ export class API_Character {
         return this.data.MapData ?? { X: 0, Y: 0 };
     }
 
+    public mapTeleport(pos: ChatRoomMapPos): void {
+        this.connection.SendMessage("Hidden", "ChatRoomMapViewTeleport", this.MemberNumber, [
+            {Tag: "MapViewTeleport", Position: pos}
+        ]);
+    }
+
     public IsRoomAdmin(): boolean {
         return this.chatRoom.Admin.includes(this.MemberNumber);
     }
