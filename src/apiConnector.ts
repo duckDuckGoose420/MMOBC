@@ -31,7 +31,7 @@ export enum LeaveReason {
     BAN = "ServerBan",
 }
 
-export type TellType = "Whisper" | "Chat" | "Emote" | "Activity";
+export type TellType = "Whisper" | "Chat" | "Emote" | "Activity" | "Hidden";
 
 export interface RoomDefinition {
     Name: string;
@@ -66,7 +66,7 @@ export interface SyncMapDataPayload {
 }
 
 // What the bot advertises as its game version
-const GAMEVERSION = "R116";
+const GAMEVERSION = "R118";
 const LZSTRING_MAGIC = "╬";
 
 class PromiseResolve<T> {
