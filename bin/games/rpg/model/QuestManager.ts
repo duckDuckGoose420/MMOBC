@@ -97,7 +97,7 @@ export class QuestManager {
             const lastTarget = lastTargetBeforeReroll.get(memberNumber);
             if (quest && !this.isInGracePeriod(gracePeriods, quest.targetPlayer) && quest.targetPlayer != lastTarget) {
                 this.quests.add(quest);
-                conn.SendMessage("Whisper", "(You've been assigned a new quest, you can check it with /bot quest. If you don't like your target or they're busy, you can /bot reroll)", memberNumber);
+                conn.SendMessage("Whisper", "(You've been assigned a new quest, you can check it with /bot quest. If you don't like your target, can't find it or they're busy, you can /bot reroll)", memberNumber);
                 return;
             }
 

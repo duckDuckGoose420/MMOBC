@@ -20,6 +20,8 @@ import { QuestManager } from "./rpg/model/QuestManager";
 import { PlayerService } from "./rpg/service/PlayerService";
 import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
+import { wait } from "../hub/utils";
+import { FeedbackService } from "./rpg/service/FeedbackService";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -45,7 +47,8 @@ const QUEST_CD = 10 * 60 * 1000;
 const GRACE_PERIOD = 20 * 60 * 1000;
 const PRIVATE_CONFIRMATION_DURATION = 2 * 60 * 1000;
 const PRIVATE_ROOM_COST = 100;
-const PRIVATE_ROOM_SPAWN: ChatRoomMapPos = { X: 19, Y: 3 };
+const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
+const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
 
 export class RPG {
     private isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
@@ -60,22 +63,33 @@ export class RPG {
         "/bot quest - Check the quest currently assigned to you",
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot stats - Check your money and level",
-        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
+        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "",
-        "If you have any suggestion, advice, complaints, bug report, anything is very appreciated, and can be given to Irinoa if she's in the room. Just remember this is very early development so more kind of quests and mechanics are already planned, I don't need much a feedback about how there is yet a low amount of content, but suggestions on what specific content you would like to see.",
+        "Private room commands:",
+        "/bot private buy [memberNumber] - Cost 100: Buy access to the private room so you can play with someone without interference from other players",
+        "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
+        "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept",
+        "",
+        "/bot feedback [your message] - ",
+        "Use this command to send suggestions, advice, complaints, bug reports, or anything else you'd like me to see. I'll read every message as soon as possible. Constructive criticism is welcome and helpful - just keep it polite.",
+        "Important: Your current name and member number will be saved with your message for context. If that's not something you're comfortable with, feel free to skip leaving feedback.",
         "",
         "Developed with https://github.com/FriendsOfBC/ropeybot",
     ].join("\n");
 
     public static helpText = [
-        "( /bot help - Will show these commands",
+        "(",
+        "/bot help - Will show these commands",
         "/bot quest - Check the quest currently assigned to you",
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot stats - Check your money and level",
-        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
+        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
+        "/bot private buy [memberNumber] - Cost 100: Buy access to the private room so you can play with someone without interference from other players",
+        "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
+        "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept"
     ].join("\n");
 
     private rerollCD = new Map<number, number>();
@@ -84,6 +98,7 @@ export class RPG {
     private commandParser: CommandParser;
     private questManager: QuestManager;
     private playerService: PlayerService = new PlayerService();
+    private feedbackService: FeedbackService = new FeedbackService();
 
     public constructor(private conn: API_Connector) {
         this.commandParser = new CommandParser(this.conn);
@@ -100,8 +115,9 @@ export class RPG {
         this.commandParser.register("buy", this.onCommandBuy.bind(this));
         this.commandParser.register("bounty", this.onCommandBounty.bind(this));
         this.commandParser.register("help", this.onCommandHelp.bind(this));
-        this.commandParser.register("claim", this.onCommandClaim.bind(this));
+        //this.commandParser.register("claim", this.onCommandClaim.bind(this));
         this.commandParser.register("private", this.onCommandPrivate.bind(this));
+        this.commandParser.register("feedback", this.onCommandFeedback.bind(this));
     }
 
     public async init(): Promise<void> {
@@ -145,7 +161,6 @@ export class RPG {
             this.onLeaveSafeArea.bind(this)
         );
 
-        this.conn.chatRoom.map.addLeaveRegionTrigger
     };
 
 
@@ -216,19 +231,13 @@ export class RPG {
                     Util.freeCharacter(sender);
                 }
                 break;
-            case 'private':
-                if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
-                    this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
-                    return;
-                }
-                this.handleBuyPrivateCommand(sender.MemberNumber, Number(args[1]));
-                break;
+            
             default:
                 this.conn.SendMessage("Whisper",
                     `(Use one of these:
 /bot buy release`, sender.MemberNumber);
                 break;
-
+            
         }
     }
 
@@ -263,34 +272,24 @@ export class RPG {
         this.conn.SendMessage("Whisper", RPG.helpText, sender.MemberNumber);
     }
 
-    private onCommandClaim = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
-        if (args.length == 0) {
-            this.conn.SendMessage("Whisper",
-                `(Use one of these:
-/bot claim private [memberNumber]`, sender.MemberNumber);
-            return;
-        }
+    private onCommandPrivate = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
         switch (args[0]) {
-            case 'private':
+            case 'buy':
+                if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
+                    this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
+                    return;
+                }
+                this.handleBuyPrivateCommand(sender.MemberNumber, Number(args[1]));
+                break;
+
+            case 'claim':
                 if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
                     this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
                     return;
                 }
                 this.handleClaimPrivateCommand(sender.MemberNumber, Number(args[1]));
                 break;
-            default:
-                this.conn.SendMessage("Whisper",
-                    `(Use one of these:
-/bot claim private [memberNumber]`, sender.MemberNumber);
-                break;
 
-        }
-    }
-
-    private onCommandPrivate = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
-        if (args.length != 1)
-            return;
-        switch (args[0]) {
             case 'confirm':
 
                 const request = this.privatePlayRequests.get(sender.MemberNumber);
@@ -308,13 +307,31 @@ export class RPG {
                     requestingPlayer.money -= request.cost;
                     this.playerService.save(requestingPlayer);
 
-                    this.startPrivatePlay(sender.MemberNumber);
-                    this.startPrivatePlay(request.requestingPlayer);
+                    this.startPrivatePlay(sender.MemberNumber, PRIVATE_ROOM_SPAWN_1);
+                    this.startPrivatePlay(request.requestingPlayer, PRIVATE_ROOM_SPAWN_2);
                 } else {
                     console.log("Private room is not empty");
                 }
                 break;
+            case 'check':
+                if (this.isPrivateRoomEmpty()) {
+                    this.conn.SendMessage("Whisper", "(Private room is empty)", sender.MemberNumber);
+                } else {
+                    this.conn.SendMessage("Whisper", "(Private room is currently in use)", sender.MemberNumber);
+                }
+                break;
         }
+    }
+
+    private onCommandFeedback = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        this.feedbackService.appendFeedback(msg.Content, sender.MemberNumber, sender.toString());
+        this.conn.SendMessage("Whisper", `(Your message has been saved - I'll read it soon.  
+
+If I have any follow-up questions, I might contact you while you're in the room, when the timing is appropriate.  
+If you see me (Irinoa) around and want to reach out directly, feel free to do so.  
+
+Thanks for your feedback!)`);
+
     }
 
     private canReroll(memberNumber: number): boolean {
@@ -353,18 +370,19 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
     isPrivateRoomEmpty(): boolean {
         for (const c of this.conn.chatRoom.characters) {
-            if (positionIsInRegion(c.MapPos, PRIVATE_ROOM_AREA))
+            let updatedPos = { X: c.MapPos.X, Y: c.MapPos.Y };
+            if (updatedPos.X === undefined)
+                updatedPos = c.MapPos;
+            if (positionIsInRegion(updatedPos, PRIVATE_ROOM_AREA))
                 return false;
         }
         return true;
     }
 
-    startPrivatePlay(memberNumber: number) {
-        console.log(`Teleporting ${memberNumber} to {${PRIVATE_ROOM_SPAWN.X}, ${PRIVATE_ROOM_SPAWN.Y}}`);
+    startPrivatePlay(memberNumber: number, pos: ChatRoomMapPos) {
+        console.log(`Teleporting ${memberNumber} to {${pos.X}, ${pos.Y}}`);
 
-        // Add teleportation here
-        // this.conn.chatRoom.mapPositionUpdate(memberNumber, PRIVATE_ROOM_SPAWN);
-        
+        this.conn.chatRoom.findMember(memberNumber).mapTeleport(pos);        
     }
 
     private checkBounties() {
@@ -396,10 +414,16 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             return;
         }
 
+        if (!this.isPrivateRoomEmpty()) {
+            this.conn.SendMessage("Whisper", "(At this moment the private room is in use by someone, once it's empty another couple can get inside)", player);
+            return;
+        }
+
         // if all the conditions passes the player can start the process to go into the private room with their partner. We register the pair and ask the partner to accept
         this.privatePlayRequests.set(partner, { requestingPlayer: player, expiration: Date.now() + PRIVATE_CONFIRMATION_DURATION, cost: PRIVATE_ROOM_COST });
         const requester = this.conn.chatRoom.findMember(player);
         this.conn.SendMessage("Whisper", `(${requester.toString()} wants you to join them in the private room. If you want to take on the offer type "/bot private confirm", you'll be moved with them in it')`, partner);
+        this.conn.SendMessage("Whisper", `(The offer has been sent, if they accept you'll both be brought in the private room)`, player);
     }
 
     private handleClaimPrivateCommand(player: number, partner: number) {
@@ -412,10 +436,16 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             return;
         }
 
+        if (!this.isPrivateRoomEmpty()) {
+            this.conn.SendMessage("Whisper", "(At this moment the private room is in use by someone, once it's empty another couple can get inside)", player);
+            return;
+        }
+
         // if all the conditions passes the player can start the process to go into the private room with their partner. We register the pair and ask the partner to accept
         this.privatePlayRequests.set(partner, { requestingPlayer: player, expiration: Date.now() + PRIVATE_CONFIRMATION_DURATION, cost: 0 });
         const requester = this.conn.chatRoom.findMember(player);
         this.conn.SendMessage("Whisper", `(${requester.toString()} wants you to join them in the private room. If you want to take on the offer type "/bot private confirm", you'll be moved with them in it')`, partner);
+        this.conn.SendMessage("Whisper", `(The offer has been sent, if they accept you'll both be brought in the private room)`, player);
     }
 
     private runLoop() {
@@ -427,7 +457,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             this.playerService.save(player);
             this.questCD.set(quest.owner, Date.now() + (QUEST_CD));
             this.gracePeriods.set(quest.owner, Date.now() + (GRACE_PERIOD));
-            this.conn.SendMessage("Whisper", "(You've completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot claim private [partner]\" [TODO] )", quest.owner);
+            this.conn.SendMessage("Whisper", "(You've completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [memberNumber]\")", quest.owner);
         }
 
         const failedQuests = this.questManager.cancelQuests(this.gracePeriods);

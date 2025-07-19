@@ -25,6 +25,7 @@ const CLOTHING_SLOTS = [
 	'Cloth',
 	'ClothAccessory',
 	'ClothLower',
+    'ClothOuter',
 	'Corset',
 	'Garters',
 	'Glasses' ,
