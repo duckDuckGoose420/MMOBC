@@ -3,7 +3,7 @@ import { IPlayer } from "../types/IPlayer";
 import { Player } from "../model/Player";
 
 export class PlayerService {
-    private playerStorage = new Storage("players");
+    private playerStorage = new Storage("./bin/games/rpg/data/players");
     
     save(player: IPlayer): void {
         this.playerStorage.put(player.memberNumber.toString(), player);

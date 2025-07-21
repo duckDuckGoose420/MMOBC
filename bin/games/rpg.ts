@@ -22,6 +22,8 @@ import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
 import { wait } from "../hub/utils";
 import { FeedbackService } from "./rpg/service/FeedbackService";
+import { SettingsService } from "./rpg/service/SettingsService";
+import { Settings } from "./rpg/model/Settings";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -72,11 +74,16 @@ export class RPG {
         "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
         "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept",
         "",
+        "/bot settings - Will prompt you on how you can check or change some setting you can use to tweak your experience in the room",
+        "",
         "/bot feedback [your message] - ",
         "Use this command to send suggestions, advice, complaints, bug reports, or anything else you'd like me to see. I'll read every message as soon as possible. Constructive criticism is welcome and helpful - just keep it polite.",
         "Important: Your current name and member number will be saved with your message for context. If that's not something you're comfortable with, feel free to skip leaving feedback.",
         "",
         "Developed with https://github.com/FriendsOfBC/ropeybot",
+        "",
+        "Code available at: https://github.com/BufaloAcquatico/MMOBC",
+        "Feedback reviews: https://github.com/BufaloAcquatico/MMOBC/issues"
     ].join("\n");
 
     public static helpText = [
@@ -89,7 +96,8 @@ export class RPG {
         "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "/bot private buy [memberNumber] - Cost 100: Buy access to the private room so you can play with someone without interference from other players",
         "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
-        "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept"
+        "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept",
+        "/bot settings - Prompt for checking and changing settings"
     ].join("\n");
 
     private rerollCD = new Map<number, number>();
@@ -99,6 +107,7 @@ export class RPG {
     private questManager: QuestManager;
     private playerService: PlayerService = new PlayerService();
     private feedbackService: FeedbackService = new FeedbackService();
+    private settingsService: SettingsService = new SettingsService();
 
     public constructor(private conn: API_Connector) {
         this.commandParser = new CommandParser(this.conn);
@@ -118,6 +127,7 @@ export class RPG {
         //this.commandParser.register("claim", this.onCommandClaim.bind(this));
         this.commandParser.register("private", this.onCommandPrivate.bind(this));
         this.commandParser.register("feedback", this.onCommandFeedback.bind(this));
+        this.commandParser.register("settings", this.onCommandSettings.bind(this));
     }
 
     public async init(): Promise<void> {
@@ -229,6 +239,9 @@ export class RPG {
                     this.conn.SendMessage("Whisper", `(You need 1000 money to buy this service)`, sender.MemberNumber);
                 } else {
                     Util.freeCharacter(sender);
+                    this.conn.SendMessage("Chat", `(${sender.toString()} has paid to be released from their binds)`);
+                    player.money -= 1000;
+                    this.playerService.save(player);
                 }
                 break;
             
@@ -279,12 +292,20 @@ export class RPG {
                     this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
                     return;
                 }
+                if (sender.MemberNumber == Number(args[1])) {
+                    this.conn.SendMessage("Whisper", `(No longer possible. Sorry!)`, sender.MemberNumber);
+                    return;
+                }
                 this.handleBuyPrivateCommand(sender.MemberNumber, Number(args[1]));
                 break;
 
             case 'claim':
                 if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
                     this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
+                    return;
+                }
+                if (sender.MemberNumber == Number(args[1])) {
+                    this.conn.SendMessage("Whisper", `(No longer possible. Sorry!)`, sender.MemberNumber);
                     return;
                 }
                 this.handleClaimPrivateCommand(sender.MemberNumber, Number(args[1]));
@@ -330,8 +351,29 @@ export class RPG {
 If I have any follow-up questions, I might contact you while you're in the room, when the timing is appropriate.  
 If you see me (Irinoa) around and want to reach out directly, feel free to do so.  
 
-Thanks for your feedback!)`);
+Thanks for your feedback!)`, sender.MemberNumber);
 
+    }
+
+    private onCommandSettings = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        if (args.length == 0) {
+            this.conn.SendMessage("Whisper", `(
+/bot settings GracePeriod - Check the setting about the grace period after finishing a quest
+/bot settings GracePeriod toggle - Turn on or off the grace period`, sender.MemberNumber);
+        }
+
+        let settings: Settings = this.settingsService.get(sender.MemberNumber);
+        switch (args[0]) {
+            case 'graceperiod':
+                if (args.length > 1 && args[1] == "toggle") {
+                    settings.setGracePeriodEnabled(!settings.isGracePeriodEnabled());
+                    this.settingsService.save(sender.MemberNumber, settings);
+                }
+                if (args.length > 1 && args[1] != "toggle")
+                    break;
+                this.conn.SendMessage("Whisper", settings.isGracePeriodEnabled() ? "(You have currently 20 minutes of grace period after completing a quest)" : "(The grace period after completing a quest is disabled. Note that this also disables the free access to the private room after a quest, but you can still buy it)", sender.MemberNumber);
+                break;
+        }
     }
 
     private canReroll(memberNumber: number): boolean {
@@ -456,8 +498,13 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             player.money += 100;
             this.playerService.save(player);
             this.questCD.set(quest.owner, Date.now() + (QUEST_CD));
-            this.gracePeriods.set(quest.owner, Date.now() + (GRACE_PERIOD));
-            this.conn.SendMessage("Whisper", "(You've completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [memberNumber]\")", quest.owner);
+            const settings = this.settingsService.get(quest.owner);
+            if (settings.isGracePeriodEnabled()) { 
+                this.gracePeriods.set(quest.owner, Date.now() + (GRACE_PERIOD));
+                this.conn.SendMessage("Whisper", "(You have completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [memberNumber]\")", quest.owner);
+            } else {
+                this.conn.SendMessage("Whisper", "(You have completed your quest!)", quest.owner);
+            }
         }
 
         const failedQuests = this.questManager.cancelQuests(this.gracePeriods);
