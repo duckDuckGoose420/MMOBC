@@ -525,8 +525,8 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
     };
 
     private onChatRoomSyncMapData = (update: SyncMapDataPayload) => {
-        //console.log("chat room map data", update);
-        this._chatRoom.mapPositionUpdate(update.MemberNumber, update.MapData.Pos);
+        console.log("chat room map data", update);
+        this._chatRoom.mapPositionUpdate(update.MemberNumber, update.MapData);
     };
 
     private onChatRoomMessage = (msg: BC_Server_ChatRoomMessage) => {
