@@ -73,6 +73,7 @@ export class RPG {
         "/bot private buy [memberNumber] - Cost 100: Buy access to the private room so you can play with someone without interference from other players",
         "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
         "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept",
+        "/bot private rescue - If you get stuck inside the private room for some reason, you can use this command to forcibly leave the room",
         "",
         "/bot settings - Will prompt you on how you can check or change some setting you can use to tweak your experience in the room",
         "",
@@ -168,9 +169,17 @@ export class RPG {
 
         this.conn.chatRoom.map.addEnterRegionTrigger(
             LEAVE_SAFE_AREA_1,
-            this.onLeaveSafeArea.bind(this)
+            this.onLeaveIntroductionArea.bind(this)
         );
 
+        this.conn.chatRoom.map.addEnterRegionTrigger(
+            PRIVATE_ROOM_AREA,
+            this.onEnterSafeArea.bind(this)
+        );
+        this.conn.chatRoom.map.addLeaveRegionTrigger(
+            PRIVATE_ROOM_AREA,
+            this.onLeaveSafeArea.bind(this)
+        );
     };
 
 
@@ -328,11 +337,28 @@ export class RPG {
                     requestingPlayer.money -= request.cost;
                     this.playerService.save(requestingPlayer);
 
+                    let quests = this.questManager.cancelQuestsByTarget(sender.MemberNumber);
+                    for (const quest of quests) {
+                        this.conn.SendMessage("Whisper", `(Your target went into the private room, you'll be assigned a new quest)'`, quest.owner);
+                    }
+                    quests = this.questManager.cancelQuestsByTarget(request.requestingPlayer);
+                    for (const quest of quests) {
+                        this.conn.SendMessage("Whisper", `(Your target went into the private room, you'll be assigned a new quest)'`, quest.owner);
+                    }
+
                     this.startPrivatePlay(sender.MemberNumber, PRIVATE_ROOM_SPAWN_1);
                     this.startPrivatePlay(request.requestingPlayer, PRIVATE_ROOM_SPAWN_2);
                 } else {
                     console.log("Private room is not empty");
                 }
+                break;
+
+            case 'rescue':
+                const player = this.conn.chatRoom.findMember(sender.MemberNumber)
+                if (positionIsInRegion(player.MapPos, PRIVATE_ROOM_AREA))
+                    player.mapTeleport({ X: 21, Y: 14 });
+                else
+                    this.conn.SendMessage("Whisper", `(Need to be in the private room to use this command)`, sender.MemberNumber);
                 break;
             case 'check':
                 if (this.isPrivateRoomEmpty()) {
@@ -403,26 +429,27 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         this.isPlayerSafe.set(character.MemberNumber, true);
     }
 
-    private onLeaveSafeArea(character: API_Character): void {
+    private onLeaveIntroductionArea(character: API_Character): void {
         if (this.isPlayerSafe.get(character.MemberNumber) == true) {
             this.isPlayerSafe.set(character.MemberNumber, false);
             this.conn.SendMessage("Whisper", `(You're leaving the safe area, you can now be the target of other people's quests)`, character.MemberNumber);
         }
     }
 
+    private onLeaveSafeArea(character: API_Character): void {
+        this.isPlayerSafe.set(character.MemberNumber, false);
+    }
+
     isPrivateRoomEmpty(): boolean {
         for (const c of this.conn.chatRoom.characters) {
-            let updatedPos = { X: c.MapPos.X, Y: c.MapPos.Y };
-            if (updatedPos.X === undefined)
-                updatedPos = c.MapPos;
-            if (positionIsInRegion(updatedPos, PRIVATE_ROOM_AREA))
+            if (positionIsInRegion(c.MapPos, PRIVATE_ROOM_AREA))
                 return false;
         }
         return true;
     }
 
     startPrivatePlay(memberNumber: number, pos: ChatRoomMapPos) {
-        console.log(`Teleporting ${memberNumber} to {${pos.X}, ${pos.Y}}`);
+        //console.log(`Teleporting ${memberNumber} to {${pos.X}, ${pos.Y}}`);
 
         this.conn.chatRoom.findMember(memberNumber).mapTeleport(pos);        
     }
@@ -470,11 +497,11 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
     private handleClaimPrivateCommand(player: number, partner: number) {
         if (!this.gracePeriods.get(player)) {
-            this.conn.SendMessage("Whisper", "(You have to complete a quest and claim it within 20 minutes to access it for free. You can still go buy access with \"/bot buy private [memberNumber]\" for 100 coins, the member number is for the person you want to invite with you. They will have to confirm the offer.)", player);
+            this.conn.SendMessage("Whisper", "(You have to complete a quest and claim it within 20 minutes to access it for free. You can still go buy access with \"/bot private buy [memberNumber]\" for 100 coins, the member number is for the person you want to invite with you. They will have to confirm the offer.)", player);
             return;
         }
         if (this.gracePeriods.get(player) < Date.now()) {
-            this.conn.SendMessage("Whisper", "(It's been too long since you completed your last quest to get access to the private room. You can still go buy access with \"/bot buy private [memberNumber]\" for 100 coins, the member number is for the person you want to invite with you. They will have to confirm the offer.)", player);
+            this.conn.SendMessage("Whisper", "(It's been too long since you completed your last quest to get access to the private room. You can still go buy access with \"/bot private buy [memberNumber]\" for 100 coins, the member number is for the person you want to invite with you. They will have to confirm the offer.)", player);
             return;
         }
 

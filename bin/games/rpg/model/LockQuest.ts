@@ -2,7 +2,7 @@ import { AbstractQuest } from "./AbstractQuest";
 export class LockQuest extends AbstractQuest {
     description(): string {
         const targetName = this.chatRoom.findMember(this.targetPlayer).toString();
-        return `Your current quest is to bind with a lock ${targetName}'s arms(${this.targetPlayer})`;
+        return `Your current quest is to bind with a lock ${targetName}'s arms[#${this.targetPlayer}]`;
     }
     prerequisite(): boolean {
         return !this.chatRoom.findMember(this.targetPlayer).IsRestrained();

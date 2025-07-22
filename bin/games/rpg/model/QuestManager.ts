@@ -65,20 +65,29 @@ export class QuestManager {
     }
 
     cancelQuestForPlayer(memberNumber: number): boolean {
-        let result = -1;
-        let i = 0;
-        for (let q of this.quests.getAll()) {
-            if (q.owner == memberNumber) {
-                result = i;
-                break;
-            }
-            i++;
-        }
-        if (result != -1) {
-            this.quests.removeAt(result);
+        const index = this.quests.getAll().findIndex(q => q.owner === memberNumber);
+        if (index !== -1) {
+            this.quests.removeAt(index);
             return true;
-        } else
-            return false;
+        }
+        return false;
+    }
+
+    cancelQuestsByTarget(targetNumber: number): IQuest[] {
+        const allQuests = this.quests.getAll();
+        const remainingQuests: IQuest[] = [];
+        const removedQuests: IQuest[] = [];
+
+        for (const quest of allQuests) {
+            if (quest.targetPlayer === targetNumber) {
+                removedQuests.push(quest);
+            } else {
+                remainingQuests.push(quest);
+            }
+        }
+
+        this.quests.set(remainingQuests); // Update the QuestList to exclude the removed ones
+        return removedQuests;
     }
 
     assignQuests(conn: API_Connector, questCD: Map<number, number>, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): void {
@@ -97,7 +106,7 @@ export class QuestManager {
             const lastTarget = lastTargetBeforeReroll.get(memberNumber);
             if (quest && !this.isInGracePeriod(gracePeriods, quest.targetPlayer) && quest.targetPlayer != lastTarget) {
                 this.quests.add(quest);
-                conn.SendMessage("Whisper", "(You've been assigned a new quest, you can check it with /bot quest. If you don't like your target, can't find it or they're busy, you can /bot reroll)", memberNumber);
+                conn.SendMessage("Whisper", "(New quest: " + quest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
                 return;
             }
 
