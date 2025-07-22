@@ -137,7 +137,7 @@ export class API_Character {
     }
 
     public get MapPos(): ChatRoomMapPos {
-        return this.data.MapData.Pos ?? { X: 0, Y: 0 };
+        return this.data.MapData?.Pos ?? { X: 0, Y: 0 };
     }
 
     public mapTeleport(pos: ChatRoomMapPos): void {
