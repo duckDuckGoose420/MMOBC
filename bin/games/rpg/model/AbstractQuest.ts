@@ -5,17 +5,24 @@ export abstract class AbstractQuest implements IQuest {
     chatRoom: API_Chatroom;
     owner: number;
     targetPlayer: number;
-    additionalInfo: Record<string, unknown> | null;
+    private _additionalInfo: Record<string, unknown>;
+   
     failMessage: string;
 
     constructor(conn: API_Chatroom, memberNumber: number, target: number, additionalInfo?: any) {
         this.chatRoom = conn;
         this.owner = memberNumber;
         this.targetPlayer = target;
-        this.additionalInfo = additionalInfo ?? null;
+        this.additionalInfo = additionalInfo ?? {};
     }
     
-    
+     public get additionalInfo(): Record<string, unknown>{
+        return this._additionalInfo;
+    }
+    public set additionalInfo(value: Record<string, unknown>) {
+        this._additionalInfo = value;
+    }
+
     abstract prerequisite(): boolean;
 
     failCondition(gracePeriods: Map<number, number>) {

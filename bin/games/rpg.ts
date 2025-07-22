@@ -53,10 +53,21 @@ const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
 
 export class RPG {
-    private isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
+    isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
     private bounties: Map<number, number> = new Map<number, number>();
     private lastTargetBeforeReroll: Map<number, number> = new Map<number, number>();
     private privatePlayRequests: Map<number, PrivateRequest> = new Map<number, PrivateRequest>();   // To note that the player who receives the request is used as key here
+    
+
+    private rerollCD = new Map<number, number>();
+    private questCD = new Map<number, number>();
+    private gracePeriods = new Map<number, number>();
+    climaxTracker = new Map<number, number>();
+    private commandParser: CommandParser;
+    private questManager: QuestManager;
+    private playerService: PlayerService = new PlayerService();
+    private feedbackService: FeedbackService = new FeedbackService();
+    private settingsService: SettingsService = new SettingsService();
     public static description = [
         "This is a WIP for a quest based bondage room.",
         "Commands:",
@@ -101,23 +112,15 @@ export class RPG {
         "/bot settings - Prompt for checking and changing settings"
     ].join("\n");
 
-    private rerollCD = new Map<number, number>();
-    private questCD = new Map<number, number>();
-    private gracePeriods = new Map<number, number>();
-    private commandParser: CommandParser;
-    private questManager: QuestManager;
-    private playerService: PlayerService = new PlayerService();
-    private feedbackService: FeedbackService = new FeedbackService();
-    private settingsService: SettingsService = new SettingsService();
-
     public constructor(private conn: API_Connector) {
         this.commandParser = new CommandParser(this.conn);
         this.playerService = new PlayerService();
         this.conn.on("RoomCreate", this.onChatRoomCreated);
         this.conn.on("RoomJoin", this.onChatRoomJoined);
+        this.conn.on("Message", this.onMessage.bind(this));
         //this.conn.on("ServerLeave", this.onServerLeave);
 
-        this.questManager = new QuestManager(conn.chatRoom, this.isPlayerSafe);
+        this.questManager = new QuestManager(conn.chatRoom, this);
 
         this.commandParser.register("quest", this.onCommandQuest.bind(this));
         this.commandParser.register("reroll", this.onCommandReroll.bind(this));
@@ -186,11 +189,21 @@ export class RPG {
 
     private onMessage = async (msg: MessageEvent) => {
         if (
-            msg.message.Type === "Chat" &&
-            !msg.message.Content.startsWith("(")
+            msg.message.Type === "Activity" &&
+            /^Orgasm\d+$/.test(msg.message.Content)
         ) {
-
+            for (let quest of this.questManager.quests.getAll()) {
+                if (quest?.additionalInfo && quest.additionalInfo["orgasms"] !== undefined && quest.targetPlayer == msg.sender.MemberNumber) {
+                    let orgasms = Number(quest.additionalInfo["orgasms"]) + 1;
+                    quest.additionalInfo["orgasms"] = orgasms;
+                    this.climaxTracker.set(quest.targetPlayer, Date.now());
+                    console.log(quest.additionalInfo);
+                }
+            }
+            console.log(msg);
+            console.log(`${msg.sender.toString()} climaxed!`);
         }
+
     };
 
     private onServerLeave = async () => {
@@ -354,7 +367,7 @@ export class RPG {
                 break;
 
             case 'rescue':
-                const player = this.conn.chatRoom.findMember(sender.MemberNumber)
+                const player = this.conn.chatRoom.findMember(sender.MemberNumber);
                 if (positionIsInRegion(player.MapPos, PRIVATE_ROOM_AREA))
                     player.mapTeleport({ X: 21, Y: 14 });
                 else

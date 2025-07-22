@@ -2,8 +2,21 @@ import { IQuest } from "../types/IQuest";
 import { API_Chatroom, API_Connector } from "bc-bot";
 import { LockQuest } from "./LockQuest";
 import { Util } from "../util/Util";
+import { RPG } from "../../rpg";
+import { ClimaxQuest } from "./ClimaxQuest";
 
 const botMemberNumber = 4492;
+const questTypes: { constructor: QuestConstructor; weight: number }[] = [
+    { constructor: LockQuest, weight: 10 },
+    { constructor: ClimaxQuest, weight: 3 }
+];
+
+type QuestConstructor = new (
+    chatRoom: API_Chatroom,
+    owner: number,
+    target: number
+) => IQuest;
+
 class QuestList {
     private quests: IQuest[] = [];
     
@@ -35,12 +48,12 @@ class QuestList {
 export class QuestManager {
     quests: QuestList;
     private chatRoom: API_Chatroom;
-    private isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
+    private RPG: RPG;
 
-    public constructor(chatroom: API_Chatroom, isPlayerSafe: Map<number, boolean>) {
+    public constructor(chatroom: API_Chatroom, RPG: RPG) {
         this.chatRoom = chatroom;
         this.quests = new QuestList();
-        this.isPlayerSafe = isPlayerSafe;
+        this.RPG = RPG;
     }
 
     playerHasQuestAssigned(memberNumber: number): IQuest | null {
@@ -92,13 +105,13 @@ export class QuestManager {
 
     assignQuests(conn: API_Connector, questCD: Map<number, number>, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): void {
         this.chatRoom.characters.forEach((character) => {
-            if (!this.playerHasQuestAssigned(character.MemberNumber) && this.isPlayerSafe.get(character.MemberNumber) == false && !this.isQuestAssignmentInCD(questCD, character.MemberNumber)) {
+            if (!this.playerHasQuestAssigned(character.MemberNumber) && this.RPG.isPlayerSafe.get(character.MemberNumber) == false && !this.isQuestAssignmentInCD(questCD, character.MemberNumber)) {
                 this.assignQuestToPlayer(conn, character.MemberNumber, gracePeriods, lastTargetBeforeReroll);
             }
         });
     }
 
-    async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): void {
+    async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): Promise<void> {
         const maxAttempts = 10;
 
         for (let i = 0; i < maxAttempts; i++) {
@@ -116,25 +129,41 @@ export class QuestManager {
     }
 
     generateRandomQuest(memberNumber: number): IQuest | null {
-        
-        const candidateList = this.chatRoom.characters.filter((character) => { return character.MemberNumber != botMemberNumber && character.MemberNumber != memberNumber });
-        if (candidateList.length == 0)
-            return null;
+        const candidateList = this.chatRoom.characters.filter(
+            c => c.MemberNumber !== botMemberNumber && c.MemberNumber !== memberNumber
+        );
+
+        if (candidateList.length === 0) return null;
+
         const target = candidateList.at(Util.getRandomInt(candidateList.length));
-        const quest = new LockQuest(this.chatRoom, memberNumber, target.MemberNumber);
+        const isTargetSafe = this.RPG.isPlayerSafe.get(target.MemberNumber);
+        if (isTargetSafe === undefined || isTargetSafe) return null;
 
-        // We don't want to target players that just entered the room or are generally considered protected in some way
-        const isTargetSafe = this.isPlayerSafe.get(target.MemberNumber);
-        if (isTargetSafe === undefined || isTargetSafe)
-            return null;
-        //if(Math.random() < Util.questAssignmentProbability()
-        if (quest.prerequisite()) {
-            return quest;
-        } else {
-            //console.log("Prerequisite failed");
+        // Choose a quest type randomly
+        const constructor = this.chooseQuestWeighted(questTypes);
 
-            return null;
+        // Instantiate the chosen quest
+        const quest = new constructor(this.chatRoom, memberNumber, target.MemberNumber);
+        if (quest instanceof ClimaxQuest) {
+            if (this.RPG.climaxTracker.get(quest.targetPlayer) === undefined)
+                this.RPG.climaxTracker.set(quest.targetPlayer, Date.now());
+            quest.additionalInfo["lastClimaxed"] = this.RPG.climaxTracker.get(quest.targetPlayer);
         }
+        // Check prerequisite
+        return quest.prerequisite() ? quest : null;
+    }
+
+    private chooseQuestWeighted(quests: { constructor: QuestConstructor, weight: number }[]): QuestConstructor {
+        const totalWeight = quests.reduce((sum, entry) => sum + entry.weight, 0);
+        let rand = Math.random() * totalWeight;
+
+        for (const entry of quests) {
+            if (rand < entry.weight) return entry.constructor;
+            rand -= entry.weight;
+        }
+
+        // Fallback
+        return quests[quests.length - 1].constructor;
     }
 
     completeQuests(): IQuest[] {
