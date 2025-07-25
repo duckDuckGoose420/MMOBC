@@ -10,10 +10,16 @@ export class PlayerService {
     }
 
     get(memberNumber: number): IPlayer {
-        let player = this.playerStorage.get(memberNumber.toString());
-        if (!player)
-            player = new Player(memberNumber);
-        return player;
+        let playerData = this.playerStorage.get(memberNumber.toString());
+        
+        if (!playerData)
+            return new Player(memberNumber);
+        else {
+            let player: Player = new Player(memberNumber);
+            player.money = playerData.money;
+            player.level = playerData.level;
+            return player;
+        }
     }
 
     getLevel(memberNumber: number): number {

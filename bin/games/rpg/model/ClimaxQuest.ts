@@ -1,7 +1,7 @@
 import { AbstractQuest } from "./AbstractQuest";
 import { API_Connector, API_Chatroom, API_Character } from "bc-bot";
 
-const refractaryPeriod = 20 * 60 * 1000;
+export const refractaryPeriod = 20 * 60 * 1000;
 export class ClimaxQuest extends AbstractQuest {
     constructor(conn: API_Chatroom, memberNumber: number, target: number, additionalInfo?: any) {
         super(conn, memberNumber, target, additionalInfo);
@@ -9,7 +9,9 @@ export class ClimaxQuest extends AbstractQuest {
     }
 
     description(): string {
-        const targetName = this.chatRoom.findMember(this.targetPlayer).toString();
+        const targetName = this.chatRoom.findMember(this.targetPlayer)?.toString() ?? "";
+        if (targetName == "")
+            return null;
         return `Your current quest is to make ${targetName} climax [#${this.targetPlayer}]`;
     }
     prerequisite(): boolean {

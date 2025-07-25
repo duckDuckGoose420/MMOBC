@@ -3,7 +3,7 @@ import { API_Chatroom, API_Connector } from "bc-bot";
 import { LockQuest } from "./LockQuest";
 import { Util } from "../util/Util";
 import { RPG } from "../../rpg";
-import { ClimaxQuest } from "./ClimaxQuest";
+import { ClimaxQuest, refractaryPeriod } from "./ClimaxQuest";
 
 const botMemberNumber = 4492;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
@@ -117,7 +117,12 @@ export class QuestManager {
         for (let i = 0; i < maxAttempts; i++) {
             const quest = this.generateRandomQuest(memberNumber);
             const lastTarget = lastTargetBeforeReroll.get(memberNumber);
-            if (quest && !this.isInGracePeriod(gracePeriods, quest.targetPlayer) && quest.targetPlayer != lastTarget) {
+            if (!quest || quest.targetPlayer == lastTarget)
+                continue;
+
+            const playerLevel = this.RPG.playerService.get(quest.owner).level;
+            const targetLevel = this.RPG.playerService.get(quest.targetPlayer).level;
+            if (!this.isInGracePeriod(gracePeriods, quest.targetPlayer) && Math.random() < Util.questAssignmentProbability(playerLevel, targetLevel)) {
                 this.quests.add(quest);
                 conn.SendMessage("Whisper", "(New quest: " + quest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
                 return;
@@ -146,7 +151,7 @@ export class QuestManager {
         const quest = new constructor(this.chatRoom, memberNumber, target.MemberNumber);
         if (quest instanceof ClimaxQuest) {
             if (this.RPG.climaxTracker.get(quest.targetPlayer) === undefined)
-                this.RPG.climaxTracker.set(quest.targetPlayer, Date.now());
+                this.RPG.climaxTracker.set(quest.targetPlayer, Date.now() - refractaryPeriod);
             quest.additionalInfo["lastClimaxed"] = this.RPG.climaxTracker.get(quest.targetPlayer);
         }
         // Check prerequisite

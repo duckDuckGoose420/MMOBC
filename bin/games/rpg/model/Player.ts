@@ -1,7 +1,7 @@
 import { IPlayer } from "../types/IPlayer";
 
 const linearFactor = 200;
-const exponentialFactor = 1.1;
+const exponentialFactor = 1.3;
 const nearestRoundingFactor = 10;
 export class Player implements IPlayer {
     memberNumber: number;
@@ -20,18 +20,20 @@ export class Player implements IPlayer {
     }
 
     moneyNeededToLevelUp(): number {
-        return Math.ceil(Math.pow(this.level, exponentialFactor) * 200 / nearestRoundingFactor) * nearestRoundingFactor; 
+        const rawXP = 100 * Math.pow(this.level + 1, exponentialFactor);
+        return Math.round(rawXP / 100) * 100; // Round to nearest 100
     }
 
-    private canLevelUp(): boolean {
+    canLevelUp(): boolean {
         return this.money >= this.moneyNeededToLevelUp();
     }
 
     levelUp(): boolean {
         if (!this.canLevelUp())
             return false;
-        this.level += 1;
+        
         this.money -= this.moneyNeededToLevelUp();
+        this.level += 1;
         return true;
     }
 

@@ -24,6 +24,7 @@ import { wait } from "../hub/utils";
 import { FeedbackService } from "./rpg/service/FeedbackService";
 import { SettingsService } from "./rpg/service/SettingsService";
 import { Settings } from "./rpg/model/Settings";
+import { Player } from "./rpg/model/Player";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -35,7 +36,7 @@ const LEAVE_SAFE_AREA_1: MapRegion = {
 };
 
 const ENTER_INTRODUCTION_AREA: MapRegion = {
-    TopLeft: { X: 0, Y: 14 },
+    TopLeft: { X: 0, Y: 17 },
     BottomRight: { X: 4, Y: 23 },
 };
 
@@ -65,7 +66,7 @@ export class RPG {
     climaxTracker = new Map<number, number>();
     private commandParser: CommandParser;
     private questManager: QuestManager;
-    private playerService: PlayerService = new PlayerService();
+    playerService: PlayerService = new PlayerService();
     private feedbackService: FeedbackService = new FeedbackService();
     private settingsService: SettingsService = new SettingsService();
     public static description = [
@@ -78,6 +79,7 @@ export class RPG {
         "/bot stats - Check your money and level",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
+        "/bot levelup - Check how many money you need to level up, plus explanation for levels",
         "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "",
         "Private room commands:",
@@ -105,6 +107,7 @@ export class RPG {
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot stats - Check your money and level",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
+        "/bot levelup - Check how many money you need to level up, plus explanation for levels",
         "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
         "/bot private buy [memberNumber] - Cost 100: Buy access to the private room so you can play with someone without interference from other players",
         "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
@@ -132,6 +135,7 @@ export class RPG {
         this.commandParser.register("private", this.onCommandPrivate.bind(this));
         this.commandParser.register("feedback", this.onCommandFeedback.bind(this));
         this.commandParser.register("settings", this.onCommandSettings.bind(this));
+        this.commandParser.register("levelup", this.onCommandLevelUp.bind(this));
     }
 
     public async init(): Promise<void> {
@@ -217,7 +221,10 @@ export class RPG {
     ) => {
         const quest = this.questManager.playerHasQuestAssigned(sender.MemberNumber);
         if (quest) {
-            this.conn.SendMessage("Whisper", "(" + quest.description() + ")", sender.MemberNumber);
+            if (quest.description())
+                this.conn.SendMessage("Whisper", "(" + quest.description() + ")", sender.MemberNumber);
+            else
+                this.conn.SendMessage("Whisper", "(Couldn't find the target of your quest, they might have just left the room)", sender.MemberNumber);
         } else {
             this.conn.SendMessage("Whisper", "(You currently don't have a quest assigned, you'll be assigned one automatically)", sender.MemberNumber);
         }
@@ -243,7 +250,25 @@ export class RPG {
 
     private onCommandStats = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
         const player = this.playerService.get(sender.MemberNumber);
-        this.conn.SendMessage("Whisper", `(You are level ${player.level} and you have ${player.money} money)`, sender.MemberNumber);
+        this.conn.SendMessage("Whisper", `(You are level ${player.level} and you have ${player.money} money). `, sender.MemberNumber);
+    }
+
+    private onCommandLevelUp = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        const player = this.playerService.get(sender.MemberNumber);
+        const toLevelUp = player.moneyNeededToLevelUp();
+        if (args.length == 0) {
+            this.conn.SendMessage("Whisper", `(You need ${toLevelUp} money to level up. If you have the money and you want to do so, use "/bot levelup confirm". Level influences the likelyhood you are targeted by quests from lower level players than you are, mostly a stat for doms currently). `, sender.MemberNumber);
+            return;
+        }
+        if (args[0] == "confirm") {
+            if (player.canLevelUp()) {
+                player.levelUp();
+                this.playerService.save(player);
+                this.conn.SendMessage("Whisper", `(You are now level ${player.level}!)`, sender.MemberNumber);
+            } else {
+                this.conn.SendMessage("Whisper", `(Not enough money to level up)`, sender.MemberNumber);
+            }
+        }
     }
 
     private onCommandBuy = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
@@ -429,9 +454,9 @@ Thanks for your feedback!)`, sender.MemberNumber);
         }
 
         this.isPlayerSafe.set(character.MemberNumber, true);
-        this.conn.SendMessage("Whisper", `(Welcome, this is a early WIP but functional room where you'll be given quests, at the moment just a basic one, that you can complete for money.
+        this.conn.SendMessage("Whisper", `(Welcome, this is a WIP room where you'll be given quests that you can complete for money.
 You're in a safe zone, being assigned and targeted by quests will start when you leave this building.
-The bot has info about the commands, as usual.
+The bot has info about the commands and settings.
             
 The goal of the room is to give an opportunity to start plays and sessions with other people, if you tie up someone for a quest, try to make it fun for the both of you
 instead of just leaving them immediately, it makes it more enjoyable for everyone involved.)`, character.MemberNumber
@@ -478,7 +503,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
                     ?.getData()
                     ?.Property
                     ?.LockMemberNumber;
-            if (targetLock !== undefined) {
+            if (targetLock !== undefined && targetLock != key) {
 
                 let bountyWinner = this.playerService.get(Number(targetLock));
                 bountyWinner.money += this.bounties.get(key);
@@ -541,7 +566,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             const settings = this.settingsService.get(quest.owner);
             if (settings.isGracePeriodEnabled()) { 
                 this.gracePeriods.set(quest.owner, Date.now() + (GRACE_PERIOD));
-                this.conn.SendMessage("Whisper", "(You have completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [memberNumber]\")", quest.owner);
+                this.conn.SendMessage("Whisper", "(You have completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD + 5000) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [memberNumber]\")", quest.owner);
             } else {
                 this.conn.SendMessage("Whisper", "(You have completed your quest!)", quest.owner);
             }
