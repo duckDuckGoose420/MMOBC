@@ -9,3 +9,4 @@ config*.json
 players
 /bin/games/rpg/data
 /src
+Bcrpgstart.bat

@@ -76,6 +76,7 @@ export class RPG {
         "/bot help - Will show these commands",
         "/bot quest - Check the quest currently assigned to you",
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
+        "/bot pay [memberNumber] [amount] - Example /bot pay 12345 200 will transfer 200 money from you to player 12345", 
         "/bot stats - Check your money and level",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
@@ -102,17 +103,26 @@ export class RPG {
 
     public static helpText = [
         "(",
-        "/bot help - Will show these commands",
-        "/bot quest - Check the quest currently assigned to you",
-        "/bot reroll - Cancel your current quest, you can use this every 3 mins",
-        "/bot stats - Check your money and level",
-        "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
-        "/bot levelup - Check how many money you need to level up, plus explanation for levels",
-        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
-        "/bot private buy [memberNumber] - Cost 100: Buy access to the private room so you can play with someone without interference from other players",
-        "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
-        "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept",
-        "/bot settings - Prompt for checking and changing settings"
+        "Commands:",
+        "",
+        "/bot help",
+        "/bot quest",
+        "/bot reroll",
+        "/bot pay [memberNumber] [amount]",
+        "/bot stats",
+        "/bot bounty [memberNumber] [bounty]",
+        "/bot levelup",
+        "/bot buy release - Cost: 1000",
+        "",
+        "Private room commands:",
+        "/bot private buy [memberNumber] - Cost 100",
+        "/bot private claim [memberNumber]",
+        "/bot private confirm",
+        "/bot private rescue - If you get stuck inside the private room for some reason, you can use this command to forcibly leave the room",
+        "",
+        "/bot settings",
+        "",
+        "/bot feedback [your message]"
     ].join("\n");
 
     public constructor(private conn: API_Connector) {
@@ -136,6 +146,7 @@ export class RPG {
         this.commandParser.register("feedback", this.onCommandFeedback.bind(this));
         this.commandParser.register("settings", this.onCommandSettings.bind(this));
         this.commandParser.register("levelup", this.onCommandLevelUp.bind(this));
+        this.commandParser.register("pay", this.onCommandPay.bind(this));
     }
 
     public async init(): Promise<void> {
@@ -257,7 +268,7 @@ export class RPG {
         const player = this.playerService.get(sender.MemberNumber);
         const toLevelUp = player.moneyNeededToLevelUp();
         if (args.length == 0) {
-            this.conn.SendMessage("Whisper", `(You need ${toLevelUp} money to level up. If you have the money and you want to do so, use "/bot levelup confirm". Level influences the likelyhood you are targeted by quests from lower level players than you are, mostly a stat for doms currently). `, sender.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You need ${toLevelUp} money to level up. If you have the money and you want to do so, use "/bot levelup confirm", or you can refund your last level up with "/bot levelup refund". Level influences the likelyhood you are targeted by quests from lower level players than you are, mostly a stat for doms currently). `, sender.MemberNumber);
             return;
         }
         if (args[0] == "confirm") {
@@ -267,6 +278,16 @@ export class RPG {
                 this.conn.SendMessage("Whisper", `(You are now level ${player.level}!)`, sender.MemberNumber);
             } else {
                 this.conn.SendMessage("Whisper", `(Not enough money to level up)`, sender.MemberNumber);
+            }
+        }
+
+        if (args[0] == "refund") {
+            if (player.moneyThatCanBeRefunded() > 0) {
+                player.refundLevel();
+                this.playerService.save(player);
+                this.conn.SendMessage("Whisper", `(You got refunded one level)`, sender.MemberNumber);
+            } else {
+                this.conn.SendMessage("Whisper", `(You need to be at least level 2 to refund levels)`, sender.MemberNumber);
             }
         }
     }
@@ -303,7 +324,7 @@ export class RPG {
 
     private onCommandBounty = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
         if (args.length != 2 || !Util.isValidIntegerString(args[0]) || !Util.isValidIntegerString(args[1])) {
-            this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
+            this.conn.SendMessage("Whisper", `(Incorrect use of the command)`, sender.MemberNumber);
             return;
         }
         const target = Number(args[0]);
@@ -336,7 +357,7 @@ export class RPG {
         switch (args[0]) {
             case 'buy':
                 if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
-                    this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
+                    this.conn.SendMessage("Whisper", `(Incorrect use of the command)`, sender.MemberNumber);
                     return;
                 }
                 if (sender.MemberNumber == Number(args[1])) {
@@ -348,7 +369,7 @@ export class RPG {
 
             case 'claim':
                 if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
-                    this.conn.SendMessage("Whisper", `(Incorrect usage of the command)`, sender.MemberNumber);
+                    this.conn.SendMessage("Whisper", `(Incorrect use of the command)`, sender.MemberNumber);
                     return;
                 }
                 if (sender.MemberNumber == Number(args[1])) {
@@ -438,6 +459,48 @@ Thanks for your feedback!)`, sender.MemberNumber);
                 this.conn.SendMessage("Whisper", settings.isGracePeriodEnabled() ? "(You have currently 20 minutes of grace period after completing a quest)" : "(The grace period after completing a quest is disabled. Note that this also disables the free access to the private room after a quest, but you can still buy it)", sender.MemberNumber);
                 break;
         }
+    }
+
+    private onCommandPay = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
+        if (args.length != 2 || !Util.isValidIntegerString(args[0]) || !Util.isValidIntegerString(args[1])) {
+            this.conn.SendMessage("Whisper", `(Incorrect use of the command)`, sender.MemberNumber);
+            return;
+        } 
+        var targetNumber = Number(args[0]);
+        var amount = Number(args[1]);
+
+        const target = this.conn.chatRoom.findMember(targetNumber);
+        if (!target) {
+            this.conn.SendMessage("Whisper", `(The player is not in the room)`, sender.MemberNumber);
+            return;
+        }
+
+        // We know at this point the parameters are numbers and the target is a valid target, we are good
+        // to send the money as long as the player has enough of them. And that they're not trying to be funny
+        if (sender.MemberNumber == targetNumber) {
+            this.conn.SendMessage("Whisper", `(*Takes the money from your hand and puts it in the other)`, sender.MemberNumber);
+            return;
+        }
+
+        if (target.IsBot()) {
+            this.conn.SendMessage("Whisper", `(You can keep them)`, sender.MemberNumber);
+            return;
+        }
+
+        const player = this.playerService.get(sender.MemberNumber);
+        if (player.money < amount) {
+            this.conn.SendMessage("Whisper", `(You don't have that much money to give)`, sender.MemberNumber);
+            return;
+        }
+        const targetPlayer = this.playerService.get(targetNumber);
+
+        player.addMoney(-amount);
+        targetPlayer.addMoney(amount);
+
+        this.playerService.save(player);
+        this.playerService.save(targetPlayer);
+
+        this.conn.SendMessage("Chat", `(${sender.toString()} paid ${target.toString()} ${amount} money)`);
     }
 
     private canReroll(memberNumber: number): boolean {

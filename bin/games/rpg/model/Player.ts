@@ -24,6 +24,13 @@ export class Player implements IPlayer {
         return Math.round(rawXP / 100) * 100; // Round to nearest 100
     }
 
+    moneyThatCanBeRefunded(): number {
+        if (this.level <= 1)
+            return 0;
+        const rawXP = 100 * Math.pow(this.level, exponentialFactor);
+        return Math.round(rawXP / 100) * 100; // Round to nearest 100
+    }
+
     canLevelUp(): boolean {
         return this.money >= this.moneyNeededToLevelUp();
     }
@@ -35,6 +42,11 @@ export class Player implements IPlayer {
         this.money -= this.moneyNeededToLevelUp();
         this.level += 1;
         return true;
+    }
+
+    refundLevel(): void {
+        this.money += this.moneyThatCanBeRefunded();
+        this.level--;
     }
 
     toString(): string {

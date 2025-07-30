@@ -5,7 +5,9 @@ export interface IPlayer {
 
     addMoney(amount: number): void;
     moneyNeededToLevelUp(): number;
+    moneyThatCanBeRefunded(): number;
     canLevelUp(): boolean;
     levelUp(): boolean;
+    refundLevel(): void;
     toString(): string;
 }
