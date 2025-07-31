@@ -23,7 +23,8 @@ export class PlayerService {
     }
 
     getLevel(memberNumber: number): number {
-        return this.playerStorage.get(memberNumber.toString() + ".level");
+        const player = this.get(memberNumber);
+        return player.level;
     }
 
     remove(memberNumber: number): void {

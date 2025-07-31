@@ -49,6 +49,9 @@ const REROLL_CD = 3 * 60 * 1000;
 const QUEST_CD = 10 * 60 * 1000;
 const GRACE_PERIOD = 20 * 60 * 1000;
 const PRIVATE_CONFIRMATION_DURATION = 2 * 60 * 1000;
+const BOUNTY_EVENT_SUCCESS_CD = 60 * 60 * 1000;
+const BOUNTY_EVENT_REATTEMPT_CD = 60 * 60 * 1000;
+
 const PRIVATE_ROOM_COST = 100;
 const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
@@ -147,6 +150,8 @@ export class RPG {
         this.commandParser.register("settings", this.onCommandSettings.bind(this));
         this.commandParser.register("levelup", this.onCommandLevelUp.bind(this));
         this.commandParser.register("pay", this.onCommandPay.bind(this));
+
+        setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_SUCCESS_CD);
     }
 
     public async init(): Promise<void> {
@@ -398,11 +403,11 @@ export class RPG {
 
                     let quests = this.questManager.cancelQuestsByTarget(sender.MemberNumber);
                     for (const quest of quests) {
-                        this.conn.SendMessage("Whisper", `(Your target went into the private room, you'll be assigned a new quest)'`, quest.owner);
+                        this.conn.SendMessage("Whisper", `(Your target went into the private room, you'll be assigned a new quest)`, quest.owner);
                     }
                     quests = this.questManager.cancelQuestsByTarget(request.requestingPlayer);
                     for (const quest of quests) {
-                        this.conn.SendMessage("Whisper", `(Your target went into the private room, you'll be assigned a new quest)'`, quest.owner);
+                        this.conn.SendMessage("Whisper", `(Your target went into the private room, you'll be assigned a new quest)`, quest.owner);
                     }
 
                     this.startPrivatePlay(sender.MemberNumber, PRIVATE_ROOM_SPAWN_1);
@@ -501,6 +506,25 @@ Thanks for your feedback!)`, sender.MemberNumber);
         this.playerService.save(targetPlayer);
 
         this.conn.SendMessage("Chat", `(${sender.toString()} paid ${target.toString()} ${amount} money)`);
+    }
+
+    private bountyEvent() {
+        const candidateList = this.conn.chatRoom.characters.filter(
+            c => !c.IsBot() && this.isPlayerSafe.get(c.MemberNumber) == false && !c.IsRestrained()
+        );
+
+        if (candidateList.length == 0) {
+            setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_REATTEMPT_CD);
+        } else {
+            let bountyTarget = candidateList.at(Util.getRandomInt(candidateList.length));
+            const bountyLevel = this.playerService.getLevel(bountyTarget.MemberNumber);
+            let bounty = 50 * bountyLevel;
+            if (this.bounties.has(bountyTarget.MemberNumber))
+                bounty += this.bounties.get(bountyTarget.MemberNumber);
+            this.bounties.set(bountyTarget.MemberNumber, bounty);
+            this.conn.SendMessage("Chat", "(An unknown source offers money to capture " + bountyTarget.toString() + "[#" + bountyTarget.MemberNumber + "]! The bounty is " + bounty + " money)");
+            setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_SUCCESS_CD);
+        }
     }
 
     private canReroll(memberNumber: number): boolean {
