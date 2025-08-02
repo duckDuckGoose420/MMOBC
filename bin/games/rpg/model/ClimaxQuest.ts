@@ -20,7 +20,7 @@ export class ClimaxQuest extends AbstractQuest {
 
     // In short, if someone else locked the target's arms, 
     failCondition(gracePeriods: Map<number, number>): boolean {
-        return false;
+        return super.failCondition(gracePeriods);
     }
     successCondition(): boolean {
         return Number(this.additionalInfo["orgasms"]) > 0;

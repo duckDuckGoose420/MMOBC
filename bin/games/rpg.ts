@@ -20,11 +20,9 @@ import { QuestManager } from "./rpg/model/QuestManager";
 import { PlayerService } from "./rpg/service/PlayerService";
 import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
-import { wait } from "../hub/utils";
 import { FeedbackService } from "./rpg/service/FeedbackService";
 import { SettingsService } from "./rpg/service/SettingsService";
 import { Settings } from "./rpg/model/Settings";
-import { Player } from "./rpg/model/Player";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -36,13 +34,18 @@ const LEAVE_SAFE_AREA_1: MapRegion = {
 };
 
 const ENTER_INTRODUCTION_AREA: MapRegion = {
-    TopLeft: { X: 0, Y: 17 },
+    TopLeft: { X: 0, Y: 14 },
     BottomRight: { X: 4, Y: 23 },
 };
 
 const PRIVATE_ROOM_AREA: MapRegion = {
     TopLeft: { X: 18, Y: 1 },
     BottomRight: { X: 21, Y: 7 }
+}
+
+export const KIDNAP_COLLECTION_AREA: MapRegion = {
+    TopLeft: { X: 27, Y: 30 },
+    BottomRight: { X: 35, Y: 35 }
 }
 
 const REROLL_CD = 3 * 60 * 1000;
@@ -55,6 +58,8 @@ const BOUNTY_EVENT_REATTEMPT_CD = 60 * 60 * 1000;
 const PRIVATE_ROOM_COST = 100;
 const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
+
+
 
 export class RPG {
     isPlayerSafe: Map<number, boolean> = new Map<number, boolean>();
@@ -91,6 +96,7 @@ export class RPG {
         "/bot private claim [memberNumber] - If you completed a quest recently, you can access the private room for free with this command instead",
         "/bot private confirm - When someone offers you to join them in the private room you'll be prompted to insert this command to accept",
         "/bot private rescue - If you get stuck inside the private room for some reason, you can use this command to forcibly leave the room",
+        "/bot private check - It will tell you if the private room is empty, in case you want to use it",
         "",
         "/bot settings - Will prompt you on how you can check or change some setting you can use to tweak your experience in the room",
         "",
@@ -101,7 +107,8 @@ export class RPG {
         "Developed with https://github.com/FriendsOfBC/ropeybot",
         "",
         "Code available at: https://github.com/BufaloAcquatico/MMOBC",
-        "Feedback reviews: https://github.com/BufaloAcquatico/MMOBC/issues"
+        "Feedback reviews: https://github.com/BufaloAcquatico/MMOBC/issues",
+        "DO NOT ADD ISSUES YOURSELF, use the feedback function provided"
     ].join("\n");
 
     public static helpText = [
@@ -122,6 +129,7 @@ export class RPG {
         "/bot private claim [memberNumber]",
         "/bot private confirm",
         "/bot private rescue - If you get stuck inside the private room for some reason, you can use this command to forcibly leave the room",
+        "/bot private check",
         "",
         "/bot settings",
         "",
@@ -273,7 +281,7 @@ export class RPG {
         const player = this.playerService.get(sender.MemberNumber);
         const toLevelUp = player.moneyNeededToLevelUp();
         if (args.length == 0) {
-            this.conn.SendMessage("Whisper", `(You need ${toLevelUp} money to level up. If you have the money and you want to do so, use "/bot levelup confirm", or you can refund your last level up with "/bot levelup refund". Level influences the likelyhood you are targeted by quests from lower level players than you are, mostly a stat for doms currently). `, sender.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You need ${toLevelUp} money to level up. If you have the money and you want to do so, use "/bot levelup confirm", or you can refund your last level up with "/bot levelup refund". Level decreases the likelyhood you are targeted by quests from lower level players than you are, mostly a stat for doms currently). `, sender.MemberNumber);
             return;
         }
         if (args[0] == "confirm") {
@@ -522,7 +530,7 @@ Thanks for your feedback!)`, sender.MemberNumber);
             if (this.bounties.has(bountyTarget.MemberNumber))
                 bounty += this.bounties.get(bountyTarget.MemberNumber);
             this.bounties.set(bountyTarget.MemberNumber, bounty);
-            this.conn.SendMessage("Chat", "(An unknown source offers money to capture " + bountyTarget.toString() + "[#" + bountyTarget.MemberNumber + "]! The bounty is " + bounty + " money)");
+            this.conn.SendMessage("Chat", "(Bounty event! The kidnappers league has put a bounty on " + bountyTarget.toString() + "[#" + bountyTarget.MemberNumber + "]! The bounty is " + bounty + " money)");
             setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_SUCCESS_CD);
         }
     }

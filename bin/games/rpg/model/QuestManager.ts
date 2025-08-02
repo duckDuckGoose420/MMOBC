@@ -2,13 +2,15 @@ import { IQuest } from "../types/IQuest";
 import { API_Chatroom, API_Connector } from "bc-bot";
 import { LockQuest } from "./LockQuest";
 import { Util } from "../util/Util";
-import { RPG } from "../../rpg";
+import { KIDNAP_COLLECTION_AREA, RPG } from "../../rpg";
 import { ClimaxQuest, refractaryPeriod } from "./ClimaxQuest";
+import { KidnapQuest } from "./KidnapQuest";
 
 const botMemberNumber = 4492;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
     { constructor: LockQuest, weight: 10 },
-    { constructor: ClimaxQuest, weight: 3 }
+    { constructor: ClimaxQuest, weight: 3 },
+    { constructor: KidnapQuest, weight: 1 }
 ];
 
 type QuestConstructor = new (
@@ -154,6 +156,7 @@ export class QuestManager {
                 this.RPG.climaxTracker.set(quest.targetPlayer, Date.now() - refractaryPeriod);
             quest.additionalInfo["lastClimaxed"] = this.RPG.climaxTracker.get(quest.targetPlayer);
         }
+        
         // Check prerequisite
         return quest.prerequisite() ? quest : null;
     }
