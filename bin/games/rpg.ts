@@ -48,6 +48,11 @@ export const KIDNAP_COLLECTION_AREA: MapRegion = {
     BottomRight: { X: 35, Y: 35 }
 }
 
+export const BOUND_MAID_AREA: MapRegion = {
+    TopLeft: { X: 18, Y: 7 },
+    BottomRight: { X: 27, Y: 17 }
+}
+
 const REROLL_CD = 3 * 60 * 1000;
 const QUEST_CD = 10 * 60 * 1000;
 const GRACE_PERIOD = 20 * 60 * 1000;
@@ -66,7 +71,7 @@ export class RPG {
     private bounties: Map<number, number> = new Map<number, number>();
     private lastTargetBeforeReroll: Map<number, number> = new Map<number, number>();
     private privatePlayRequests: Map<number, PrivateRequest> = new Map<number, PrivateRequest>();   // To note that the player who receives the request is used as key here
-    
+    private alreadyEnteredBoundMaid: Set<number> = new Set();
 
     private rerollCD = new Map<number, number>();
     private questCD = new Map<number, number>();
@@ -210,6 +215,15 @@ export class RPG {
         this.conn.chatRoom.map.addLeaveRegionTrigger(
             PRIVATE_ROOM_AREA,
             this.onLeaveSafeArea.bind(this)
+        );
+
+        this.conn.chatRoom.map.addEnterRegionTrigger(
+            BOUND_MAID_AREA,
+            this.onEnterBoundMaid.bind(this)
+        );
+        this.conn.chatRoom.map.addLeaveRegionTrigger(
+            BOUND_MAID_AREA,
+            this.onLeaveBoundMaid.bind(this)
         );
     };
 
@@ -562,6 +576,10 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         this.isPlayerSafe.set(character.MemberNumber, true);
     }
 
+    private onLeaveSafeArea(character: API_Character): void {
+        this.isPlayerSafe.set(character.MemberNumber, false);
+    }
+
     private onLeaveIntroductionArea(character: API_Character): void {
         if (this.isPlayerSafe.get(character.MemberNumber) == true) {
             this.isPlayerSafe.set(character.MemberNumber, false);
@@ -569,7 +587,18 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         }
     }
 
-    private onLeaveSafeArea(character: API_Character): void {
+    private onEnterBoundMaid(character: API_Character): void {
+        this.isPlayerSafe.set(character.MemberNumber, true);
+        const memberId = character.MemberNumber;
+
+        // If the player hasn't been welcomed before
+        if (!this.alreadyEnteredBoundMaid.has(memberId)) {
+            this.conn.SendMessage("Whisper", `(You entered the local BDSM club, the "Bound Maid". This is a public play area and considered a safe zone)`, character.MemberNumber);
+            this.alreadyEnteredBoundMaid.add(memberId);
+        }
+    }
+
+    private onLeaveBoundMaid(character: API_Character): void {
         this.isPlayerSafe.set(character.MemberNumber, false);
     }
 

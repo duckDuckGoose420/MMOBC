@@ -5,12 +5,14 @@ import { Util } from "../util/Util";
 import { KIDNAP_COLLECTION_AREA, RPG } from "../../rpg";
 import { ClimaxQuest, refractaryPeriod } from "./ClimaxQuest";
 import { KidnapQuest } from "./KidnapQuest";
+import { KidnapQuestBoundMaid } from "./KidnapQuestBoundMaid"
 
 const botMemberNumber = 4492;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
     { constructor: LockQuest, weight: 10 },
     { constructor: ClimaxQuest, weight: 3 },
-    { constructor: KidnapQuest, weight: 1 }
+    { constructor: KidnapQuest, weight: 1 },
+    { constructor: KidnapQuestBoundMaid, weight: 1 }
 ];
 
 type QuestConstructor = new (
