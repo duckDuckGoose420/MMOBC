@@ -5,7 +5,8 @@ import { Util } from "../util/Util";
 import { KIDNAP_COLLECTION_AREA, RPG } from "../../rpg";
 import { ClimaxQuest, refractaryPeriod } from "./ClimaxQuest";
 import { KidnapQuest } from "./KidnapQuest";
-import { KidnapQuestBoundMaid } from "./KidnapQuestBoundMaid"
+import { KidnapQuestBoundMaid } from "./KidnapQuestBoundMaid";
+import { TargetPriorityService } from "../service/TargetPriorityService";
 
 const botMemberNumber = 4492;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
@@ -23,7 +24,7 @@ type QuestConstructor = new (
 
 class QuestList {
     private quests: IQuest[] = [];
-    
+
     add(quest: IQuest): void {
         this.quests.push(quest);
     }
@@ -53,11 +54,13 @@ export class QuestManager {
     quests: QuestList;
     private chatRoom: API_Chatroom;
     private RPG: RPG;
+    private targetPriorityService: TargetPriorityService;
 
-    public constructor(chatroom: API_Chatroom, RPG: RPG) {
+    public constructor(chatroom: API_Chatroom, RPG: RPG, targetPriorityService?: TargetPriorityService) {
         this.chatRoom = chatroom;
         this.quests = new QuestList();
         this.RPG = RPG;
+        this.targetPriorityService = targetPriorityService || new TargetPriorityService();
     }
 
     playerHasQuestAssigned(memberNumber: number): IQuest | null {
@@ -118,11 +121,47 @@ export class QuestManager {
     async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): Promise<void> {
         const maxAttempts = 10;
 
+        // First, try to assign quest with priority targets
+        const priorityTargets = this.targetPriorityService.getPriorityTargets(memberNumber);
+        if (priorityTargets.length > 0) {
+            for (const targetNumber of priorityTargets) {
+                // Check if target is blocked
+                if (this.targetPriorityService.isBlocked(memberNumber, targetNumber)) {
+                    continue;
+                }
+
+                // Check if target is in grace period
+                if (this.isInGracePeriod(gracePeriods, targetNumber)) {
+                    continue;
+                }
+
+                // Check if target is safe
+                const isTargetSafe = this.RPG.isPlayerSafe.get(targetNumber);
+                if (isTargetSafe === undefined || isTargetSafe) {
+                    continue;
+                }
+
+                // Try to generate quest with this priority target
+                const quest = this.generateQuestWithTarget(memberNumber, targetNumber);
+                if (quest && quest.prerequisite()) {
+                    this.quests.add(quest);
+                    conn.SendMessage("Whisper", "(New quest: " + quest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
+                    return;
+                }
+            }
+        }
+
+        // If no priority target worked, try normal quest generation
         for (let i = 0; i < maxAttempts; i++) {
             const quest = this.generateRandomQuest(memberNumber);
             const lastTarget = lastTargetBeforeReroll.get(memberNumber);
             if (!quest || quest.targetPlayer == lastTarget)
                 continue;
+
+            // Check if target is blocked
+            if (this.targetPriorityService.isBlocked(memberNumber, quest.targetPlayer)) {
+                continue;
+            }
 
             const playerLevel = this.RPG.playerService.get(quest.owner).level;
             const targetLevel = this.RPG.playerService.get(quest.targetPlayer).level;
@@ -158,7 +197,26 @@ export class QuestManager {
                 this.RPG.climaxTracker.set(quest.targetPlayer, Date.now() - refractaryPeriod);
             quest.additionalInfo["lastClimaxed"] = this.RPG.climaxTracker.get(quest.targetPlayer);
         }
-        
+
+        // Check prerequisite
+        return quest.prerequisite() ? quest : null;
+    }
+
+    generateQuestWithTarget(memberNumber: number, targetNumber: number): IQuest | null {
+        const target = this.chatRoom.findMember(targetNumber);
+        if (!target) return null;
+
+        // Choose a quest type randomly
+        const constructor = this.chooseQuestWeighted(questTypes);
+
+        // Instantiate the chosen quest
+        const quest = new constructor(this.chatRoom, memberNumber, targetNumber);
+        if (quest instanceof ClimaxQuest) {
+            if (this.RPG.climaxTracker.get(quest.targetPlayer) === undefined)
+                this.RPG.climaxTracker.set(quest.targetPlayer, Date.now() - refractaryPeriod);
+            quest.additionalInfo["lastClimaxed"] = this.RPG.climaxTracker.get(quest.targetPlayer);
+        }
+
         // Check prerequisite
         return quest.prerequisite() ? quest : null;
     }
