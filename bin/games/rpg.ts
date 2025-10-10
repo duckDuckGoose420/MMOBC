@@ -21,8 +21,6 @@ import { PlayerService } from "./rpg/service/PlayerService";
 import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
 import { FeedbackService } from "./rpg/service/FeedbackService";
-import { SettingsService } from "./rpg/service/SettingsService";
-import { Settings } from "./rpg/model/Settings";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -81,7 +79,6 @@ export class RPG {
     private questManager: QuestManager;
     playerService: PlayerService = new PlayerService();
     private feedbackService: FeedbackService = new FeedbackService();
-    private settingsService: SettingsService = new SettingsService();
     public static description = [
         "This is a WIP for a quest based bondage room.",
         "Commands:",
@@ -89,7 +86,7 @@ export class RPG {
         "/bot help - Will show these commands",
         "/bot quest - Check the quest currently assigned to you",
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
-        "/bot pay [memberNumber] [amount] - Example /bot pay 12345 200 will transfer 200 money from you to player 12345", 
+        "/bot pay [memberNumber] [amount] - Example /bot pay 12345 200 will transfer 200 money from you to player 12345",
         "/bot stats - Check your money and level",
         "/bot bounty [memberNumber] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
@@ -339,13 +336,13 @@ export class RPG {
                     this.playerService.save(player);
                 }
                 break;
-            
+
             default:
                 this.conn.SendMessage("Whisper",
                     `(Use one of these:
 /bot buy release`, sender.MemberNumber);
                 break;
-            
+
         }
     }
 
@@ -458,10 +455,10 @@ export class RPG {
 
     private onCommandFeedback = async (sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) => {
         this.feedbackService.appendFeedback(msg.Content, sender.MemberNumber, sender.toString());
-        this.conn.SendMessage("Whisper", `(Your message has been saved - I'll read it soon.  
+        this.conn.SendMessage("Whisper", `(Your message has been saved - I'll read it soon.
 
-If I have any follow-up questions, I might contact you while you're in the room, when the timing is appropriate.  
-If you see me (Irinoa) around and want to reach out directly, feel free to do so.  
+If I have any follow-up questions, I might contact you while you're in the room, when the timing is appropriate.
+If you see me (subMe) around and want to reach out directly, feel free to do so.
 
 Thanks for your feedback!)`, sender.MemberNumber);
 
@@ -474,16 +471,16 @@ Thanks for your feedback!)`, sender.MemberNumber);
 /bot settings GracePeriod toggle - Turn on or off the grace period`, sender.MemberNumber);
         }
 
-        let settings: Settings = this.settingsService.get(sender.MemberNumber);
+        const player = this.playerService.get(sender.MemberNumber);
         switch (args[0]) {
             case 'graceperiod':
                 if (args.length > 1 && args[1] == "toggle") {
-                    settings.setGracePeriodEnabled(!settings.isGracePeriodEnabled());
-                    this.settingsService.save(sender.MemberNumber, settings);
+                    player.setGracePeriodEnabled(!player.isGracePeriodEnabled());
+                    this.playerService.save(player);
                 }
                 if (args.length > 1 && args[1] != "toggle")
                     break;
-                this.conn.SendMessage("Whisper", settings.isGracePeriodEnabled() ? "(You have currently 20 minutes of grace period after completing a quest)" : "(The grace period after completing a quest is disabled. Note that this also disables the free access to the private room after a quest, but you can still buy it)", sender.MemberNumber);
+                this.conn.SendMessage("Whisper", player.isGracePeriodEnabled() ? "(You have currently 20 minutes of grace period after completing a quest)" : "(The grace period after completing a quest is disabled. Note that this also disables the free access to the private room after a quest, but you can still buy it)", sender.MemberNumber);
                 break;
         }
     }
@@ -492,7 +489,7 @@ Thanks for your feedback!)`, sender.MemberNumber);
         if (args.length != 2 || !Util.isValidIntegerString(args[0]) || !Util.isValidIntegerString(args[1])) {
             this.conn.SendMessage("Whisper", `(Incorrect use of the command)`, sender.MemberNumber);
             return;
-        } 
+        }
         var targetNumber = Number(args[0]);
         var amount = Number(args[1]);
 
@@ -566,7 +563,7 @@ Thanks for your feedback!)`, sender.MemberNumber);
         this.conn.SendMessage("Whisper", `(Welcome, this is a WIP room where you'll be given quests that you can complete for money.
 You're in a safe zone, being assigned and targeted by quests will start when you leave this building.
 The bot has info about the commands and settings.
-            
+
 The goal of the room is to give an opportunity to start plays and sessions with other people, if you tie up someone for a quest, try to make it fun for the both of you
 instead of just leaving them immediately, it makes it more enjoyable for everyone involved.)`, character.MemberNumber
         );
@@ -613,7 +610,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
     startPrivatePlay(memberNumber: number, pos: ChatRoomMapPos) {
         //console.log(`Teleporting ${memberNumber} to {${pos.X}, ${pos.Y}}`);
 
-        this.conn.chatRoom.findMember(memberNumber).mapTeleport(pos);        
+        this.conn.chatRoom.findMember(memberNumber).mapTeleport(pos);
     }
 
     private checkBounties() {
@@ -680,15 +677,14 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
     }
 
     private runLoop() {
-        
+
         const completedQuests = this.questManager.completeQuests();
         for (const quest of completedQuests) {
             let player = this.playerService.get(quest.owner);
             player.money += 100;
             this.playerService.save(player);
             this.questCD.set(quest.owner, Date.now() + (QUEST_CD));
-            const settings = this.settingsService.get(quest.owner);
-            if (settings.isGracePeriodEnabled()) { 
+            if (player.isGracePeriodEnabled()) {
                 this.gracePeriods.set(quest.owner, Date.now() + (GRACE_PERIOD));
                 this.conn.SendMessage("Whisper", "(You have completed your quest! You have " + remainingTimeString(Date.now() + GRACE_PERIOD + 5000) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [memberNumber]\")", quest.owner);
             } else {

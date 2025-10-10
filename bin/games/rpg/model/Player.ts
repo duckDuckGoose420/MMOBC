@@ -7,12 +7,14 @@ export class Player implements IPlayer {
     memberNumber: number;
     level: number;
     money: number;
+    gracePeriodMinutes: number;
 
-    
+
     constructor(memberNumber: number) {
         this.memberNumber = memberNumber;
         this.level = 1;
         this.money = 0;
+        this.gracePeriodMinutes = 20; // Default: 20 minutes
     }
 
     addMoney(amount: number): void {
@@ -38,7 +40,7 @@ export class Player implements IPlayer {
     levelUp(): boolean {
         if (!this.canLevelUp())
             return false;
-        
+
         this.money -= this.moneyNeededToLevelUp();
         this.level += 1;
         return true;
@@ -51,5 +53,18 @@ export class Player implements IPlayer {
 
     toString(): string {
         return `Player #${this.memberNumber} - Level ${this.level}, Money: $${this.money}`;
+    }
+
+    // Settings methods
+    getGracePeriodMinutes(): number {
+        return this.gracePeriodMinutes;
+    }
+
+    setGracePeriodMinutes(minutes: number): void {
+        // Validate: must be between 0 and 20
+        if (minutes < 0 || minutes > 20) {
+            throw new Error("Grace period minutes must be between 0 and 20");
+        }
+        this.gracePeriodMinutes = minutes;
     }
 }
