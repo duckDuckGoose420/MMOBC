@@ -12,7 +12,7 @@ export class KidnapQuestBoundMaid extends AbstractQuest {
         return !this.chatRoom.findMember(this.targetPlayer).IsRestrained();
     }
 
-    // In short, if someone else locked the target's arms, 
+    // In short, if someone else locked the target's arms,
     failCondition(gracePeriods: Map<number, number>): boolean {
         if (super.failCondition(gracePeriods))
             return true;
@@ -30,7 +30,7 @@ export class KidnapQuestBoundMaid extends AbstractQuest {
         } else {
             this.failMessage = "";
             return false;
-        }   
+        }
     }
 
     // Locked, leashed, and in the collection building

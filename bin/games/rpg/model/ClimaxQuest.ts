@@ -18,7 +18,7 @@ export class ClimaxQuest extends AbstractQuest {
         return (Number(this.additionalInfo["lastClimaxed"]) + refractaryPeriod) < Date.now();
     }
 
-    // In short, if someone else locked the target's arms, 
+    // In short, if someone else locked the target's arms,
     failCondition(gracePeriods: Map<number, number>): boolean {
         return super.failCondition(gracePeriods);
     }

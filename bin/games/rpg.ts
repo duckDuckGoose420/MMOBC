@@ -84,6 +84,9 @@ export class RPG {
     private targetPriorityService: TargetPriorityService = new TargetPriorityService();
     public static description = [
         "This is a WIP for a quest based bondage room.",
+        "","",
+        "CURRENTLY LOOKING FOR MAP DESIGNERS! - contact subMe or use the /bot feedback function if you want to help out!",
+        "","",
         "Commands:",
         "",
         "/bot help - Will show these commands",
@@ -955,6 +958,12 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                 break;
 
             default:
+                // Check if it's a common typo first
+                if (args[0] === 'players') {
+                    this.conn.SendMessage("Whisper", "(Did you mean '/bot debug player'? Use 'player' not 'players')", sender.MemberNumber);
+                    return;
+                }
+
                 // Handle as player names (Multi-Player Support)
                 const results = [];
                 for (const targetIdentifier of args) {

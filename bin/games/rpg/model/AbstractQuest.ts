@@ -6,7 +6,7 @@ export abstract class AbstractQuest implements IQuest {
     owner: number;
     targetPlayer: number;
     private _additionalInfo: Record<string, unknown>;
-   
+
     failMessage: string;
 
     constructor(conn: API_Chatroom, memberNumber: number, target: number, additionalInfo?: any) {
@@ -15,7 +15,7 @@ export abstract class AbstractQuest implements IQuest {
         this.targetPlayer = target;
         this.additionalInfo = additionalInfo ?? {};
     }
-    
+
      public get additionalInfo(): Record<string, unknown>{
         return this._additionalInfo;
     }

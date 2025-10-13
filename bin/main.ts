@@ -13,15 +13,9 @@
  */
 
 import { API_Connector } from "bc-bot";
-import { KidnappersGameRoom } from "./hub/logic/kidnappersGameRoom";
-import { RoleplaychallengeGameRoom } from "./hub/logic/roleplaychallengeGameRoom";
-import { Dare } from "./games/dare";
 import { readFile } from "fs/promises";
 import { ConfigFile } from "./config";
 import { Db, MongoClient } from "mongodb";
-import { PetSpa } from "./games/petspa";
-import { MaidsPartyNightSinglePlayerAdventure } from "./hub/logic/maidsPartyNightSinglePlayerAdventure";
-import { Casino } from "./games/casino";
 import { RPG } from "./games/rpg";
 
 const SERVER_URL = {
@@ -85,53 +79,6 @@ export async function startBot(): Promise<RopeyBot> {
 
     switch (config.game) {
         case undefined:
-            break;
-        case "kidnappers":
-            console.log("Starting game: Kidnappers");
-            const kidnappersGame = new KidnappersGameRoom(connector, config);
-            connector.accountUpdate({ Nickname: "Kidnappers Bot" });
-            connector.setBotDescription(KidnappersGameRoom.description);
-            connector.startBot(kidnappersGame);
-            break;
-        case "roleplay":
-            console.log("Starting game: Roleplay challenge");
-            const roleplayGame = new RoleplaychallengeGameRoom(
-                connector,
-                config,
-            );
-            connector.setBotDescription(RoleplaychallengeGameRoom.description);
-            connector.startBot(roleplayGame);
-            break;
-        case "maidspartynight":
-            console.log("Starting game: Maid's Party Night");
-            if (!config.user2 || !config.password2) {
-                console.log("Need user2 and password2 for Maid's Party Night");
-                process.exit(1);
-            }
-            const connector2 = new API_Connector(
-                serverUrl,
-                config.user2,
-                config.password2,
-                config.env,
-            );
-            const maidsPartyNightGame = new MaidsPartyNightSinglePlayerAdventure(connector, connector2);
-            connector.startBot(maidsPartyNightGame);
-            break;
-        case "dare":
-            console.log("Starting game: dare");
-            connector.accountUpdate({ Nickname: "Dare Bot" });
-            new Dare(connector);
-            connector.setBotDescription(Dare.description);
-            break;
-        case "petspa":
-            console.log("Starting game: Pet Spa");
-            const petSpaGame = new PetSpa(connector);
-            await petSpaGame.init();
-            connector.setBotDescription(PetSpa.description);
-            break;
-        case "casino":
-            console.log("Starting game: Casino");
-            new Casino(connector, db, config.casino);
             break;
         case "rpg":
             console.log("Starting game: RPG");

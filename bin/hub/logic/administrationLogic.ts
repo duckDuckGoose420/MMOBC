@@ -115,6 +115,8 @@ const metric_guard_points = new promClient.Counter({
 
 export class AdministrationLogic extends LogicBase {
 
+	protected readonly conn: API_Connector;
+
 	private readonly a_settings: IAdminLogicSettings = {
 		log: true,
 		logConnectionMemberNumber: false,
@@ -147,8 +149,9 @@ export class AdministrationLogic extends LogicBase {
 	private a_guard_Acted: Set<number> = new Set();
 	private a_guard_lastMessage: WeakMap<API_Character, string> = new WeakMap();
 
-	constructor(settings: Partial<IAdminLogicSettings>, private config: ConfigFile) {
+	constructor(settings: Partial<IAdminLogicSettings>, private config: ConfigFile, conn?: API_Connector) {
 		super();
+		this.conn = conn!;
 		Object.assign(this.a_settings, settings);
 		//logConfig.onFatal.push(this.destroy.bind(this));
 		this.registerCommand("help", (connection, args, sender) => this.on_Help(sender), "Shows this list of commands");
@@ -1169,6 +1172,22 @@ Please be nice to other people that want to just enjoy themselves. Thank you!
 			return this.a_onBotEvent(event.connection, event.event);
 		}
 		return false;
+	}
+
+	/**
+	 * Load all existing players in the room when the bot starts up
+	 * This is called after the bot has joined the room to reload players after a restart
+	 */
+	public async loadExistingPlayers(): Promise<void> {
+		// This method can be overridden by game rooms to load their specific player data
+		// The base implementation just logs the current players
+		const currentPlayers = this.conn.chatRoom.characters.filter(c => !c.IsBot());
+		logger.info(`${this.a_LogHeader(this.conn)} Loading ${currentPlayers.length} existing players in room`);
+
+		// Update metrics
+		metric_players
+			.labels({ roomName: this.conn.chatRoom.Name })
+			.set(currentPlayers.length);
 	}
 
 	public onEvent(event: AnyLogicEvent): void {
