@@ -1,11 +1,11 @@
 import { mapRegions } from "../util/areas";
 import { AbstractQuest } from "./AbstractQuest";
 import { API_Connector, API_Chatroom, API_Character, positionIsInRegion } from "bc-bot";
-export class KidnapQuest extends AbstractQuest {
+export class PrisonQuest extends AbstractQuest {
     description(): string {
         const targetName = this.chatRoom.findMember(this.targetPlayer).toString();
-        return `Your current quest is to kidnap ${targetName}[#${this.targetPlayer}]. They have to have their arms restrained and locked by you, then leashed to the ` +
-        `warehouse (in the bottom right corner of the map)`;
+        return `Your current quest is to put ${targetName}[#${this.targetPlayer}] in prison. They have to have their arms restrained and locked by you, then leashed to the ` +
+        `prison`;
     }
 
     prerequisite(): boolean {
@@ -47,7 +47,7 @@ export class KidnapQuest extends AbstractQuest {
             ?.LockMemberNumber == this.owner;
 
         const leashed = target.hasEffect("IsLeashed");
-        const inBuilding = positionIsInRegion(target.MapPos, mapRegions.KIDNAP_COLLECTION_AREA);
+        const inBuilding = positionIsInRegion(target.MapPos, mapRegions.PRISON_ROOM);
 
         return correctLock && leashed && inBuilding;
     }

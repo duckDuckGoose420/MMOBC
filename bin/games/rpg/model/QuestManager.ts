@@ -2,18 +2,20 @@ import { IQuest } from "../types/IQuest";
 import { API_Chatroom, API_Connector } from "bc-bot";
 import { LockQuest } from "./LockQuest";
 import { Util } from "../util/Util";
-import { KIDNAP_COLLECTION_AREA, RPG } from "../../rpg";
+import { RPG } from "../../rpg";
 import { ClimaxQuest, refractaryPeriod } from "./ClimaxQuest";
 import { KidnapQuest } from "./KidnapQuest";
 import { KidnapQuestBoundMaid } from "./KidnapQuestBoundMaid";
 import { TargetPriorityService } from "../service/TargetPriorityService";
+import { PrisonQuest } from "./PrisonQuest";
 
-const botMemberNumber = 4492;
+const botMemberNumber = 220073;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
-    { constructor: LockQuest, weight: 10 },
-    { constructor: ClimaxQuest, weight: 3 },
+    { constructor: LockQuest, weight: 1 },
+    { constructor: ClimaxQuest, weight: 1 },
     { constructor: KidnapQuest, weight: 1 },
-    { constructor: KidnapQuestBoundMaid, weight: 1 }
+    { constructor: KidnapQuestBoundMaid, weight: 1 },
+    { constructor: PrisonQuest, weight: 10 }
 ];
 
 type QuestConstructor = new (

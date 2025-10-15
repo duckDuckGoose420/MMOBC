@@ -140,14 +140,14 @@ export class API_Character {
         return this.data.MapData?.Pos ?? { X: 0, Y: 0 };
     }
 
+    public IsRoomAdmin(): boolean {
+        return this.chatRoom.Admin.includes(this.MemberNumber);
+    }
+
     public mapTeleport(pos: ChatRoomMapPos): void {
         this.connection.SendMessage("Hidden", "ChatRoomMapViewTeleport", this.MemberNumber, [
             {Tag: "MapViewTeleport", Position: pos}
         ]);
-    }
-
-    public IsRoomAdmin(): boolean {
-        return this.chatRoom.Admin.includes(this.MemberNumber);
     }
 
     public Tell(msgType: TellType, msg: string): void {
@@ -233,7 +233,11 @@ export class API_Character {
         // In the real game this Freeze || Block || Prone effects
         // This isn't correct at all but rather than calculating effects,
         // this is good enough for kidnappers.
-        return Boolean(this.Appearance.InventoryGet("ItemArms"));
+        return Boolean(this.Appearance.InventoryGet("ItemArms")) && Boolean(this.hasEffect("Block"));
+    }
+
+    public IsLeashed(): boolean {
+        return Boolean(this.hasEffect("IsLeashed"));
     }
 
     public CanTalk(): boolean {
@@ -325,5 +329,17 @@ export class API_Character {
 
     public rebuildAppearance(): void {
         this._appearance = new AppearanceType(this, this.data);
+    }
+
+    public giveKey(keys: string[]): void {
+        for (const key of keys) {
+            this.connection.SendMessage("Hidden", `ChatRoomMapViewChangeKey`, this.MemberNumber, [{Tag: "MapViewChangeKey", Key: key, Bool: true}]);
+        }
+    }
+
+    public takeKey(keys: string[]): void {
+        for (const key of keys) {
+            this.connection.SendMessage("Hidden", `ChatRoomMapViewChangeKey`, this.MemberNumber, [{Tag: "MapViewChangeKey", Key: key, Bool: false}]);
+        }
     }
 }

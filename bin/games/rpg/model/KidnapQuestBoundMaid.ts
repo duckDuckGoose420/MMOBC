@@ -1,4 +1,4 @@
-import { BOUND_MAID_AREA, KIDNAP_COLLECTION_AREA } from "../../rpg";
+import { mapRegions } from "../util/areas";
 import { AbstractQuest } from "./AbstractQuest";
 import { API_Connector, API_Chatroom, API_Character, positionIsInRegion } from "bc-bot";
 export class KidnapQuestBoundMaid extends AbstractQuest {
@@ -47,7 +47,7 @@ export class KidnapQuestBoundMaid extends AbstractQuest {
             ?.LockMemberNumber == this.owner;
 
         const leashed = target.hasEffect("IsLeashed");
-        const inBuilding = positionIsInRegion(target.MapPos, BOUND_MAID_AREA);
+        const inBuilding = positionIsInRegion(target.MapPos, mapRegions.BOUND_MAID_AREA);
 
         return correctLock && leashed && inBuilding;
     }
