@@ -22,6 +22,7 @@ import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
 import { FeedbackService } from "./rpg/service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "./rpg/service/TargetPriorityService";
+import { PrisonService } from "./rpg/service/PrisonService";
 import { PlayerIdentifier } from "./rpg/util/PlayerIdentifier";
 import { PlayerCommands } from "./rpg/util/commands";
 import { mapRegions } from "./rpg/util/areas";
@@ -41,6 +42,8 @@ const BOUNTY_EVENT_SUCCESS_CD = 60 * 60 * 1000;
 const BOUNTY_EVENT_REATTEMPT_CD = 60 * 60 * 1000;
 
 const PRIVATE_ROOM_COST = 100;
+const PRISON_DURATION = 5 * 60 * 1000; // 5 Minuten
+const PRISON_RELEASE_COST = 250; // Kosten für Freikauf
 const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
 
@@ -52,6 +55,7 @@ export class RPG {
     private lastTargetBeforeReroll: Map<number, number> = new Map<number, number>();
     private privatePlayRequests: Map<number, PrivateRequest> = new Map<number, PrivateRequest>();   // To note that the player who receives the request is used as key here
     private alreadyEnteredBoundMaid: Set<number> = new Set();
+    private processedPlayers: Set<number> = new Set();
     private rerollCD = new Map<number, number>();
     private questCD = new Map<number, number>();
     private gracePeriods = new Map<number, number>();
@@ -60,6 +64,7 @@ export class RPG {
     playerService: PlayerService = new PlayerService();
     private feedbackService: FeedbackService = new FeedbackService();
     private targetPriorityService: TargetPriorityService = new TargetPriorityService();
+    private prisonService: PrisonService = new PrisonService();
     public commands: PlayerCommands;
     public static description = [
         "This is a WIP for a quest based bondage room.",
@@ -77,6 +82,8 @@ export class RPG {
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
         "/bot levelup - Check how many money you need to level up, plus explanation for levels",
         "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
+        "/bot buy prisonrelease - Cost: 250 money, buy your freedom from prison",
+        "/bot prisontime - Check how much time you have left in prison",
         "",
         "Private room commands:",
         "/bot private buy [player]t 100: Buy access to the private room so you can play with someone without interference from other players",
@@ -90,6 +97,10 @@ export class RPG {
         "/bot feedback [your message] - ",
         "Use this command to send suggestions, advice, complaints, bug reports, or anything else you'd like me to see. I'll read every message as soon as possible. Constructive criticism is welcome and helpful - just keep it polite.",
         "Important: Your current name and member number will be saved with your message for context. If that's not something you're comfortable with, feel free to skip leaving feedback.",
+        "",
+        "",
+        "Things on my todo list:",
+        "Asylum",
         "",
         "Developed with https://github.com/FriendsOfBC/ropeybot",
         "",
@@ -110,6 +121,8 @@ export class RPG {
         "/bot bounty [player] [bounty]",
         "/bot levelup",
         "/bot buy release - Cost: 1000",
+        "/bot buy prisonrelease - Cost: 250",
+        "/bot prisontime - Check how much time you have left in prison",
         "",
         "Private room commands:",
         "/bot private buy [player] - Cost 100",
@@ -136,6 +149,7 @@ export class RPG {
             this.questManager,
             this.feedbackService,
             this.targetPriorityService,
+            this.prisonService,
             this.isPlayerSafe,
             this.rerollCD,
             this.questCD,
@@ -264,23 +278,24 @@ export class RPG {
     private onEnterPrisonIntakeArea(character: API_Character): void {
         const isRestrained = character.IsRestrained();
         if (!isRestrained) {
-            this.conn.SendMessage("Whisper", `(The prison area is currently under construction! Changes to it will come the next days!)`, character.MemberNumber);
-
-            // this.conn.SendMessage("Whisper", `(This is the prison intake area. If you bring someone into a prison cell, while restrained, they will have their door-key and inventory confiscated until they either are released by a player, do their time or buy free.)`, character.MemberNumber);
+            // this.conn.SendMessage("Whisper", `(The prison area is currently under construction! Changes to it will come the next days!)`, character.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are leashed into a cell while restrained you will have you door-key confiscated until you either are released by a player, do your time or buy free.(/bot buy prisonrelease))`, character.MemberNumber);
         } else {
-            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are brough into a cell while restrained you will have you door-key and inventory confiscated until you either are released by a player, do your time or buy free.(/bot buy release))`, character.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are leashed into a cell while restrained you will have you door-key confiscated until you either are released by a player, do your time or buy free.(/bot buy prisonrelease))`, character.MemberNumber);
         }
     }
 
     private onEnterPrisonRoom(character: API_Character): void {
         if (character.IsRestrained() && character.IsLeashed()) {
-            this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time or buy your freedom or escape other wise.)`, character.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
             character.takeKey(["bronze"]);
+            this.prisonService.imprisonPlayer(character);
         }
     }
 
     private onLeavePrisonRoom(character: API_Character): void {
-        character.giveKey(["bronze"]);
+        // character.giveKey(["bronze"]);
+        this.prisonService.releasePlayer(character);
         // this.conn.SendMessage("Whisper", ``, character.MemberNumber);
         // character.Appearance.RemoveItem("ItemArms");
     }
@@ -391,6 +406,69 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         }
         this.questManager.assignQuests(this.conn, this.questCD, this.gracePeriods, this.lastTargetBeforeReroll);
 
+        // Handle player rejoins and prison status
+        this.handlePlayerRejoin();
+
+        // Check for expired prison sentences
+        const expiredPrisons = this.prisonService.checkExpiredPrisons(this.conn.chatRoom.characters.at(0));
+        for (const memberNumber of expiredPrisons) {
+            const character = this.conn.chatRoom.findMember(memberNumber);
+            if (character) {
+                character.giveKey(["bronze"]);
+                // Also remove restraints like when manually leaving prison
+                Util.freeCharacter(character);
+                this.conn.SendMessage("Whisper", "(Your prison time is up, you are free to leave)", memberNumber);
+            }
+            this.prisonService.releasePlayer(character);
+        }
+
         this.checkBounties();
+    }
+
+    /**
+     * Handles players rejoining the room - checks prison status and gives keys
+     */
+    private handlePlayerRejoin(): void {
+        const allCharacters = this.conn.chatRoom.characters;
+
+        for (const character of allCharacters) {
+            if (character.IsBot()) continue;
+
+            // Only process players we haven't seen before
+            if (!this.processedPlayers.has(character.MemberNumber)) {
+                this.processedPlayers.add(character.MemberNumber);
+
+                // Give all 3 keys to rejoining players
+                character.giveKey(["gold", "silver", "bronze"]);
+
+                // Check if player was imprisoned and handle their status
+                if (this.prisonService.isImprisoned(character)) {
+                    const remainingTime = this.prisonService.getRemainingTime(character);
+
+                    if (remainingTime <= 0) {
+                        // Time is up, release them
+                        this.prisonService.releasePlayer(character);
+                        this.conn.SendMessage("Whisper", "(Your prison time was up while you were away, you are now free)", character.MemberNumber);
+                    } else {
+                        // Still has time left, teleport back to prison and take bronze key
+                        const prisonCenter = {
+                            X: Math.floor((mapRegions.PRISON_ROOM.TopLeft.X + mapRegions.PRISON_ROOM.BottomRight.X) / 2),
+                            Y: Math.floor((mapRegions.PRISON_ROOM.TopLeft.Y + mapRegions.PRISON_ROOM.BottomRight.Y) / 2)
+                        };
+                        character.mapTeleport(prisonCenter);
+                        character.takeKey(["bronze"]);
+                        this.conn.SendMessage("Whisper", `(You are still serving your prison sentence. ${remainingTimeString(Date.now() + remainingTime)} remaining)`, character.MemberNumber);
+                    }
+                }
+            }
+        }
+
+        // Clean up processed players who are no longer in the room
+        const currentPlayerNumbers = new Set(allCharacters.filter(c => !c.IsBot()).map(c => c.MemberNumber));
+        for (const processedPlayer of this.processedPlayers) {
+            if (!currentPlayerNumbers.has(processedPlayer)) {
+                this.processedPlayers.delete(processedPlayer);
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ import { PlayerService } from "../service/PlayerService";
 import { QuestManager } from "../model/QuestManager";
 import { FeedbackService } from "../service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "../service/TargetPriorityService";
+import { PrisonService } from "../service/PrisonService";
 import { Util } from "./Util";
 import { PlayerIdentifier } from "./PlayerIdentifier";
 import { PrivateRequest } from "../types/PrivateRequest";
@@ -12,6 +13,7 @@ const REROLL_CD = 3 * 60 * 1000;
 const QUEST_CD = 10 * 60 * 1000;
 const PRIVATE_CONFIRMATION_DURATION = 2 * 60 * 1000;
 const PRIVATE_ROOM_COST = 100;
+const PRISON_RELEASE_COST = 250;
 
 export class PlayerCommands {
     private commandParser: CommandParser;
@@ -22,6 +24,7 @@ export class PlayerCommands {
         private questManager: QuestManager,
         private feedbackService: FeedbackService,
         private targetPriorityService: TargetPriorityService,
+        private prisonService: PrisonService,
         private isPlayerSafe: Map<number, boolean>,
         private rerollCD: Map<number, number>,
         private questCD: Map<number, number>,
@@ -105,7 +108,8 @@ export class PlayerCommands {
         if (args.length == 0) {
             this.conn.SendMessage("Whisper",
                 `(Use one of these:
-/bot buy release`, sender.MemberNumber);
+/bot buy release
+/bot buy prisonrelease`, sender.MemberNumber);
             return;
         }
         switch (args[0]) {
@@ -122,10 +126,30 @@ export class PlayerCommands {
                 }
                 break;
 
+            case 'prisonrelease':
+                const prisonPlayer = this.playerService.get(sender.MemberNumber);
+
+                if (!this.prisonService.isImprisoned(sender)) {
+                    this.conn.SendMessage("Whisper", `(You are not currently imprisoned)`, sender.MemberNumber);
+                    return;
+                }
+
+                if (prisonPlayer.money < PRISON_RELEASE_COST) {
+                    this.conn.SendMessage("Whisper", `(You need ${PRISON_RELEASE_COST} money to buy your freedom from prison)`, sender.MemberNumber);
+                } else {
+                    sender.giveKey(["bronze"]);
+                    this.prisonService.releasePlayer(sender);
+                    this.conn.SendMessage("Chat", `(${sender.toString()} has paid to be released from prison)`);
+                    prisonPlayer.money -= PRISON_RELEASE_COST;
+                    this.playerService.save(prisonPlayer);
+                }
+                break;
+
             default:
                 this.conn.SendMessage("Whisper",
                     `(Use one of these:
-/bot buy release`, sender.MemberNumber);
+/bot buy release
+/bot buy prisonrelease`, sender.MemberNumber);
                 break;
 
         }
@@ -147,6 +171,12 @@ export class PlayerCommands {
 
         const target = targetPlayer.MemberNumber;
         let money = Number(args[1]);
+
+        // Validate bounty amount - must be positive
+        if (money <= 0) {
+            this.conn.SendMessage("Whisper", `(Bounty amount must be greater than 0)`, sender.MemberNumber);
+            return;
+        }
 
         const player = this.playerService.get(sender.MemberNumber);
         if (player.money < money) {
@@ -389,6 +419,20 @@ Thanks for your feedback!)`, sender.MemberNumber);
         this.playerService.save(targetPlayer);
 
         this.conn.SendMessage("Chat", `(${sender.toString()} paid ${target.toString()} ${amount} money)`);
+    }
+
+    public async onCommandPrisonTime(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!this.prisonService.isImprisoned(sender)) {
+            this.conn.SendMessage("Whisper", `(You are not currently imprisoned)`, sender.MemberNumber);
+            return;
+        }
+
+        const remainingTime = this.prisonService.getRemainingTime(sender);
+        if (remainingTime <= 0) {
+            this.conn.SendMessage("Whisper", `(Your prison time is up, you should be released soon)`, sender.MemberNumber);
+        } else {
+            this.conn.SendMessage("Whisper", `(You have ${remainingTimeString(Date.now() + remainingTime)} left in prison)`, sender.MemberNumber);
+        }
     }
 
     // Helper methods
@@ -797,6 +841,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("settings", this.onCommandSettings.bind(this));
         this.commandParser.register("levelup", this.onCommandLevelUp.bind(this));
         this.commandParser.register("pay", this.onCommandPay.bind(this));
+        this.commandParser.register("prisontime", this.onCommandPrisonTime.bind(this));
 
         // Admin Commands (invisible to non-admins)
         this.commandParser.register("debug", this.onCommandDebug.bind(this));

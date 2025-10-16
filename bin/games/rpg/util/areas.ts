@@ -39,8 +39,8 @@ const PRISON_INTAKE_AREA = {
 };
 
 const PRISON_ROOM = {
-    TopLeft: { X: 24, Y: 25 },
-    BottomRight: { X: 28, Y: 29 }
+    TopLeft: { X: 22, Y: 26 },
+    BottomRight: { X: 30, Y: 31 }
 };
 
 const PRISON_CELL_1 = {

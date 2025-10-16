@@ -11,11 +11,11 @@ import { PrisonQuest } from "./PrisonQuest";
 
 const botMemberNumber = 220073;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
-    { constructor: LockQuest, weight: 1 },
+    { constructor: LockQuest, weight: 5 },
     { constructor: ClimaxQuest, weight: 1 },
     { constructor: KidnapQuest, weight: 1 },
-    { constructor: KidnapQuestBoundMaid, weight: 1 },
-    { constructor: PrisonQuest, weight: 10 }
+    { constructor: KidnapQuestBoundMaid, weight: 2 },
+    { constructor: PrisonQuest, weight: 1 }
 ];
 
 type QuestConstructor = new (

@@ -104,6 +104,9 @@ export class API_Character {
     public get MemberNumber(): number {
         return this.data.MemberNumber;
     }
+    public get Dominant(): number {
+        return this.Dominant;
+    }
     public get Pose(): PoseObject[] {
         return this.data.ActivePose.map((p) => {
             return { Name: p };
