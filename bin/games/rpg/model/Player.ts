@@ -8,6 +8,7 @@ export class Player implements IPlayer {
     level: number;
     money: number;
     gracePeriodMinutes: number;
+    isDominant: boolean;
 
 
     constructor(memberNumber: number) {
@@ -15,6 +16,7 @@ export class Player implements IPlayer {
         this.level = 1;
         this.money = 0;
         this.gracePeriodMinutes = 20; // Default: 20 minutes
+        this.isDominant = false; // Default: not dominant
     }
 
     addMoney(amount: number): void {
@@ -66,5 +68,14 @@ export class Player implements IPlayer {
             throw new Error("Grace period minutes must be between 0 and 20");
         }
         this.gracePeriodMinutes = minutes;
+    }
+
+    // Dominant methods
+    getIsDominant(): boolean {
+        return this.isDominant;
+    }
+
+    setIsDominant(isDominant: boolean): void {
+        this.isDominant = isDominant;
     }
 }

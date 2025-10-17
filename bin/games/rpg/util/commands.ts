@@ -4,6 +4,7 @@ import { QuestManager } from "../model/QuestManager";
 import { FeedbackService } from "../service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "../service/TargetPriorityService";
 import { PrisonService } from "../service/PrisonService";
+import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { Util } from "./Util";
 import { PlayerIdentifier } from "./PlayerIdentifier";
 import { PrivateRequest } from "../types/PrivateRequest";
@@ -31,7 +32,8 @@ export class PlayerCommands {
         private gracePeriods: Map<number, number>,
         private bounties: Map<number, number>,
         private privatePlayRequests: Map<number, PrivateRequest>,
-        private lastTargetBeforeReroll: Map<number, number>
+        private lastTargetBeforeReroll: Map<number, number>,
+        private performanceMonitor: PerformanceMonitorService
     ) {
         this.commandParser = new CommandParser(this.conn);
         this.registerAllCommands();
@@ -214,6 +216,7 @@ export class PlayerCommands {
             "/bot private check",
             "",
             "/bot settings - Configure grace period (0-20 min)",
+            "/bot dominant - Toggle dominant status (prevents being targeted by quests)",
             "",
             "/bot feedback [your message]"
         ].join("\n");
@@ -432,6 +435,24 @@ Thanks for your feedback!)`, sender.MemberNumber);
             this.conn.SendMessage("Whisper", `(Your prison time is up, you should be released soon)`, sender.MemberNumber);
         } else {
             this.conn.SendMessage("Whisper", `(You have ${remainingTimeString(Date.now() + remainingTime)} left in prison)`, sender.MemberNumber);
+        }
+    }
+
+    public async onCommandPerformance(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (args.length === 0) {
+            // Show current performance stats
+            const stats = this.performanceMonitor.getFormattedStats();
+            this.conn.SendMessage("Whisper", `(Performance Statistics:\n${stats})`, sender.MemberNumber);
+        } else if (args[0] === "save") {
+            // Save stats to file
+            this.performanceMonitor.saveToFile();
+            this.conn.SendMessage("Whisper", `(Performance statistics saved to file)`, sender.MemberNumber);
+        } else if (args[0] === "reset") {
+            // Reset stats
+            this.performanceMonitor.reset();
+            this.conn.SendMessage("Whisper", `(Performance statistics reset)`, sender.MemberNumber);
+        } else {
+            this.conn.SendMessage("Whisper", `(Usage: /bot performance [save|reset] - Show stats, save to file, or reset)`, sender.MemberNumber);
         }
     }
 
@@ -724,6 +745,39 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.conn.SendMessage("Whisper", `(${results.join('\n')})`, sender.MemberNumber);
     }
 
+    public async onCommandDominant(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        const player = this.playerService.get(sender.MemberNumber);
+        const wasDominant = player.getIsDominant();
+
+        // Toggle dominant status
+        player.setIsDominant(!wasDominant);
+        this.playerService.save(player);
+
+        if (!wasDominant) {
+            // Player became dominant - cancel any quests targeting them
+            const cancelledQuests = this.questManager.cancelQuestsByTarget(sender.MemberNumber);
+
+            // Notify quest owners that their quests were cancelled
+            for (const quest of cancelledQuests) {
+                this.conn.SendMessage("Whisper",
+                    "(Your quest target became a Dominant and is no longer available as a target. You'll be assigned a new quest.)",
+                    quest.owner
+                );
+            }
+
+            this.conn.SendMessage("Whisper",
+                "(You are now a Dominant and wont be targetet by others quests. Do it again to revert you action.)",
+                sender.MemberNumber
+            );
+        } else {
+            // Player is no longer dominant
+            this.conn.SendMessage("Whisper",
+                "(You are now not a Dominant anymore and can be targetet by others quests.)",
+                sender.MemberNumber
+            );
+        }
+    }
+
     // ===== HELPER FUNCTIONS FOR ADMIN COMMANDS =====
 
     private getPlayersSearchingForQuest(): number {
@@ -842,6 +896,8 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("levelup", this.onCommandLevelUp.bind(this));
         this.commandParser.register("pay", this.onCommandPay.bind(this));
         this.commandParser.register("prisontime", this.onCommandPrisonTime.bind(this));
+        this.commandParser.register("performance", this.onCommandPerformance.bind(this));
+        this.commandParser.register("dominant", this.onCommandDominant.bind(this));
 
         // Admin Commands (invisible to non-admins)
         this.commandParser.register("debug", this.onCommandDebug.bind(this));

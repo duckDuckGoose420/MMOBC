@@ -1,16 +1,27 @@
 import Storage from 'node-storage';
 import { IPlayer } from "../types/IPlayer";
 import { Player } from "../model/Player";
+import { PerformanceMonitorService } from "./PerformanceMonitorService";
 
 export class PlayerService {
     private playerStorage = new Storage("./bin/games/rpg/data/players");
     private settingsStorage = new Storage("./bin/games/rpg/data/settings");
+    private performanceMonitor: PerformanceMonitorService;
+
+    constructor(performanceMonitor?: PerformanceMonitorService) {
+        this.performanceMonitor = performanceMonitor || new PerformanceMonitorService();
+    }
 
     save(player: IPlayer): void {
+        // Performance monitoring: Track file system writes
+        this.performanceMonitor.incrementCounter('playerService_save_calls');
         this.playerStorage.put(player.memberNumber.toString(), player);
     }
 
     get(memberNumber: number): IPlayer {
+        // Performance monitoring: Track file system reads
+        this.performanceMonitor.incrementCounter('playerService_get_calls');
+
         let playerData = this.playerStorage.get(memberNumber.toString());
 
         if (!playerData) {
@@ -32,6 +43,16 @@ export class PlayerService {
                     // Save migrated data
                     this.save(player);
                 }
+            }
+
+            // Check if isDominant exists in player data (new format)
+            if (playerData.isDominant !== undefined) {
+                player.isDominant = playerData.isDominant;
+            } else {
+                // Migration: Default to false for existing players
+                player.isDominant = false;
+                // Save migrated data
+                this.save(player);
             }
 
             return player;

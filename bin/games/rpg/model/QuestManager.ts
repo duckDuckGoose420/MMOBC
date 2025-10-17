@@ -8,6 +8,8 @@ import { KidnapQuest } from "./KidnapQuest";
 import { KidnapQuestBoundMaid } from "./KidnapQuestBoundMaid";
 import { TargetPriorityService } from "../service/TargetPriorityService";
 import { PrisonQuest } from "./PrisonQuest";
+import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
+import { PlayerService } from "../service/PlayerService";
 
 const botMemberNumber = 220073;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
@@ -21,7 +23,9 @@ const questTypes: { constructor: QuestConstructor; weight: number }[] = [
 type QuestConstructor = new (
     chatRoom: API_Chatroom,
     owner: number,
-    target: number
+    target: number,
+    additionalInfo?: any,
+    performanceMonitor?: PerformanceMonitorService
 ) => IQuest;
 
 class QuestList {
@@ -57,12 +61,16 @@ export class QuestManager {
     private chatRoom: API_Chatroom;
     private RPG: RPG;
     private targetPriorityService: TargetPriorityService;
+    private performanceMonitor: PerformanceMonitorService;
+    private playerService: PlayerService;
 
-    public constructor(chatroom: API_Chatroom, RPG: RPG, targetPriorityService?: TargetPriorityService) {
+    public constructor(chatroom: API_Chatroom, RPG: RPG, targetPriorityService?: TargetPriorityService, performanceMonitor?: PerformanceMonitorService, playerService?: PlayerService) {
         this.chatRoom = chatroom;
         this.quests = new QuestList();
         this.RPG = RPG;
         this.targetPriorityService = targetPriorityService || new TargetPriorityService();
+        this.performanceMonitor = performanceMonitor || new PerformanceMonitorService();
+        this.playerService = playerService || new PlayerService(this.performanceMonitor);
     }
 
     playerHasQuestAssigned(memberNumber: number): IQuest | null {
@@ -74,6 +82,10 @@ export class QuestManager {
     }
 
     cancelQuests(gracePeriods: Map<number, number>): IQuest[] {
+        // Performance monitoring: Track quest cancellation checking
+        this.performanceMonitor.incrementCounter('cancelQuests_calls');
+        const startTime = this.performanceMonitor.startTimer('cancelQuests');
+
         const [active, canceled]: [IQuest[], IQuest[]] = [[], []];
         for (const quest of this.quests.getAll()) {
             if (!quest.failCondition(gracePeriods)) {
@@ -83,6 +95,8 @@ export class QuestManager {
             }
         }
         this.quests.set(active);
+
+        this.performanceMonitor.endTimer('cancelQuests', startTime);
         return canceled;
     }
 
@@ -113,14 +127,23 @@ export class QuestManager {
     }
 
     assignQuests(conn: API_Connector, questCD: Map<number, number>, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): void {
+        // Performance monitoring: Track quest assignment
+        this.performanceMonitor.incrementCounter('assignQuests_calls');
+        const startTime = this.performanceMonitor.startTimer('assignQuests');
+
         this.chatRoom.characters.forEach((character) => {
             if (!this.playerHasQuestAssigned(character.MemberNumber) && this.RPG.isPlayerSafe.get(character.MemberNumber) == false && !this.isQuestAssignmentInCD(questCD, character.MemberNumber)) {
                 this.assignQuestToPlayer(conn, character.MemberNumber, gracePeriods, lastTargetBeforeReroll);
             }
         });
+
+        this.performanceMonitor.endTimer('assignQuests', startTime);
     }
 
     async assignQuestToPlayer(conn: API_Connector, memberNumber: number, gracePeriods: Map<number, number>, lastTargetBeforeReroll: Map<number, number>): Promise<void> {
+        // Performance monitoring: Track individual quest assignment attempts
+        this.performanceMonitor.incrementCounter('assignQuestToPlayer_calls');
+
         const maxAttempts = 10;
 
         // First, try to assign quest with priority targets
@@ -140,6 +163,12 @@ export class QuestManager {
                 // Check if target is safe
                 const isTargetSafe = this.RPG.isPlayerSafe.get(targetNumber);
                 if (isTargetSafe === undefined || isTargetSafe) {
+                    continue;
+                }
+
+                // Check if target is dominant
+                const targetPlayer = this.playerService.get(targetNumber);
+                if (targetPlayer.getIsDominant()) {
                     continue;
                 }
 
@@ -189,11 +218,15 @@ export class QuestManager {
         const isTargetSafe = this.RPG.isPlayerSafe.get(target.MemberNumber);
         if (isTargetSafe === undefined || isTargetSafe) return null;
 
+        // Check if target is dominant
+        const targetPlayer = this.playerService.get(target.MemberNumber);
+        if (targetPlayer.getIsDominant()) return null;
+
         // Choose a quest type randomly
         const constructor = this.chooseQuestWeighted(questTypes);
 
         // Instantiate the chosen quest
-        const quest = new constructor(this.chatRoom, memberNumber, target.MemberNumber);
+        const quest = new constructor(this.chatRoom, memberNumber, target.MemberNumber, undefined, this.performanceMonitor);
         if (quest instanceof ClimaxQuest) {
             if (this.RPG.climaxTracker.get(quest.targetPlayer) === undefined)
                 this.RPG.climaxTracker.set(quest.targetPlayer, Date.now() - refractaryPeriod);
@@ -212,7 +245,7 @@ export class QuestManager {
         const constructor = this.chooseQuestWeighted(questTypes);
 
         // Instantiate the chosen quest
-        const quest = new constructor(this.chatRoom, memberNumber, targetNumber);
+        const quest = new constructor(this.chatRoom, memberNumber, targetNumber, undefined, this.performanceMonitor);
         if (quest instanceof ClimaxQuest) {
             if (this.RPG.climaxTracker.get(quest.targetPlayer) === undefined)
                 this.RPG.climaxTracker.set(quest.targetPlayer, Date.now() - refractaryPeriod);
@@ -237,6 +270,10 @@ export class QuestManager {
     }
 
     completeQuests(): IQuest[] {
+        // Performance monitoring: Track quest completion checking
+        this.performanceMonitor.incrementCounter('completeQuests_calls');
+        const startTime = this.performanceMonitor.startTimer('completeQuests');
+
         const [active, completed]: [IQuest[], IQuest[]] = [[], []];
         for (const quest of this.quests.getAll()) {
             if (!quest.successCondition()) {
@@ -246,6 +283,8 @@ export class QuestManager {
             }
         }
         this.quests.set(active);
+
+        this.performanceMonitor.endTimer('completeQuests', startTime);
         return completed;
     }
 

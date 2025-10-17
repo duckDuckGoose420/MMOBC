@@ -1,19 +1,22 @@
 import { IQuest } from "../types/IQuest";
 import { API_Connector, API_Chatroom, API_Character } from "bc-bot";
+import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 
 export abstract class AbstractQuest implements IQuest {
     chatRoom: API_Chatroom;
     owner: number;
     targetPlayer: number;
     private _additionalInfo: Record<string, unknown>;
+    protected performanceMonitor: PerformanceMonitorService;
 
     failMessage: string;
 
-    constructor(conn: API_Chatroom, memberNumber: number, target: number, additionalInfo?: any) {
+    constructor(conn: API_Chatroom, memberNumber: number, target: number, additionalInfo?: any, performanceMonitor?: PerformanceMonitorService) {
         this.chatRoom = conn;
         this.owner = memberNumber;
         this.targetPlayer = target;
         this.additionalInfo = additionalInfo ?? {};
+        this.performanceMonitor = performanceMonitor || new PerformanceMonitorService();
     }
 
      public get additionalInfo(): Record<string, unknown>{
@@ -26,6 +29,9 @@ export abstract class AbstractQuest implements IQuest {
     abstract prerequisite(): boolean;
 
     failCondition(gracePeriods: Map<number, number>) {
+        // Performance monitoring: Track findMember calls
+        this.performanceMonitor.incrementCounter('findMember_calls');
+
         let c = this.chatRoom.findMember(this.targetPlayer);
         if (c == null) {
             this.failMessage = "(Your quest target left the room, you'll be assigned a new quest)";

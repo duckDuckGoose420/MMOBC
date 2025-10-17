@@ -1,4 +1,6 @@
 import { AbstractQuest } from "./AbstractQuest";
+import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
+
 export class LockQuest extends AbstractQuest {
     description(): string {
         const targetName = this.chatRoom.findMember(this.targetPlayer).toString();
@@ -10,6 +12,9 @@ export class LockQuest extends AbstractQuest {
 
     // In short, if someone else locked the target's arms,
     failCondition(gracePeriods: Map<number, number>): boolean {
+        // Performance monitoring: Track fail condition calls
+        this.performanceMonitor.incrementCounter('failCondition_calls');
+
         if (super.failCondition(gracePeriods))
             return true;
         const lockOwner = this.chatRoom
@@ -29,6 +34,9 @@ export class LockQuest extends AbstractQuest {
         }
     }
     successCondition(): boolean {
+        // Performance monitoring: Track success condition calls
+        this.performanceMonitor.incrementCounter('successCondition_calls');
+
         return this.chatRoom
             .findMember(this.targetPlayer)
             ?.Appearance

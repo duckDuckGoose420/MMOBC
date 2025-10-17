@@ -3,6 +3,7 @@ export interface IPlayer {
   level: number;
   money: number;
   gracePeriodMinutes: number;
+  isDominant: boolean;
 
     addMoney(amount: number): void;
     moneyNeededToLevelUp(): number;
@@ -15,4 +16,8 @@ export interface IPlayer {
     // Settings methods
     getGracePeriodMinutes(): number;
     setGracePeriodMinutes(minutes: number): void;
+
+    // Dominant methods
+    getIsDominant(): boolean;
+    setIsDominant(isDominant: boolean): void;
 }

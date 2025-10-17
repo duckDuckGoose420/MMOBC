@@ -27,6 +27,7 @@ import { PlayerIdentifier } from "./rpg/util/PlayerIdentifier";
 import { PlayerCommands } from "./rpg/util/commands";
 import { mapRegions } from "./rpg/util/areas";
 import { PET_EARS, PrisonItem } from "./rpg/objects/items";
+import { PerformanceMonitorService } from "./rpg/service/PerformanceMonitorService";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -61,10 +62,11 @@ export class RPG {
     private gracePeriods = new Map<number, number>();
     climaxTracker = new Map<number, number>();
     private questManager: QuestManager;
-    playerService: PlayerService = new PlayerService();
+    playerService: PlayerService;
     private feedbackService: FeedbackService = new FeedbackService();
     private targetPriorityService: TargetPriorityService = new TargetPriorityService();
     private prisonService: PrisonService = new PrisonService();
+    private performanceMonitor: PerformanceMonitorService = new PerformanceMonitorService();
     public commands: PlayerCommands;
     public static description = [
         "This is a WIP for a quest based bondage room.",
@@ -109,40 +111,14 @@ export class RPG {
         "Huge credits to the original creator on whos project im expanding this on: https://github.com/BufaloAcquatico/MMOBC"
     ].join("\n");
 
-    public static helpText = [
-        "(",
-        "Commands:",
-        "",
-        "/bot help",
-        "/bot quest",
-        "/bot reroll",
-        "/bot pay [player] [amount]",
-        "/bot stats",
-        "/bot bounty [player] [bounty]",
-        "/bot levelup",
-        "/bot buy release - Cost: 1000",
-        "/bot buy prisonrelease - Cost: 250",
-        "/bot prisontime - Check how much time you have left in prison",
-        "",
-        "Private room commands:",
-        "/bot private buy [player] - Cost 100",
-        "/bot private claim [player]",
-        "/bot private confirm",
-        "/bot private rescue - If you get stuck inside the private room for some reason, you can use this command to forcibly leave the room",
-        "/bot private check",
-        "",
-        "/bot settings - Configure grace period (0-20 min)",
-        "",
-        "/bot feedback [your message]"
-    ].join("\n");
-
     public constructor(private conn: API_Connector) {
         this.conn.on("RoomCreate", this.onChatRoomCreated);
         this.conn.on("RoomJoin", this.onChatRoomJoined);
         this.conn.on("Message", this.onMessage.bind(this));
         //this.conn.on("ServerLeave", this.onServerLeave);
 
-        this.questManager = new QuestManager(conn.chatRoom, this, this.targetPriorityService);
+        this.playerService = new PlayerService(this.performanceMonitor);
+        this.questManager = new QuestManager(conn.chatRoom, this, this.targetPriorityService, this.performanceMonitor, this.playerService);
         this.commands = new PlayerCommands(
             this.conn,
             this.playerService,
@@ -156,7 +132,8 @@ export class RPG {
             this.gracePeriods,
             this.bounties,
             this.privatePlayRequests,
-            this.lastTargetBeforeReroll
+            this.lastTargetBeforeReroll,
+            this.performanceMonitor
         );
 
         setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_SUCCESS_CD);
@@ -167,6 +144,11 @@ export class RPG {
         await this.setupRoom();
         await this.setupCharacter();
         setInterval(() => this.runLoop(), 10000);
+
+        // Performance monitoring: Save stats every 5 minutes
+        setInterval(() => {
+            this.performanceMonitor.saveToFile();
+        }, 5 * 60 * 1000);
     }
 
     private onChatRoomCreated = async () => {
@@ -234,6 +216,10 @@ export class RPG {
     };
 
     private onMessage = async (msg: MessageEvent) => {
+        // Performance monitoring: Track message handler calls
+        this.performanceMonitor.incrementCounter('onMessage_calls');
+        const startTime = this.performanceMonitor.startTimer('onMessage');
+
         if (
             msg.message.Type === "Activity" &&
             /^Orgasm\d+$/.test(msg.message.Content)
@@ -250,6 +236,7 @@ export class RPG {
             console.log(`${msg.sender.toString()} climaxed!`);
         }
 
+        this.performanceMonitor.endTimer('onMessage', startTime);
     };
 
     private onServerLeave = async () => {
@@ -358,6 +345,10 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
 
     private checkBounties() {
+        // Performance monitoring: Track bounty checking
+        this.performanceMonitor.incrementCounter('checkBounties_calls');
+        const startTime = this.performanceMonitor.startTimer('checkBounties');
+
         for (const [key] of this.bounties) {
             let target = this.conn.chatRoom.findMember(key);
             let targetLock;
@@ -377,11 +368,16 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
                 this.conn.SendMessage("Chat", `(The bounty on ${target.toString()} has been claimed)`);
             }
         }
+
+        this.performanceMonitor.endTimer('checkBounties', startTime);
     }
 
 
 
     private runLoop() {
+        // Performance monitoring: Track main loop
+        this.performanceMonitor.incrementCounter('runLoop_calls');
+        const startTime = this.performanceMonitor.startTimer('runLoop');
 
         const completedQuests = this.questManager.completeQuests();
         for (const quest of completedQuests) {
@@ -423,12 +419,18 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         }
 
         this.checkBounties();
+
+        this.performanceMonitor.endTimer('runLoop', startTime);
     }
 
     /**
      * Handles players rejoining the room - checks prison status and gives keys
      */
     private handlePlayerRejoin(): void {
+        // Performance monitoring: Track player rejoin handling
+        this.performanceMonitor.incrementCounter('handlePlayerRejoin_calls');
+        const startTime = this.performanceMonitor.startTimer('handlePlayerRejoin');
+
         const allCharacters = this.conn.chatRoom.characters;
 
         for (const character of allCharacters) {
@@ -470,5 +472,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
                 this.processedPlayers.delete(processedPlayer);
             }
         }
+
+        this.performanceMonitor.endTimer('handlePlayerRejoin', startTime);
     }
 }
