@@ -270,16 +270,16 @@ export class PlayerCommands {
 
             case 'confirm':
                 const request = this.privatePlayRequests.get(sender.MemberNumber);
-                console.log(request);
-                if (!this.privatePlayRequests.delete(sender.MemberNumber)) {
+                if (!request || !this.privatePlayRequests.delete(sender.MemberNumber)) {
                     this.conn.SendMessage("Whisper", "(You don't have any private play offers yet)", sender.MemberNumber);
+                    return;
                 }
                 if (request.expiration < Date.now()) {
                     this.conn.SendMessage("Whisper", "(The request has expired)", sender.MemberNumber);
+                    return;
                 }
 
                 if (this.isPrivateRoomEmpty()) {
-                    console.log("Private room is empty");
                     let requestingPlayer = this.playerService.get(request.requestingPlayer);
                     requestingPlayer.money -= request.cost;
                     this.playerService.save(requestingPlayer);
@@ -296,7 +296,7 @@ export class PlayerCommands {
                     this.startPrivatePlay(sender.MemberNumber, { X: 19, Y: 3 });
                     this.startPrivatePlay(request.requestingPlayer, { X: 20, Y: 3 });
                 } else {
-                    console.log("Private room is not empty");
+                    this.conn.SendMessage("Whisper", "(At this moment the private room is in use by someone, once it's empty another couple can get inside)", sender.MemberNumber);
                 }
                 break;
 
@@ -638,8 +638,8 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot debug quests - All active quests
 
 /bot reset [player] - Reset player cooldowns and quest
-/bot targetme [player] [player] ... - Set priority targets
-/bot donttargetme [player] [player] ... - Remove priority or block targets
+/bot targetme [player] [player] ... - Make players prioritize targeting you
+/bot donttargetme [player] [player] ... - Remove priority or block you as their target
 
 /bot admin help - This help)`, sender.MemberNumber);
         } else {
@@ -692,15 +692,15 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             if (typeof target === 'string') {
                 failed.push(targetIdentifier);
             } else {
-                // Set as priority (don't toggle)
-                this.targetPriorityService.setTargetStatus(sender.MemberNumber, target.MemberNumber, TargetStatus.PRIORITY);
+                // Player prioritizes admin as quest target (don't toggle)
+                this.targetPriorityService.setTargetStatus(target.MemberNumber, sender.MemberNumber, TargetStatus.PRIORITY);
                 successful.push(target.toString());
             }
         }
 
         let response = "";
         if (successful.length > 0) {
-            response += `Set as priority targets: ${successful.join(', ')}`;
+            response += `Will prioritize targeting you: ${successful.join(', ')}`;
         }
         if (failed.length > 0) {
             if (response) response += "\n";
@@ -724,17 +724,17 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             if (typeof target === 'string') {
                 results.push(`${targetIdentifier}: ${target}`);
             } else {
-                const currentStatus = this.targetPriorityService.getTargetStatus(sender.MemberNumber, target.MemberNumber);
+                const currentStatus = this.targetPriorityService.getTargetStatus(target.MemberNumber, sender.MemberNumber);
                 let newStatus: string;
 
                 if (currentStatus === 'priority') {
-                    this.targetPriorityService.removePriority(sender.MemberNumber, target.MemberNumber);
+                    this.targetPriorityService.removePriority(target.MemberNumber, sender.MemberNumber);
                     newStatus = 'Removed from priority';
                 } else if (currentStatus === 'blocked') {
-                    this.targetPriorityService.toggleBlock(sender.MemberNumber, target.MemberNumber);
+                    this.targetPriorityService.toggleBlock(target.MemberNumber, sender.MemberNumber);
                     newStatus = 'Unblocked';
                 } else {
-                    this.targetPriorityService.toggleBlock(sender.MemberNumber, target.MemberNumber);
+                    this.targetPriorityService.toggleBlock(target.MemberNumber, sender.MemberNumber);
                     newStatus = 'Blocked';
                 }
 
