@@ -47,6 +47,7 @@ const PRISON_DURATION = 5 * 60 * 1000; // 5 Minuten
 const PRISON_RELEASE_COST = 250; // Kosten für Freikauf
 const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
+const PLAYER_INIT_DELAY_MS = 750;
 
 
 
@@ -57,6 +58,7 @@ export class RPG {
     private privatePlayRequests: Map<number, PrivateRequest> = new Map<number, PrivateRequest>();   // To note that the player who receives the request is used as key here
     private alreadyEnteredBoundMaid: Set<number> = new Set();
     private processedPlayers: Set<number> = new Set();
+    private playerInitInProgress = false;
     private rerollCD = new Map<number, number>();
     private questCD = new Map<number, number>();
     private gracePeriods = new Map<number, number>();
@@ -266,9 +268,9 @@ export class RPG {
         const isRestrained = character.IsRestrained();
         if (!isRestrained) {
             // this.conn.SendMessage("Whisper", `(The prison area is currently under construction! Changes to it will come the next days!)`, character.MemberNumber);
-            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are leashed into a cell while restrained you will have you door-key confiscated until you either are released by a player, do your time or buy free.(/bot buy prisonrelease))`, character.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are leashed into a cell while restrained you will have you door-key confiscated until you either are released by a player, do your time or buy free (/bot buy prisonrelease))`, character.MemberNumber);
         } else {
-            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are leashed into a cell while restrained you will have you door-key confiscated until you either are released by a player, do your time or buy free.(/bot buy prisonrelease))`, character.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You're in the prison intake area. If you are leashed into a cell while restrained you will have you door-key confiscated until you either are released by a player, do your time or buy free (/bot buy prisonrelease))`, character.MemberNumber);
         }
     }
 
@@ -433,38 +435,6 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
         const allCharacters = this.conn.chatRoom.characters;
 
-        for (const character of allCharacters) {
-            if (character.IsBot()) continue;
-
-            // Only process players we haven't seen before
-            if (!this.processedPlayers.has(character.MemberNumber)) {
-                this.processedPlayers.add(character.MemberNumber);
-
-                // Give all 3 keys to rejoining players
-                character.giveKey(["gold", "silver", "bronze"]);
-
-                // Check if player was imprisoned and handle their status
-                if (this.prisonService.isImprisoned(character)) {
-                    const remainingTime = this.prisonService.getRemainingTime(character);
-
-                    if (remainingTime <= 0) {
-                        // Time is up, release them
-                        this.prisonService.releasePlayer(character);
-                        this.conn.SendMessage("Whisper", "(Your prison time was up while you were away, you are now free)", character.MemberNumber);
-                    } else {
-                        // Still has time left, teleport back to prison and take bronze key
-                        const prisonCenter = {
-                            X: Math.floor((mapRegions.PRISON_ROOM.TopLeft.X + mapRegions.PRISON_ROOM.BottomRight.X) / 2),
-                            Y: Math.floor((mapRegions.PRISON_ROOM.TopLeft.Y + mapRegions.PRISON_ROOM.BottomRight.Y) / 2)
-                        };
-                        character.mapTeleport(prisonCenter);
-                        character.takeKey(["bronze"]);
-                        this.conn.SendMessage("Whisper", `(You are still serving your prison sentence. ${remainingTimeString(Date.now() + remainingTime)} remaining)`, character.MemberNumber);
-                    }
-                }
-            }
-        }
-
         // Clean up processed players who are no longer in the room
         const currentPlayerNumbers = new Set(allCharacters.filter(c => !c.IsBot()).map(c => c.MemberNumber));
         for (const processedPlayer of this.processedPlayers) {
@@ -473,6 +443,55 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             }
         }
 
+        this.schedulePlayerInit();
+
         this.performanceMonitor.endTimer('handlePlayerRejoin', startTime);
+    }
+
+    private schedulePlayerInit(): void {
+        if (this.playerInitInProgress) return;
+        this.playerInitInProgress = true;
+        this.processNextPlayerInit();
+    }
+
+    private processNextPlayerInit(): void {
+        const allCharacters = this.conn.chatRoom.characters;
+        const character = allCharacters.find(
+            c => !c.IsBot() && !this.processedPlayers.has(c.MemberNumber)
+        );
+
+        if (!character) {
+            this.playerInitInProgress = false;
+            return;
+        }
+
+        this.processedPlayers.add(character.MemberNumber);
+
+        const inSafeZone =
+            positionIsInRegion(character.MapPos, mapRegions.ENTER_INTRODUCTION_AREA) ||
+            positionIsInRegion(character.MapPos, mapRegions.PRIVATE_ROOM_AREA) ||
+            positionIsInRegion(character.MapPos, mapRegions.BOUND_MAID_AREA);
+        this.isPlayerSafe.set(character.MemberNumber, inSafeZone);
+
+        character.giveKey(["gold", "silver", "bronze"]);
+
+        if (this.prisonService.isImprisoned(character)) {
+            const remainingTime = this.prisonService.getRemainingTime(character);
+
+            if (remainingTime <= 0) {
+                this.prisonService.releasePlayer(character);
+                this.conn.SendMessage("Whisper", "(Your prison time was up while you were away, you are now free)", character.MemberNumber);
+            } else {
+                const prisonCenter = {
+                    X: Math.floor((mapRegions.PRISON_ROOM.TopLeft.X + mapRegions.PRISON_ROOM.BottomRight.X) / 2),
+                    Y: Math.floor((mapRegions.PRISON_ROOM.TopLeft.Y + mapRegions.PRISON_ROOM.BottomRight.Y) / 2)
+                };
+                character.mapTeleport(prisonCenter);
+                character.takeKey(["bronze"]);
+                this.conn.SendMessage("Whisper", `(You are still serving your prison sentence. ${remainingTimeString(Date.now() + remainingTime)} remaining)`, character.MemberNumber);
+            }
+        }
+
+        setTimeout(() => this.processNextPlayerInit(), PLAYER_INIT_DELAY_MS);
     }
 }
