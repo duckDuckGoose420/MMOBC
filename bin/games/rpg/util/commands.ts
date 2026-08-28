@@ -332,6 +332,7 @@ Thanks for your feedback!)`, sender.MemberNumber);
             this.conn.SendMessage("Whisper", `(
 /bot settings graceperiod - Check your current grace period setting
 /bot settings graceperiod [0-20] - Set grace period in minutes (0 = disabled, 20 = maximum)
+/bot settings dominant - Check your current dominant status
 /bot dominant - Toggle dominant status (prevents being targeted by quests))`, sender.MemberNumber);
         }
 
@@ -375,6 +376,13 @@ Thanks for your feedback!)`, sender.MemberNumber);
                     } else {
                         this.conn.SendMessage("Whisper", `(You have currently ${currentMinutes} minutes of grace period after completing a quest)`, sender.MemberNumber);
                     }
+                }
+                break;
+            case 'dominant':
+                if (player.getIsDominant()) {
+                    this.conn.SendMessage("Whisper", "(You are currently a Dominant and won't be targeted by others' quests. Use /bot dominant to toggle.)", sender.MemberNumber);
+                } else {
+                    this.conn.SendMessage("Whisper", "(You are currently not a Dominant and can be targeted by others' quests. Use /bot dominant to toggle.)", sender.MemberNumber);
                 }
                 break;
         }
@@ -689,6 +697,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot reset [player] - Reset player cooldowns and quest
 /bot targetme [player] [player] ... - Make players prioritize targeting you
 /bot donttargetme [player] [player] ... - Remove priority or block you as their target
+/bot say [message] - Send a public chat message as the bot
 
 /bot admin help - This help)`, sender.MemberNumber);
         } else {
@@ -729,7 +738,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         if (!sender.IsRoomAdmin()) return;
 
         if (args.length === 0) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot targetMe [player] [player] ...)", sender.MemberNumber);
+            this.conn.SendMessage("Whisper", "(Usage: /bot targetme [player] [player] ...)", sender.MemberNumber);
             return;
         }
 
@@ -763,7 +772,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         if (!sender.IsRoomAdmin()) return;
 
         if (args.length === 0) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot dontTargetMe [player] [player] ...)", sender.MemberNumber);
+            this.conn.SendMessage("Whisper", "(Usage: /bot donttargetme [player] [player] ...)", sender.MemberNumber);
             return;
         }
 
@@ -792,6 +801,17 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         }
 
         this.conn.SendMessage("Whisper", `(${results.join('\n')})`, sender.MemberNumber);
+    }
+
+    public async onCommandSay(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!sender.IsRoomAdmin()) return;
+
+        if (args.length === 0) {
+            this.conn.SendMessage("Whisper", "(Usage: /bot say [message])", sender.MemberNumber);
+            return;
+        }
+
+        this.conn.SendMessage("Chat", args.join(' '));
     }
 
     public async onCommandDominant(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
@@ -962,5 +982,6 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("reset", this.onCommandReset.bind(this));
         this.commandParser.register("targetme", this.onCommandTargetMe.bind(this));
         this.commandParser.register("donttargetme", this.onCommandDontTargetMe.bind(this));
+        this.commandParser.register("say", this.onCommandSay.bind(this));
     }
 }

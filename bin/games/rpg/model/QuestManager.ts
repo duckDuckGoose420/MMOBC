@@ -175,7 +175,6 @@ export class QuestManager {
                 // Try to generate quest with this priority target
                 const quest = this.generateQuestWithTarget(memberNumber, targetNumber);
                 if (quest && quest.prerequisite()) {
-                    this.targetPriorityService.removePriority(memberNumber, targetNumber);
                     this.quests.add(quest);
                     conn.SendMessage("Whisper", "(New quest: " + quest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
                     return;

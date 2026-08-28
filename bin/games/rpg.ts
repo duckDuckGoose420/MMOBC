@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import { API_Character, API_Connector, BC_Server_ChatRoomMessage, CommandParser, MapRegion, MessageEvent, positionIsInRegion } from "bc-bot";
+import { API_Character, API_Connector, BC_Server_ChatRoomMessage, CommandParser, ItemPermissionLevel, MapRegion, MessageEvent, positionIsInRegion } from "bc-bot";
 import { decompressFromBase64 } from "lz-string";
 import { remainingTimeString } from "../utils";
 import mapConfig from "./rpg/config/map.config.json";
@@ -57,7 +57,9 @@ export class RPG {
     private lastTargetBeforeReroll: Map<number, number> = new Map<number, number>();
     private privatePlayRequests: Map<number, PrivateRequest> = new Map<number, PrivateRequest>();   // To note that the player who receives the request is used as key here
     private alreadyEnteredBoundMaid: Set<number> = new Set();
+    private alreadyEnteredIntroduction: Set<number> = new Set();
     private processedPlayers: Set<number> = new Set();
+    private closedPermissionNotifiedPlayers: Set<number> = new Set();
     private playerInitInProgress = false;
     private rerollCD = new Map<number, number>();
     private questCD = new Map<number, number>();
@@ -276,6 +278,10 @@ export class RPG {
 
     private onEnterPrisonRoom(character: API_Character): void {
         if (character.IsRestrained() && character.IsLeashed()) {
+            if (this.playerService.get(character.MemberNumber).getIsDominant()) {
+                this.conn.SendMessage("Whisper", "(Dominants cannot be imprisoned.)", character.MemberNumber);
+                return;
+            }
             this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
             character.takeKey(["bronze"]);
             this.prisonService.imprisonPlayer(character);
@@ -296,13 +302,18 @@ export class RPG {
         }
 
         this.isPlayerSafe.set(character.MemberNumber, true);
-        this.conn.SendMessage("Whisper", `(Welcome, this is a WIP room where you'll be given quests that you can complete for money.
+        const memberId = character.MemberNumber;
+
+        if (!this.alreadyEnteredIntroduction.has(memberId)) {
+            this.conn.SendMessage("Whisper", `(Welcome, this is a WIP room where you'll be given quests that you can complete for money.
 You're in a safe zone, being assigned and targeted by quests will start when you leave this building.
 The bot has info about the commands and settings.
 
 The goal of the room is to give an opportunity to start plays and sessions with other people, if you tie up someone for a quest, try to make it fun for the both of you
-instead of just leaving them immediately, it makes it more enjoyable for everyone involved.)`, character.MemberNumber
-        );
+instead of just leaving them immediately, it makes it more enjoyable for everyone involved.)`, memberId
+            );
+            this.alreadyEnteredIntroduction.add(memberId);
+        }
     }
 
     private onEnterSafeArea(character: API_Character): void {
@@ -440,6 +451,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         for (const processedPlayer of this.processedPlayers) {
             if (!currentPlayerNumbers.has(processedPlayer)) {
                 this.processedPlayers.delete(processedPlayer);
+                this.closedPermissionNotifiedPlayers.delete(processedPlayer);
             }
         }
 
@@ -466,6 +478,18 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         }
 
         this.processedPlayers.add(character.MemberNumber);
+
+        if (
+            !this.closedPermissionNotifiedPlayers.has(character.MemberNumber) &&
+            character.ItemPermission > ItemPermissionLevel.EveryoneExceptBlacklist
+        ) {
+            this.closedPermissionNotifiedPlayers.add(character.MemberNumber);
+            this.conn.SendMessage(
+                "Whisper",
+                "please open permissions to at least everyone except blacklist. If this is not what you want, this room is probably not for you. Only love <3",
+                character.MemberNumber
+            );
+        }
 
         const inSafeZone =
             positionIsInRegion(character.MapPos, mapRegions.ENTER_INTRODUCTION_AREA) ||
