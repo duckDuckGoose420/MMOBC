@@ -10,3 +10,4 @@ players
 /bin/games/rpg/data
 /src
 Bcrpgstart.bat
+.cursor/debug-*.log

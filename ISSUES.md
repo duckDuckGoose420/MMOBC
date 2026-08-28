@@ -5,6 +5,7 @@
 - merge to the default player management (very complicated, not a priority. Need to take some time for this)
 - merge save and intro area
 - let people friend the bot to highlight the room
+- auto kick AFK players. Some architectures already exist, but not sure if they work<>
 
 ## Commands
 

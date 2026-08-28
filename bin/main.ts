@@ -28,19 +28,42 @@ export interface RopeyBot {
     config: ConfigFile;
     db?: Db;
     game: string;
+    rpg?: RPG;
 }
 
+let activeBot: RopeyBot | null = null;
+let shuttingDown = false;
 
+async function runShutdown(): Promise<void> {
+    if (activeBot?.rpg) {
+        await activeBot.rpg.shutdown();
+    }
+    if (activeBot?.connector) {
+        await activeBot.connector.gracefulDisconnect();
+    }
+}
+
+async function gracefulShutdown(signal: string): Promise<void> {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} received, shutting down gracefully...`);
+
+    try {
+        await runShutdown();
+    } catch (e) {
+        console.error("Error during shutdown:", e);
+    }
+
+    process.exit(0);
+}
 
 export async function startBot(): Promise<RopeyBot> {
     process.on("SIGINT", () => {
-        console.log("SIGINT received, exiting");
-        process.exit(0);
+        void gracefulShutdown("SIGINT");
     });
 
     process.on("SIGTERM", () => {
-        console.log("SIGTERM received, exiting");
-        process.exit(0);
+        void gracefulShutdown("SIGTERM");
     });
 
     const cfgFile = process.argv[2] ?? "./config.json";
@@ -85,18 +108,28 @@ export async function startBot(): Promise<RopeyBot> {
             const rpgGame = new RPG(connector);
             await rpgGame.init();
             connector.setBotDescription(RPG.description);
-            break;
+            const bot: RopeyBot = {
+                connector,
+                config,
+                db,
+                game: config.game,
+                rpg: rpgGame,
+            };
+            activeBot = bot;
+            return bot;
         default:
             console.log("No such game " + config.game);
             process.exit(1);
     }
 
-    return {
+    const bot: RopeyBot = {
         connector,
         config,
         db,
         game: config.game,
     };
+    activeBot = bot;
+    return bot;
 }
 
 async function main() {

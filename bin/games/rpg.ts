@@ -72,6 +72,9 @@ export class RPG {
     private prisonService: PrisonService = new PrisonService();
     private performanceMonitor: PerformanceMonitorService = new PerformanceMonitorService();
     public commands: PlayerCommands;
+    private runLoopInterval?: ReturnType<typeof setInterval>;
+    private performanceSaveInterval?: ReturnType<typeof setInterval>;
+    private shuttingDown = false;
     public static description = [
         "This is a WIP for a quest based bondage room.",
         "","",
@@ -137,7 +140,7 @@ export class RPG {
             this.bounties,
             this.privatePlayRequests,
             this.lastTargetBeforeReroll,
-            this.performanceMonitor
+            this.performanceMonitor,
         );
 
         setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_SUCCESS_CD);
@@ -147,12 +150,27 @@ export class RPG {
 
         await this.setupRoom();
         await this.setupCharacter();
-        setInterval(() => this.runLoop(), 10000);
+        this.runLoopInterval = setInterval(() => this.runLoop(), 10000);
 
-        // Performance monitoring: Save stats every 5 minutes
-        setInterval(() => {
+        this.performanceSaveInterval = setInterval(() => {
             this.performanceMonitor.saveToFile();
         }, 5 * 60 * 1000);
+    }
+
+    public async shutdown(): Promise<void> {
+        if (this.shuttingDown) return;
+        this.shuttingDown = true;
+
+        if (this.runLoopInterval) clearInterval(this.runLoopInterval);
+        if (this.performanceSaveInterval) clearInterval(this.performanceSaveInterval);
+
+        for (const character of this.conn.chatRoom.characters) {
+            if (character.IsBot()) continue;
+            character.giveKey(["gold", "silver", "bronze"]);
+        }
+
+        this.prisonService.save();
+        await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     private onChatRoomCreated = async () => {

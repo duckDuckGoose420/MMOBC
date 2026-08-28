@@ -819,4 +819,18 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
             PrivateState: {},
         });
     }
+
+    public disconnect(): void {
+        this.sock.disconnect();
+    }
+
+    public async gracefulDisconnect(): Promise<void> {
+        this.sock.io.reconnect(false);
+        if (this._chatRoom) {
+            this.ChatRoomLeave();
+            await wait(750);
+        }
+        this.sock.disconnect();
+        await wait(250);
+    }
 }
