@@ -331,7 +331,8 @@ Thanks for your feedback!)`, sender.MemberNumber);
         if (args.length == 0) {
             this.conn.SendMessage("Whisper", `(
 /bot settings graceperiod - Check your current grace period setting
-/bot settings graceperiod [0-20] - Set grace period in minutes (0 = disabled, 20 = maximum)`, sender.MemberNumber);
+/bot settings graceperiod [0-20] - Set grace period in minutes (0 = disabled, 20 = maximum)
+/bot dominant - Toggle dominant status (prevents being targeted by quests))`, sender.MemberNumber);
         }
 
         const player = this.playerService.get(sender.MemberNumber);
@@ -605,6 +606,51 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                 this.conn.SendMessage("Whisper", questInfo, sender.MemberNumber);
                 break;
 
+            case 'dominant':
+                const dominantPlayers = this.conn.chatRoom.characters.filter(c =>
+                    !c.IsBot() && this.playerService.get(c.MemberNumber).getIsDominant()
+                );
+                let dominantInfo = `(Dominant Players: ${dominantPlayers.length}\n`;
+                for (const player of dominantPlayers) {
+                    dominantInfo += this.formatPlayerShortInfo(player) + "\n";
+                }
+                dominantInfo += ")";
+                this.conn.SendMessage("Whisper", dominantInfo, sender.MemberNumber);
+                break;
+
+            case 'bounties':
+            case 'bounty':
+                let bountyInfo = `(Active Bounties: ${this.bounties.size}\n`;
+                for (const [targetNumber, bounty] of this.bounties) {
+                    const target = this.conn.chatRoom.findMember(targetNumber);
+                    if (target) {
+                        bountyInfo += this.formatPlayerShortInfo(target) + "\n";
+                    } else {
+                        bountyInfo += `Player #${targetNumber} (not in room) - Bounty: ${bounty}\n`;
+                    }
+                }
+                bountyInfo += ")";
+                this.conn.SendMessage("Whisper", bountyInfo, sender.MemberNumber);
+                break;
+
+            case 'prison':
+            case 'prisoners':
+                const prisoners = this.prisonService.getAllPrisoners(sender);
+                let prisonInfo = `(Prisoners: ${prisoners.size}\n`;
+                for (const [memberNumber] of prisoners) {
+                    const target = this.conn.chatRoom.findMember(memberNumber);
+                    if (target) {
+                        const remaining = this.prisonService.getRemainingTime(target);
+                        const remainingStr = remaining > 0 ? remainingTimeString(Date.now() + remaining) : 'up';
+                        prisonInfo += `${this.formatPlayerShortInfo(target)} - Remaining: ${remainingStr}\n`;
+                    } else {
+                        prisonInfo += `Player #${memberNumber} (not in room)\n`;
+                    }
+                }
+                prisonInfo += ")";
+                this.conn.SendMessage("Whisper", prisonInfo, sender.MemberNumber);
+                break;
+
             default:
                 // Check if it's a common typo first
                 if (args[0] === 'players') {
@@ -636,6 +682,9 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot debug [player] - Player details (multiple players supported)
 /bot debug room - Room status
 /bot debug quests - All active quests
+/bot debug dominant - List dominant players
+/bot debug bounties - List active bounties
+/bot debug prison - List imprisoned players
 
 /bot reset [player] - Reset player cooldowns and quest
 /bot targetme [player] [player] ... - Make players prioritize targeting you
@@ -832,7 +881,15 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         let info = `Player Debug - ${player.toString()}:\n`;
         info += `Level: ${playerData.level}\n`;
         info += `Money: ${playerData.money}\n`;
+        info += `Dominant: ${playerData.getIsDominant() ? 'Yes' : 'No'}\n`;
         info += `Safe: ${isSafe ? 'Yes' : 'No'}\n`;
+
+        if (this.prisonService.isImprisoned(player)) {
+            const remaining = this.prisonService.getRemainingTime(player);
+            info += `Imprisoned: ${remaining > 0 ? remainingTimeString(Date.now() + remaining) : 'up'}\n`;
+        } else {
+            info += `Imprisoned: No\n`;
+        }
 
         if (gracePeriod && gracePeriod > Date.now()) {
             info += `Grace Period: ${remainingTimeString(gracePeriod)}\n`;
