@@ -13,15 +13,19 @@
  */
 
 import { API_Connector } from "bc-bot";
-import { readFile } from "fs/promises";
-import { ConfigFile } from "./config";
+import { readFile, unlink, writeFile } from "fs/promises";
+import { join } from "path";
+import { ConfigFile, loadConfig } from "./config";
 import { Db, MongoClient } from "mongodb";
 import { RPG } from "./games/rpg";
+import { REJOIN_EXIT_CODE } from "./rejoin-exit-code";
 
 const SERVER_URL = {
     live: "https://bondage-club-server.herokuapp.com/",
     test: "https://bondage-club-server-test.herokuapp.com/",
 };
+
+const BOT_PID_FILE = ".bot.pid";
 
 export interface RopeyBot {
     connector: API_Connector;
@@ -34,43 +38,75 @@ export interface RopeyBot {
 let activeBot: RopeyBot | null = null;
 let shuttingDown = false;
 
-async function runShutdown(): Promise<void> {
+async function writePidFile(): Promise<void> {
+    await writeFile(join(process.cwd(), BOT_PID_FILE), String(process.pid));
+}
+
+async function removePidFile(): Promise<void> {
+    try {
+        await unlink(join(process.cwd(), BOT_PID_FILE));
+    } catch {
+        // ignore
+    }
+}
+
+function isProcessAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function ensureSingleBotInstance(): Promise<void> {
+    const pidPath = join(process.cwd(), BOT_PID_FILE);
+    try {
+        const previousPid = Number.parseInt(await readFile(pidPath, "utf-8"), 10);
+        if (Number.isFinite(previousPid) && previousPid !== process.pid && isProcessAlive(previousPid)) {
+            try {
+                process.kill(previousPid, "SIGTERM");
+            } catch {
+                // ignore
+            }
+            await new Promise((resolvePromise) => setTimeout(resolvePromise, 1000));
+        }
+    } catch {
+        // no pid file yet
+    }
+
+    await writePidFile();
+}
+
+async function runShutdown(forRestart: boolean): Promise<void> {
     if (activeBot?.rpg) {
-        await activeBot.rpg.shutdown();
+        await activeBot.rpg.shutdown(forRestart);
     }
     if (activeBot?.connector) {
         await activeBot.connector.gracefulDisconnect();
     }
+    if (!forRestart) {
+        await removePidFile();
+    }
 }
 
-async function gracefulShutdown(signal: string): Promise<void> {
+async function gracefulShutdown(signal: string, forRestart = false): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`${signal} received, shutting down gracefully...`);
 
     try {
-        await runShutdown();
+        await runShutdown(forRestart);
     } catch (e) {
         console.error("Error during shutdown:", e);
     }
 
-    process.exit(0);
+    if (!forRestart) {
+        process.exit(0);
+    }
 }
 
-export async function startBot(): Promise<RopeyBot> {
-    process.on("SIGINT", () => {
-        void gracefulShutdown("SIGINT");
-    });
-
-    process.on("SIGTERM", () => {
-        void gracefulShutdown("SIGTERM");
-    });
-
-    const cfgFile = process.argv[2] ?? "./config.json";
-
-    const configString = await readFile(cfgFile, "utf-8");
-    const config = JSON.parse(configString) as ConfigFile;
-
+async function connectBot(config: ConfigFile): Promise<RopeyBot> {
     const serverUrl = config.url ?? SERVER_URL[config.env];
 
     if (!serverUrl) {
@@ -105,29 +141,50 @@ export async function startBot(): Promise<RopeyBot> {
             break;
         case "rpg":
             console.log("Starting game: RPG");
-            const rpgGame = new RPG(connector);
+            const rpgGame = new RPG(connector, requestRestart);
             await rpgGame.init();
             connector.setBotDescription(RPG.description);
-            const bot: RopeyBot = {
+            return {
                 connector,
                 config,
                 db,
                 game: config.game,
                 rpg: rpgGame,
             };
-            activeBot = bot;
-            return bot;
         default:
             console.log("No such game " + config.game);
             process.exit(1);
     }
 
-    const bot: RopeyBot = {
+    return {
         connector,
         config,
         db,
         game: config.game,
     };
+}
+
+export async function requestRestart(): Promise<void> {
+    if (shuttingDown) return;
+
+    await gracefulShutdown("REJOIN", true);
+    await removePidFile();
+    process.exit(REJOIN_EXIT_CODE);
+}
+
+export async function startBot(): Promise<RopeyBot> {
+    process.on("SIGINT", () => {
+        void gracefulShutdown("SIGINT");
+    });
+
+    process.on("SIGTERM", () => {
+        void gracefulShutdown("SIGTERM");
+    });
+
+    await ensureSingleBotInstance();
+
+    const config = loadConfig();
+    const bot = await connectBot(config);
     activeBot = bot;
     return bot;
 }

@@ -28,6 +28,7 @@ import { PlayerCommands } from "./rpg/util/commands";
 import { mapRegions } from "./rpg/util/areas";
 import { PET_EARS, PrisonItem } from "./rpg/objects/items";
 import { PerformanceMonitorService } from "./rpg/service/PerformanceMonitorService";
+import { RejoinStateService, mapToRecord, recordToMap, setToArray, arrayToSet, booleanMapToRecord, recordToBooleanMap, privateRequestsToRecord, recordToPrivateRequests } from "./rpg/service/RejoinStateService";
 
 const MAP = mapConfig.EncodedMap;
 const botXPos = 2;
@@ -70,6 +71,7 @@ export class RPG {
     private feedbackService: FeedbackService = new FeedbackService();
     private targetPriorityService: TargetPriorityService = new TargetPriorityService();
     private prisonService: PrisonService = new PrisonService();
+    private rejoinStateService: RejoinStateService = new RejoinStateService();
     private performanceMonitor: PerformanceMonitorService = new PerformanceMonitorService();
     public commands: PlayerCommands;
     private runLoopInterval?: ReturnType<typeof setInterval>;
@@ -118,7 +120,10 @@ export class RPG {
         "Huge credits to the original creator on whos project im expanding this on: https://github.com/BufaloAcquatico/MMOBC"
     ].join("\n");
 
-    public constructor(private conn: API_Connector) {
+    public constructor(
+        private conn: API_Connector,
+        private requestRestart?: () => Promise<void>,
+    ) {
         this.conn.on("RoomCreate", this.onChatRoomCreated);
         this.conn.on("RoomJoin", this.onChatRoomJoined);
         this.conn.on("Message", this.onMessage.bind(this));
@@ -141,6 +146,7 @@ export class RPG {
             this.privatePlayRequests,
             this.lastTargetBeforeReroll,
             this.performanceMonitor,
+            this.requestRestart,
         );
 
         setTimeout(this.bountyEvent.bind(this), BOUNTY_EVENT_SUCCESS_CD);
@@ -150,6 +156,7 @@ export class RPG {
 
         await this.setupRoom();
         await this.setupCharacter();
+        this.restoreRejoinState();
         this.runLoopInterval = setInterval(() => this.runLoop(), 10000);
 
         this.performanceSaveInterval = setInterval(() => {
@@ -157,12 +164,18 @@ export class RPG {
         }, 5 * 60 * 1000);
     }
 
-    public async shutdown(): Promise<void> {
+    public async shutdown(forRestart = false): Promise<void> {
         if (this.shuttingDown) return;
         this.shuttingDown = true;
 
         if (this.runLoopInterval) clearInterval(this.runLoopInterval);
         if (this.performanceSaveInterval) clearInterval(this.performanceSaveInterval);
+
+        if (forRestart) {
+            this.saveRejoinState();
+        } else {
+            this.rejoinStateService.clear();
+        }
 
         for (const character of this.conn.chatRoom.characters) {
             if (character.IsBot()) continue;
@@ -170,7 +183,53 @@ export class RPG {
         }
 
         this.prisonService.save();
+        await this.updateMapOnShutdown();
+
         await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    private async updateMapOnShutdown(): Promise<void> {
+        // placeholder - map update on shutdown not yet implemented
+    }
+
+    private saveRejoinState(): void {
+        this.rejoinStateService.save({
+            quests: this.questManager.serializeQuests(),
+            gracePeriods: mapToRecord(this.gracePeriods),
+            questCD: mapToRecord(this.questCD),
+            climaxTracker: mapToRecord(this.climaxTracker),
+            bounties: mapToRecord(this.bounties),
+            rerollCD: mapToRecord(this.rerollCD),
+            lastTargetBeforeReroll: mapToRecord(this.lastTargetBeforeReroll),
+            isPlayerSafe: booleanMapToRecord(this.isPlayerSafe),
+            targetPriorities: this.targetPriorityService.serialize(),
+            privatePlayRequests: privateRequestsToRecord(this.privatePlayRequests),
+            alreadyEnteredBoundMaid: setToArray(this.alreadyEnteredBoundMaid),
+            alreadyEnteredIntroduction: setToArray(this.alreadyEnteredIntroduction),
+            processedPlayers: setToArray(this.processedPlayers),
+            closedPermissionNotifiedPlayers: setToArray(this.closedPermissionNotifiedPlayers),
+        });
+    }
+
+    private restoreRejoinState(): void {
+        const state = this.rejoinStateService.load();
+        if (!state) return;
+
+        this.questManager.restoreQuests(state.quests);
+        this.gracePeriods = recordToMap(state.gracePeriods);
+        this.questCD = recordToMap(state.questCD);
+        this.climaxTracker = recordToMap(state.climaxTracker);
+        this.bounties = recordToMap(state.bounties ?? {});
+        this.rerollCD = recordToMap(state.rerollCD ?? {});
+        this.lastTargetBeforeReroll = recordToMap(state.lastTargetBeforeReroll ?? {});
+        this.isPlayerSafe = recordToBooleanMap(state.isPlayerSafe ?? {});
+        this.targetPriorityService.restore(state.targetPriorities ?? {});
+        this.privatePlayRequests = recordToPrivateRequests(state.privatePlayRequests ?? {});
+        this.alreadyEnteredBoundMaid = arrayToSet(state.alreadyEnteredBoundMaid ?? []);
+        this.alreadyEnteredIntroduction = arrayToSet(state.alreadyEnteredIntroduction ?? []);
+        this.processedPlayers = arrayToSet(state.processedPlayers ?? []);
+        this.closedPermissionNotifiedPlayers = arrayToSet(state.closedPermissionNotifiedPlayers ?? []);
+        this.rejoinStateService.clear();
     }
 
     private onChatRoomCreated = async () => {

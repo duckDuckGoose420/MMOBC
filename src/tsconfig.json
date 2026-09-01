@@ -9,6 +9,8 @@
       "declaration": true,
       "outDir": "./dist/",
       "rewriteRelativeImportExtensions": true,
+      "types": ["node"],
+      "typeRoots": ["../node_modules/@types"]
   },
   "extends": "@tsconfig/node18/tsconfig.json",
   "include": [

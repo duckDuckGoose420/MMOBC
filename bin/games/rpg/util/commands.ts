@@ -33,7 +33,8 @@ export class PlayerCommands {
         private bounties: Map<number, number>,
         private privatePlayRequests: Map<number, PrivateRequest>,
         private lastTargetBeforeReroll: Map<number, number>,
-        private performanceMonitor: PerformanceMonitorService
+        private performanceMonitor: PerformanceMonitorService,
+        private requestRestart?: () => Promise<void>,
     ) {
         this.commandParser = new CommandParser(this.conn);
         this.registerAllCommands();
@@ -698,6 +699,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot targetme [player] [player] ... - Make players prioritize targeting you
 /bot donttargetme [player] [player] ... - Remove priority or block you as their target
 /bot say [message] - Send a public chat message as the bot
+/bot rejoin - Restart the bot and reload code changes
 
 /bot admin help - This help)`, sender.MemberNumber);
         } else {
@@ -812,6 +814,20 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         }
 
         this.conn.SendMessage("Chat", args.join(' '));
+    }
+
+    public async onCommandRejoin(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!sender.IsRoomAdmin()) return;
+
+        if (!this.requestRestart) {
+            this.conn.SendMessage("Whisper", "(Restart is not available)", sender.MemberNumber);
+            return;
+        }
+
+        this.conn.SendMessage("Chat", "(Bot is restarting...)");
+        this.conn.SendMessage("Chat", "(Please wait, the bot will disconnect briefly.)");
+        this.conn.SendMessage("Chat", "(The bot should reconnect in a few seconds.)");
+        void this.requestRestart();
     }
 
     public async onCommandDominant(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
@@ -983,5 +999,6 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("targetme", this.onCommandTargetMe.bind(this));
         this.commandParser.register("donttargetme", this.onCommandDontTargetMe.bind(this));
         this.commandParser.register("say", this.onCommandSay.bind(this));
+        this.commandParser.register("rejoin", this.onCommandRejoin.bind(this));
     }
 }

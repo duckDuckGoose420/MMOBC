@@ -6,7 +6,9 @@ export const refractaryPeriod = 20 * 60 * 1000;
 export class ClimaxQuest extends AbstractQuest {
     constructor(conn: API_Chatroom, memberNumber: number, target: number, additionalInfo?: any, performanceMonitor?: PerformanceMonitorService) {
         super(conn, memberNumber, target, additionalInfo, performanceMonitor);
-        this.additionalInfo["orgasms"] = 0;
+        if (this.additionalInfo["orgasms"] === undefined) {
+            this.additionalInfo["orgasms"] = 0;
+        }
     }
 
     description(): string {

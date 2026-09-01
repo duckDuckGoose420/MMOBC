@@ -4,9 +4,10 @@
     "resolveJsonModule": true,
     "noEmit": true,
     "strict": false,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "esModuleInterop": true
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "types": ["node"]
   },
   "extends": "@tsconfig/node18/tsconfig.json",
   "include": [

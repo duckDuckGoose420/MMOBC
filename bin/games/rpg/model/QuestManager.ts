@@ -10,6 +10,7 @@ import { TargetPriorityService } from "../service/TargetPriorityService";
 import { PrisonQuest } from "./PrisonQuest";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { PlayerService } from "../service/PlayerService";
+import { SavedQuest } from "../service/RejoinStateService";
 
 const botMemberNumber = 220073;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
@@ -19,6 +20,14 @@ const questTypes: { constructor: QuestConstructor; weight: number }[] = [
     { constructor: KidnapQuestBoundMaid, weight: 2 },
     { constructor: PrisonQuest, weight: 1 }
 ];
+
+const questConstructors: Record<string, QuestConstructor> = {
+    LockQuest,
+    ClimaxQuest,
+    KidnapQuest,
+    KidnapQuestBoundMaid,
+    PrisonQuest,
+};
 
 type QuestConstructor = new (
     chatRoom: API_Chatroom,
@@ -302,5 +311,39 @@ export class QuestManager {
             return true;
         } else
             return false;
+    }
+
+    serializeQuests(): SavedQuest[] {
+        return this.quests.getAll().map((quest) => ({
+            type: this.getQuestTypeName(quest),
+            owner: quest.owner,
+            targetPlayer: quest.targetPlayer,
+            additionalInfo: quest.additionalInfo ?? {},
+        }));
+    }
+
+    restoreQuests(saved: SavedQuest[]): void {
+        this.quests.set([]);
+        for (const entry of saved) {
+            const constructor = questConstructors[entry.type];
+            if (!constructor) continue;
+            const quest = new constructor(
+                this.chatRoom,
+                entry.owner,
+                entry.targetPlayer,
+                entry.additionalInfo,
+                this.performanceMonitor,
+            );
+            this.quests.add(quest);
+        }
+    }
+
+    private getQuestTypeName(quest: IQuest): string {
+        if (quest instanceof LockQuest) return "LockQuest";
+        if (quest instanceof ClimaxQuest) return "ClimaxQuest";
+        if (quest instanceof KidnapQuest) return "KidnapQuest";
+        if (quest instanceof KidnapQuestBoundMaid) return "KidnapQuestBoundMaid";
+        if (quest instanceof PrisonQuest) return "PrisonQuest";
+        return quest.constructor.name;
     }
 }

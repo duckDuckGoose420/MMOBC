@@ -107,5 +107,24 @@ export class TargetPriorityService {
     getAllStatuses(): Map<number, Map<number, TargetStatus>> {
         return new Map(this.targetStatuses);
     }
+
+    serialize(): Record<string, Record<string, TargetStatus>> {
+        const result: Record<string, Record<string, TargetStatus>> = {};
+        for (const [owner, targetMap] of this.targetStatuses) {
+            result[owner.toString()] = Object.fromEntries(targetMap);
+        }
+        return result;
+    }
+
+    restore(data: Record<string, Record<string, TargetStatus>>): void {
+        this.targetStatuses.clear();
+        for (const [owner, targetMap] of Object.entries(data)) {
+            const ownerMap = new Map<number, TargetStatus>();
+            for (const [target, status] of Object.entries(targetMap)) {
+                ownerMap.set(Number(target), status);
+            }
+            this.targetStatuses.set(Number(owner), ownerMap);
+        }
+    }
 }
 
