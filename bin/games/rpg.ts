@@ -92,6 +92,8 @@ export class RPG {
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot pay [player] [amount] - Example /bot pay 12345 200 will transfer 200 money from you to player 12345",
         "/bot stats - Check your money and level",
+        "/bot inventory - List your virtual items",
+        "/bot use [item] [player] - Use an item from your inventory. Check /bot inventory for what you have and how each item works.",
         "/bot bounty [player] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
         "/bot levelup - Check how many money you need to level up, plus explanation for levels",
@@ -562,6 +564,11 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             if (!currentPlayerNumbers.has(processedPlayer)) {
                 this.processedPlayers.delete(processedPlayer);
                 this.closedPermissionNotifiedPlayers.delete(processedPlayer);
+                const leaver = this.playerService.get(processedPlayer);
+                if (leaver.getPendingCatchMeTarget() !== null) {
+                    leaver.setPendingCatchMeTarget(null);
+                    this.playerService.save(leaver);
+                }
             }
         }
 

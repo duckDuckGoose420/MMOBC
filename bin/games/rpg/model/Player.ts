@@ -10,6 +10,8 @@ export class Player implements IPlayer {
     gracePeriodMinutes: number;
     isDominant: boolean;
     blockedPlayers: number[];
+    inventory: Record<string, number>;
+    pendingCatchMeTarget: number | null;
 
 
     constructor(memberNumber: number) {
@@ -19,6 +21,8 @@ export class Player implements IPlayer {
         this.gracePeriodMinutes = 20; // Default: 20 minutes
         this.isDominant = false; // Default: not dominant
         this.blockedPlayers = [];
+        this.inventory = {};
+        this.pendingCatchMeTarget = null;
     }
 
     addMoney(amount: number): void {
@@ -97,5 +101,33 @@ export class Player implements IPlayer {
         }
         this.blockedPlayers.splice(index, 1);
         return false;
+    }
+
+    getItemCount(itemId: string): number {
+        return this.inventory[itemId] || 0;
+    }
+
+    addItem(itemId: string, amount: number): void {
+        const next = (this.inventory[itemId] || 0) + amount;
+        if (next <= 0) {
+            delete this.inventory[itemId];
+        } else {
+            this.inventory[itemId] = next;
+        }
+    }
+
+    removeItem(itemId: string, amount: number): boolean {
+        const have = this.inventory[itemId] || 0;
+        if (have < amount) return false;
+        this.addItem(itemId, -amount);
+        return true;
+    }
+
+    getPendingCatchMeTarget(): number | null {
+        return this.pendingCatchMeTarget;
+    }
+
+    setPendingCatchMeTarget(memberNumber: number | null): void {
+        this.pendingCatchMeTarget = memberNumber;
     }
 }

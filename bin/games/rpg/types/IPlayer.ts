@@ -5,6 +5,8 @@ export interface IPlayer {
   gracePeriodMinutes: number;
   isDominant: boolean;
   blockedPlayers: number[];
+  inventory: Record<string, number>;
+  pendingCatchMeTarget: number | null;
 
     addMoney(amount: number): void;
     moneyNeededToLevelUp(): number;
@@ -25,4 +27,11 @@ export interface IPlayer {
     getBlockedPlayers(): number[];
     hasBlocked(memberNumber: number): boolean;
     toggleBlocked(memberNumber: number): boolean;
+
+    getItemCount(itemId: string): number;
+    addItem(itemId: string, amount: number): void;
+    removeItem(itemId: string, amount: number): boolean;
+
+    getPendingCatchMeTarget(): number | null;
+    setPendingCatchMeTarget(memberNumber: number | null): void;
 }

@@ -156,6 +156,13 @@ export class QuestManager {
 
         const maxAttempts = 10;
 
+        const catchMeQuest = this.consumeAndTryCatchMeQuest(memberNumber, gracePeriods);
+        if (catchMeQuest) {
+            this.quests.add(catchMeQuest);
+            conn.SendMessage("Whisper", "(New quest: " + catchMeQuest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
+            return;
+        }
+
         // First, try to assign quest with priority targets
         const priorityTargets = this.targetPriorityService.getPriorityTargets(memberNumber);
         if (priorityTargets.length > 0) {
@@ -295,6 +302,26 @@ export class QuestManager {
 
         this.performanceMonitor.endTimer('completeQuests', startTime);
         return completed;
+    }
+
+    private consumeAndTryCatchMeQuest(memberNumber: number, gracePeriods: Map<number, number>): IQuest | null {
+        const hunter = this.playerService.get(memberNumber);
+        const forcedTarget = hunter.getPendingCatchMeTarget();
+        if (forcedTarget === null) return null;
+
+        hunter.setPendingCatchMeTarget(null);
+        this.playerService.save(hunter);
+
+        if (this.arePlayersBlocked(memberNumber, forcedTarget)) return null;
+        if (this.isInGracePeriod(gracePeriods, forcedTarget)) return null;
+
+        const isTargetSafe = this.RPG.isPlayerSafe.get(forcedTarget);
+        if (isTargetSafe === undefined || isTargetSafe) return null;
+        if (this.isUnavailableAsQuestTarget(forcedTarget)) return null;
+
+        const quest = this.generateQuestWithTarget(memberNumber, forcedTarget);
+        if (quest && quest.prerequisite()) return quest;
+        return null;
     }
 
     private isQuestAssignmentInCD(questCD: Map<number, number>, memberNumber: number) {

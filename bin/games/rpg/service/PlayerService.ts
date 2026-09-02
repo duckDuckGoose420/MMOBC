@@ -2,6 +2,7 @@ import Storage from 'node-storage';
 import { IPlayer } from "../types/IPlayer";
 import { Player } from "../model/Player";
 import { PerformanceMonitorService } from "./PerformanceMonitorService";
+import { VIRTUAL_ITEMS } from "../objects/virtualItems";
 
 export class PlayerService {
     private playerStorage = new Storage("./bin/games/rpg/data/players");
@@ -59,6 +60,12 @@ export class PlayerService {
                 this.save(player);
             }
 
+            player.inventory = this.loadInventory(playerData.inventory);
+
+            if (typeof playerData.pendingCatchMeTarget === 'number') {
+                player.pendingCatchMeTarget = playerData.pendingCatchMeTarget;
+            }
+
             return player;
         }
     }
@@ -70,5 +77,17 @@ export class PlayerService {
 
     remove(memberNumber: number): void {
         this.playerStorage.remove(memberNumber.toString());
+    }
+
+    private loadInventory(raw: unknown): Record<string, number> {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+
+        const inventory: Record<string, number> = {};
+        for (const [itemId, count] of Object.entries(raw as Record<string, unknown>)) {
+            if (!VIRTUAL_ITEMS[itemId]) continue;
+            if (typeof count !== 'number' || !Number.isInteger(count) || count <= 0) continue;
+            inventory[itemId] = count;
+        }
+        return inventory;
     }
 }

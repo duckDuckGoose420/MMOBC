@@ -10,6 +10,7 @@ import { Util } from "./Util";
 import { PlayerIdentifier } from "./PlayerIdentifier";
 import { PrivateRequest } from "../types/PrivateRequest";
 import { remainingTimeString } from "../../../utils";
+import { ITEM_CATCHME, getVirtualItem } from "../objects/virtualItems";
 
 const REROLL_CD = 3 * 60 * 1000;
 const QUEST_CD = 10 * 60 * 1000;
@@ -207,6 +208,8 @@ export class PlayerCommands {
             "/bot reroll",
             "/bot pay [player] [amount]",
             "/bot stats",
+            "/bot inventory - List your virtual items",
+            "/bot use [item] [player] - Use an item from your inventory. Check /bot inventory for what you have and how each item works.",
             "/bot bounty [player] [bounty]",
             "/bot levelup",
             "/bot buy release - Cost: 1000",
@@ -708,13 +711,61 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot reset [player] - Reset player cooldowns and quest
 /bot targetme [player] [player] ... - Make players prioritize targeting you
 /bot donttargetme [player] [player] ... - Remove priority or block you as their target
+/bot give [player] [item] [count] - Give an inventory item (count defaults to 1)
 /bot say [message] - Send a public chat message as the bot
 /bot rejoin - Restart the bot and reload code changes
 
 /bot admin help - This help)`, sender.MemberNumber);
-        } else {
-            this.conn.SendMessage("Whisper", "(Unknown admin subcommand. Use /bot admin help for available commands)", sender.MemberNumber);
+            return;
         }
+
+        this.conn.SendMessage("Whisper", "(Unknown admin subcommand. Use /bot admin help for available commands)", sender.MemberNumber);
+    }
+
+    public async onCommandGive(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!sender.IsRoomAdmin()) return;
+
+        if (args.length < 2) {
+            this.conn.SendMessage("Whisper", "(Usage: /bot give [player] [item] [count])", sender.MemberNumber);
+            return;
+        }
+
+        const parts = [...args];
+        let count = 1;
+        if (parts.length >= 3 && Util.isValidIntegerString(parts[parts.length - 1])) {
+            count = Number(parts.pop());
+        }
+
+        if (count < 1) {
+            this.conn.SendMessage("Whisper", "(Count must be at least 1)", sender.MemberNumber);
+            return;
+        }
+
+        const itemId = parts.pop()!;
+        const item = getVirtualItem(itemId);
+        if (!item) {
+            this.conn.SendMessage("Whisper", "(Unknown item)", sender.MemberNumber);
+            return;
+        }
+
+        const targetIdentifier = parts.join(' ');
+        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+        if (typeof target === 'string') {
+            this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
+            return;
+        }
+
+        if (target.IsBot()) {
+            this.conn.SendMessage("Whisper", "(You cannot give items to the bot)", sender.MemberNumber);
+            return;
+        }
+
+        const player = this.playerService.get(target.MemberNumber);
+        player.addItem(itemId, count);
+        this.playerService.save(player);
+
+        this.conn.SendMessage("Whisper", `(Gave ${target.toString()} ${count}x ${item.name})`, sender.MemberNumber);
+        this.conn.SendMessage("Whisper", `(You received ${count}x ${item.name}. Check /bot inventory)`, target.MemberNumber);
     }
 
     public async onCommandReset(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
@@ -742,6 +793,12 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 
         // Clear priority/block status (as owner and target)
         this.targetPriorityService.clearPlayerStatuses(target.MemberNumber);
+
+        const resetPlayer = this.playerService.get(target.MemberNumber);
+        if (resetPlayer.getPendingCatchMeTarget() !== null) {
+            resetPlayer.setPendingCatchMeTarget(null);
+            this.playerService.save(resetPlayer);
+        }
 
         this.conn.SendMessage("Whisper", `(${target.toString()} has been reset)`, sender.MemberNumber);
     }
@@ -924,6 +981,81 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         }
     }
 
+    public async onCommandInventory(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        const player = this.playerService.get(sender.MemberNumber);
+        const entries = Object.entries(player.inventory);
+        if (entries.length === 0) {
+            this.conn.SendMessage("Whisper", "(Your inventory is empty)", sender.MemberNumber);
+            return;
+        }
+
+        const lines = ["(Inventory:"];
+        for (const [itemId, count] of entries) {
+            const item = getVirtualItem(itemId);
+            if (!item) continue;
+            lines.push(`${item.name} x${count}`);
+            lines.push(item.warning);
+            lines.push(`Use: /bot use ${item.id} [player]`);
+        }
+        lines.push(")");
+        this.conn.SendMessage("Whisper", lines.join("\n"), sender.MemberNumber);
+    }
+
+    public async onCommandUse(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (args.length < 2) {
+            this.conn.SendMessage("Whisper", "(Usage: /bot use [item] [player]. Check /bot inventory for what you have and how each item works.)", sender.MemberNumber);
+            return;
+        }
+
+        const itemId = args[0];
+        const item = getVirtualItem(itemId);
+        if (!item) {
+            this.conn.SendMessage("Whisper", "(Unknown item. Use /bot inventory to see what you have.)", sender.MemberNumber);
+            return;
+        }
+
+        if (itemId !== ITEM_CATCHME) {
+            this.conn.SendMessage("Whisper", `(You cannot use ${item.name} yet)`, sender.MemberNumber);
+            return;
+        }
+
+        const targetIdentifier = args.slice(1).join(' ');
+        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+        if (typeof target === 'string') {
+            this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
+            return;
+        }
+
+        if (sender.MemberNumber === target.MemberNumber) {
+            this.conn.SendMessage("Whisper", "(You cannot use that on yourself)", sender.MemberNumber);
+            return;
+        }
+
+        if (target.IsBot()) {
+            this.conn.SendMessage("Whisper", "(You cannot use that on the bot)", sender.MemberNumber);
+            return;
+        }
+
+        const player = this.playerService.get(sender.MemberNumber);
+        if (player.getItemCount(ITEM_CATCHME) < 1) {
+            this.conn.SendMessage("Whisper", "(You don't have that item)", sender.MemberNumber);
+            return;
+        }
+
+        const hunter = this.playerService.get(target.MemberNumber);
+        if (hunter.getPendingCatchMeTarget() !== null) {
+            this.conn.SendMessage("Whisper", "(That player already has a pending Catch me if you can. The item was not used.)", sender.MemberNumber);
+            return;
+        }
+
+        player.removeItem(ITEM_CATCHME, 1);
+        hunter.setPendingCatchMeTarget(sender.MemberNumber);
+        this.playerService.save(player);
+        this.playerService.save(hunter);
+
+        this.conn.SendMessage("Whisper", `(You used ${item.name} on ${target.toString()}. ${item.warning})`, sender.MemberNumber);
+    }
+
     // ===== HELPER FUNCTIONS FOR ADMIN COMMANDS =====
 
     private getPlayersSearchingForQuest(): number {
@@ -986,6 +1118,25 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             info += `Blocked Players: ${blockedNames.join(', ')}\n`;
         } else {
             info += `Blocked Players: None\n`;
+        }
+
+        const inventoryEntries = Object.entries(playerData.inventory);
+        if (inventoryEntries.length > 0) {
+            const names = inventoryEntries.map(([id, count]) => {
+                const item = getVirtualItem(id);
+                return `${item?.name ?? id} x${count}`;
+            });
+            info += `Inventory: ${names.join(', ')}\n`;
+        } else {
+            info += `Inventory: Empty\n`;
+        }
+
+        const pendingCatchMe = playerData.getPendingCatchMeTarget();
+        if (pendingCatchMe !== null) {
+            const pendingChar = this.conn.chatRoom.findMember(pendingCatchMe);
+            info += `Pending Catch me if you can: ${pendingChar ? pendingChar.toString() : '#' + pendingCatchMe}\n`;
+        } else {
+            info += `Pending Catch me if you can: None\n`;
         }
         info += `Safe: ${isSafe ? 'Yes' : 'No'}\n`;
 
@@ -1061,11 +1212,14 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("performance", this.onCommandPerformance.bind(this));
         this.commandParser.register("dominant", this.onCommandDominant.bind(this));
         this.commandParser.register("block", this.onCommandBlock.bind(this));
+        this.commandParser.register("inventory", this.onCommandInventory.bind(this));
+        this.commandParser.register("use", this.onCommandUse.bind(this));
 
         // Admin Commands (invisible to non-admins)
         this.commandParser.register("debug", this.onCommandDebug.bind(this));
         this.commandParser.register("admin", this.onCommandAdmin.bind(this));
         this.commandParser.register("reset", this.onCommandReset.bind(this));
+        this.commandParser.register("give", this.onCommandGive.bind(this));
         this.commandParser.register("targetme", this.onCommandTargetMe.bind(this));
         this.commandParser.register("donttargetme", this.onCommandDontTargetMe.bind(this));
         this.commandParser.register("say", this.onCommandSay.bind(this));
