@@ -5,6 +5,7 @@ import { FeedbackService } from "../service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "../service/TargetPriorityService";
 import { PrisonService } from "../service/PrisonService";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
+import { AutoMessageService } from "../service/AutoMessageService";
 import { Util } from "./Util";
 import { PlayerIdentifier } from "./PlayerIdentifier";
 import { PrivateRequest } from "../types/PrivateRequest";
@@ -34,6 +35,7 @@ export class PlayerCommands {
         private privatePlayRequests: Map<number, PrivateRequest>,
         private lastTargetBeforeReroll: Map<number, number>,
         private performanceMonitor: PerformanceMonitorService,
+        private autoMessageService: AutoMessageService,
         private requestRestart?: () => Promise<void>,
     ) {
         this.commandParser = new CommandParser(this.conn);
@@ -644,6 +646,11 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                 this.conn.SendMessage("Whisper", bountyInfo, sender.MemberNumber);
                 break;
 
+            case 'automessages':
+            case 'automessage':
+                this.autoMessageService.previewTo(sender.MemberNumber);
+                break;
+
             case 'prison':
             case 'prisoners':
                 const prisoners = this.prisonService.getAllPrisoners(sender);
@@ -696,6 +703,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot debug dominant - List dominant players
 /bot debug bounties - List active bounties
 /bot debug prison - List imprisoned players
+/bot debug automessages - Whisper all auto messages once
 
 /bot reset [player] - Reset player cooldowns and quest
 /bot targetme [player] [player] ... - Make players prioritize targeting you

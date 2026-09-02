@@ -28,6 +28,7 @@ import { PlayerCommands } from "./rpg/util/commands";
 import { mapRegions } from "./rpg/util/areas";
 import { PET_EARS, PrisonItem } from "./rpg/objects/items";
 import { PerformanceMonitorService } from "./rpg/service/PerformanceMonitorService";
+import { AutoMessageService } from "./rpg/service/AutoMessageService";
 import { RejoinStateService, mapToRecord, recordToMap, setToArray, arrayToSet, booleanMapToRecord, recordToBooleanMap, privateRequestsToRecord, recordToPrivateRequests } from "./rpg/service/RejoinStateService";
 
 const MAP = mapConfig.EncodedMap;
@@ -74,6 +75,7 @@ export class RPG {
     private prisonService: PrisonService = new PrisonService();
     private rejoinStateService: RejoinStateService = new RejoinStateService();
     private performanceMonitor: PerformanceMonitorService = new PerformanceMonitorService();
+    private autoMessageService: AutoMessageService;
     public commands: PlayerCommands;
     private runLoopInterval?: ReturnType<typeof setInterval>;
     private performanceSaveInterval?: ReturnType<typeof setInterval>;
@@ -132,6 +134,7 @@ export class RPG {
         //this.conn.on("ServerLeave", this.onServerLeave);
 
         this.playerService = new PlayerService(this.performanceMonitor);
+        this.autoMessageService = new AutoMessageService(this.conn);
         this.questManager = new QuestManager(conn.chatRoom, this, this.targetPriorityService, this.performanceMonitor, this.playerService);
         this.commands = new PlayerCommands(
             this.conn,
@@ -148,6 +151,7 @@ export class RPG {
             this.privatePlayRequests,
             this.lastTargetBeforeReroll,
             this.performanceMonitor,
+            this.autoMessageService,
             this.requestRestart,
         );
 
@@ -164,6 +168,8 @@ export class RPG {
         this.performanceSaveInterval = setInterval(() => {
             this.performanceMonitor.saveToFile();
         }, 5 * 60 * 1000);
+
+        this.autoMessageService.start();
     }
 
     public async shutdown(forRestart = false): Promise<void> {
@@ -172,6 +178,7 @@ export class RPG {
 
         if (this.runLoopInterval) clearInterval(this.runLoopInterval);
         if (this.performanceSaveInterval) clearInterval(this.performanceSaveInterval);
+        this.autoMessageService.stop();
 
         if (forRestart) {
             this.saveRejoinState();

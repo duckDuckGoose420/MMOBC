@@ -1,0 +1,10 @@
+{
+  "messages": [
+    {
+      "enabled": true,
+      "intervalMinutes": 10,
+      "type": "Chat",
+      "text": "(Friendly reminder: found a bug, have an idea, or anything else you'd like me to know? Use /bot feedback — I'll read every message and really appreciate it. This is your change to shape the game.)"
+    }
+  ]
+}
