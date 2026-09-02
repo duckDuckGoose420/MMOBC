@@ -31,6 +31,10 @@ export class PlayerService {
             player.money = playerData.money;
             player.level = playerData.level;
 
+            if (Array.isArray(playerData.blockedPlayers)) {
+                player.blockedPlayers = playerData.blockedPlayers.filter((n: unknown) => typeof n === 'number');
+            }
+
             // Check if gracePeriodMinutes exists in player data (new format)
             if (playerData.gracePeriodMinutes !== undefined) {
                 player.gracePeriodMinutes = playerData.gracePeriodMinutes;

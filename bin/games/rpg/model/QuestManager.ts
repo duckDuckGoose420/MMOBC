@@ -161,7 +161,7 @@ export class QuestManager {
         if (priorityTargets.length > 0) {
             for (const targetNumber of priorityTargets) {
                 // Check if target is blocked
-                if (this.targetPriorityService.isBlocked(memberNumber, targetNumber)) {
+                if (this.arePlayersBlocked(memberNumber, targetNumber)) {
                     continue;
                 }
 
@@ -198,7 +198,7 @@ export class QuestManager {
                 continue;
 
             // Check if target is blocked
-            if (this.targetPriorityService.isBlocked(memberNumber, quest.targetPlayer)) {
+            if (this.arePlayersBlocked(memberNumber, quest.targetPlayer)) {
                 continue;
             }
 
@@ -217,7 +217,9 @@ export class QuestManager {
 
     generateRandomQuest(memberNumber: number): IQuest | null {
         const candidateList = this.chatRoom.characters.filter(
-            c => c.MemberNumber !== botMemberNumber && c.MemberNumber !== memberNumber
+            c => c.MemberNumber !== botMemberNumber
+                && c.MemberNumber !== memberNumber
+                && !this.arePlayersBlocked(memberNumber, c.MemberNumber)
         );
 
         if (candidateList.length === 0) return null;
@@ -246,6 +248,7 @@ export class QuestManager {
     generateQuestWithTarget(memberNumber: number, targetNumber: number): IQuest | null {
         const target = this.chatRoom.findMember(targetNumber);
         if (!target) return null;
+        if (this.arePlayersBlocked(memberNumber, targetNumber)) return null;
 
         // Choose a quest type randomly
         const constructor = this.chooseQuestWeighted(questTypes);
@@ -314,6 +317,13 @@ export class QuestManager {
         if (this.playerService.get(memberNumber).getIsDominant()) return true;
         const character = this.chatRoom.findMember(memberNumber);
         return !!character && positionIsInRegion(character.MapPos, mapRegions.DEV_ROOM_AREA);
+    }
+
+    private arePlayersBlocked(owner: number, target: number): boolean {
+        if (this.targetPriorityService.isBlocked(owner, target)) {
+            return true;
+        }
+        return this.playerService.get(owner).hasBlocked(target) || this.playerService.get(target).hasBlocked(owner);
     }
 
     serializeQuests(): SavedQuest[] {

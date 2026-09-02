@@ -105,6 +105,7 @@ export class RPG {
         "/bot private check - It will tell you if the private room is empty, in case you want to use it",
         "",
         "/bot settings - Configure your grace period (0-20 minutes, max 20) after completing quests",
+        "/bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other",
         "",
         "/bot feedback [your message] - ",
         "Use this command to send suggestions, advice, complaints, bug reports, or anything else you'd like me to see. I'll read every message as soon as possible. Constructive criticism is welcome and helpful - just keep it polite.",

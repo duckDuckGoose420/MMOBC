@@ -4,6 +4,7 @@ export interface IPlayer {
   money: number;
   gracePeriodMinutes: number;
   isDominant: boolean;
+  blockedPlayers: number[];
 
     addMoney(amount: number): void;
     moneyNeededToLevelUp(): number;
@@ -20,4 +21,8 @@ export interface IPlayer {
     // Dominant methods
     getIsDominant(): boolean;
     setIsDominant(isDominant: boolean): void;
+
+    getBlockedPlayers(): number[];
+    hasBlocked(memberNumber: number): boolean;
+    toggleBlocked(memberNumber: number): boolean;
 }

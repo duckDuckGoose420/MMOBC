@@ -9,6 +9,7 @@ export class Player implements IPlayer {
     money: number;
     gracePeriodMinutes: number;
     isDominant: boolean;
+    blockedPlayers: number[];
 
 
     constructor(memberNumber: number) {
@@ -17,6 +18,7 @@ export class Player implements IPlayer {
         this.money = 0;
         this.gracePeriodMinutes = 20; // Default: 20 minutes
         this.isDominant = false; // Default: not dominant
+        this.blockedPlayers = [];
     }
 
     addMoney(amount: number): void {
@@ -77,5 +79,23 @@ export class Player implements IPlayer {
 
     setIsDominant(isDominant: boolean): void {
         this.isDominant = isDominant;
+    }
+
+    getBlockedPlayers(): number[] {
+        return [...this.blockedPlayers];
+    }
+
+    hasBlocked(memberNumber: number): boolean {
+        return this.blockedPlayers.includes(memberNumber);
+    }
+
+    toggleBlocked(memberNumber: number): boolean {
+        const index = this.blockedPlayers.indexOf(memberNumber);
+        if (index === -1) {
+            this.blockedPlayers.push(memberNumber);
+            return true;
+        }
+        this.blockedPlayers.splice(index, 1);
+        return false;
     }
 }

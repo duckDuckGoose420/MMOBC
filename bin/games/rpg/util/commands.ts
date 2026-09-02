@@ -218,6 +218,7 @@ export class PlayerCommands {
             "",
             "/bot settings - Configure grace period (0-20 min)",
             "/bot dominant - Toggle dominant status (prevents being targeted by quests)",
+            "/bot block [player] - Toggle blocking a player (you won't be matched as quest targets)",
             "",
             "/bot feedback [your message]"
         ].join("\n");
@@ -334,7 +335,8 @@ Thanks for your feedback!)`, sender.MemberNumber);
 /bot settings graceperiod - Check your current grace period setting
 /bot settings graceperiod [0-20] - Set grace period in minutes (0 = disabled, 20 = maximum)
 /bot settings dominant - Check your current dominant status
-/bot dominant - Toggle dominant status (prevents being targeted by quests))`, sender.MemberNumber);
+/bot dominant - Toggle dominant status (prevents being targeted by quests)
+/bot block [player] - Toggle blocking a player (you won't be matched as quest targets))`, sender.MemberNumber);
         }
 
         const player = this.playerService.get(sender.MemberNumber);
@@ -863,6 +865,57 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         }
     }
 
+    public async onCommandBlock(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        const player = this.playerService.get(sender.MemberNumber);
+
+        if (args.length === 0) {
+            const blocked = player.getBlockedPlayers();
+            let list = "None";
+            if (blocked.length > 0) {
+                list = blocked.map(n => {
+                    const character = this.conn.chatRoom.findMember(n);
+                    return character ? `${character.toString()} [#${n}]` : `#${n}`;
+                }).join(', ');
+            }
+            this.conn.SendMessage("Whisper", `(Usage: /bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other.\nCurrently blocked: ${list})`, sender.MemberNumber);
+            return;
+        }
+
+        const targetIdentifier = args.join(' ');
+        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+        if (typeof target === 'string') {
+            this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
+            return;
+        }
+
+        if (sender.MemberNumber === target.MemberNumber) {
+            this.conn.SendMessage("Whisper", `(You cannot block yourself)`, sender.MemberNumber);
+            return;
+        }
+
+        if (target.IsBot()) {
+            this.conn.SendMessage("Whisper", `(You cannot block the bot)`, sender.MemberNumber);
+            return;
+        }
+
+        const nowBlocked = player.toggleBlocked(target.MemberNumber);
+        this.playerService.save(player);
+
+        if (nowBlocked) {
+            const senderQuest = this.questManager.playerHasQuestAssigned(sender.MemberNumber);
+            if (senderQuest && senderQuest.targetPlayer === target.MemberNumber) {
+                this.questManager.cancelQuestForPlayer(sender.MemberNumber);
+            }
+            const targetQuest = this.questManager.playerHasQuestAssigned(target.MemberNumber);
+            if (targetQuest && targetQuest.targetPlayer === sender.MemberNumber) {
+                this.questManager.cancelQuestForPlayer(target.MemberNumber);
+            }
+            this.conn.SendMessage("Whisper", `(You blocked ${target.toString()}. You will no longer be assigned as quest targets for each other.)`, sender.MemberNumber);
+        } else {
+            this.conn.SendMessage("Whisper", `(You unblocked ${target.toString()})`, sender.MemberNumber);
+        }
+    }
+
     // ===== HELPER FUNCTIONS FOR ADMIN COMMANDS =====
 
     private getPlayersSearchingForQuest(): number {
@@ -918,6 +971,14 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         info += `Level: ${playerData.level}\n`;
         info += `Money: ${playerData.money}\n`;
         info += `Dominant: ${playerData.getIsDominant() ? 'Yes' : 'No'}\n`;
+
+        const blockedPlayers = playerData.getBlockedPlayers();
+        if (blockedPlayers.length > 0) {
+            const blockedNames = blockedPlayers.map(n => this.conn.chatRoom.findMember(n)?.toString() || `#${n}`);
+            info += `Blocked Players: ${blockedNames.join(', ')}\n`;
+        } else {
+            info += `Blocked Players: None\n`;
+        }
         info += `Safe: ${isSafe ? 'Yes' : 'No'}\n`;
 
         if (this.prisonService.isImprisoned(player)) {
@@ -991,6 +1052,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("prisontime", this.onCommandPrisonTime.bind(this));
         this.commandParser.register("performance", this.onCommandPerformance.bind(this));
         this.commandParser.register("dominant", this.onCommandDominant.bind(this));
+        this.commandParser.register("block", this.onCommandBlock.bind(this));
 
         // Admin Commands (invisible to non-admins)
         this.commandParser.register("debug", this.onCommandDebug.bind(this));
