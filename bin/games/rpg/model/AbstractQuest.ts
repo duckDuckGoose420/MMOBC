@@ -1,6 +1,7 @@
 import { IQuest } from "../types/IQuest";
-import { API_Connector, API_Chatroom, API_Character } from "bc-bot";
+import { API_Connector, API_Chatroom, API_Character, positionIsInRegion } from "bc-bot";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
+import { mapRegions } from "../util/areas";
 
 export abstract class AbstractQuest implements IQuest {
     chatRoom: API_Chatroom;
@@ -40,6 +41,10 @@ export abstract class AbstractQuest implements IQuest {
         const grace = gracePeriods.get(this.targetPlayer);
         if (grace && Date.now() < grace) {
             this.failMessage = "(Your quest target completed their quest, we'll give you a new quest to not bother their possible session)";
+            return true;
+        }
+        if (positionIsInRegion(c.MapPos, mapRegions.DEV_ROOM_AREA)) {
+            this.failMessage = "(Your quest target is no longer available, you'll be assigned a new quest)";
             return true;
         }
         return false;

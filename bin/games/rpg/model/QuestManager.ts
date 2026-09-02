@@ -1,5 +1,5 @@
 import { IQuest } from "../types/IQuest";
-import { API_Chatroom, API_Connector } from "bc-bot";
+import { API_Chatroom, API_Connector, positionIsInRegion } from "bc-bot";
 import { LockQuest } from "./LockQuest";
 import { Util } from "../util/Util";
 import { RPG } from "../../rpg";
@@ -11,6 +11,7 @@ import { PrisonQuest } from "./PrisonQuest";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { PlayerService } from "../service/PlayerService";
 import { SavedQuest } from "../service/RejoinStateService";
+import { mapRegions } from "../util/areas";
 
 const botMemberNumber = 220073;
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
@@ -175,9 +176,7 @@ export class QuestManager {
                     continue;
                 }
 
-                // Check if target is dominant
-                const targetPlayer = this.playerService.get(targetNumber);
-                if (targetPlayer.getIsDominant()) {
+                if (this.isUnavailableAsQuestTarget(targetNumber)) {
                     continue;
                 }
 
@@ -227,9 +226,7 @@ export class QuestManager {
         const isTargetSafe = this.RPG.isPlayerSafe.get(target.MemberNumber);
         if (isTargetSafe === undefined || isTargetSafe) return null;
 
-        // Check if target is dominant
-        const targetPlayer = this.playerService.get(target.MemberNumber);
-        if (targetPlayer.getIsDominant()) return null;
+        if (this.isUnavailableAsQuestTarget(target.MemberNumber)) return null;
 
         // Choose a quest type randomly
         const constructor = this.chooseQuestWeighted(questTypes);
@@ -311,6 +308,12 @@ export class QuestManager {
             return true;
         } else
             return false;
+    }
+
+    private isUnavailableAsQuestTarget(memberNumber: number): boolean {
+        if (this.playerService.get(memberNumber).getIsDominant()) return true;
+        const character = this.chatRoom.findMember(memberNumber);
+        return !!character && positionIsInRegion(character.MapPos, mapRegions.DEV_ROOM_AREA);
     }
 
     serializeQuests(): SavedQuest[] {

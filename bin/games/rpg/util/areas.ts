@@ -48,6 +48,11 @@ const PRISON_CELL_1 = {
     BottomRight: { X: 24, Y: 29 }
 };
 
+const DEV_ROOM_AREA = {
+    TopLeft: { X: 5, Y: 12 },
+    BottomRight: { X: 11, Y: 21 }
+};
+
 
 export const mapRegions = {
     LEAVE_SAFE_AREA_1,
@@ -57,4 +62,5 @@ export const mapRegions = {
     BOUND_MAID_AREA,
     PRISON_INTAKE_AREA,
     PRISON_ROOM,
+    DEV_ROOM_AREA,
 };

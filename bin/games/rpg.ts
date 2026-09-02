@@ -48,6 +48,7 @@ const PRISON_DURATION = 5 * 60 * 1000; // 5 Minuten
 const PRISON_RELEASE_COST = 250; // Kosten für Freikauf
 const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
+const DEV_ROOM_KICK_POS: ChatRoomMapPos = { X: 4, Y: 16 };
 const PLAYER_INIT_DELAY_MS = 750;
 
 
@@ -294,6 +295,11 @@ export class RPG {
             mapRegions.PRISON_ROOM,
             this.onLeavePrisonRoom.bind(this)
         );
+
+        this.conn.chatRoom.map.addEnterRegionTrigger(
+            mapRegions.DEV_ROOM_AREA,
+            this.onEnterDevRoom.bind(this)
+        );
     };
 
     private onMessage = async (msg: MessageEvent) => {
@@ -422,6 +428,25 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
     private onLeaveBoundMaid(character: API_Character): void {
         this.isPlayerSafe.set(character.MemberNumber, false);
+    }
+
+    private onEnterDevRoom(character: API_Character): void {
+        if (character.IsBot()) return;
+
+        if (!character.IsRoomAdmin()) {
+            character.mapTeleport(DEV_ROOM_KICK_POS);
+            this.conn.SendMessage("Whisper", "(This area is restricted to developers.)", character.MemberNumber);
+            return;
+        }
+
+        this.cancelQuestsTargeting(character.MemberNumber, "(Your quest target is no longer available. You'll be assigned a new quest.)");
+    }
+
+    private cancelQuestsTargeting(memberNumber: number, message: string): void {
+        const cancelledQuests = this.questManager.cancelQuestsByTarget(memberNumber);
+        for (const quest of cancelledQuests) {
+            this.conn.SendMessage("Whisper", message, quest.owner);
+        }
     }
 
     isPrivateRoomEmpty(): boolean {
@@ -568,11 +593,22 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             );
         }
 
-        const inSafeZone =
-            positionIsInRegion(character.MapPos, mapRegions.ENTER_INTRODUCTION_AREA) ||
-            positionIsInRegion(character.MapPos, mapRegions.PRIVATE_ROOM_AREA) ||
-            positionIsInRegion(character.MapPos, mapRegions.BOUND_MAID_AREA);
-        this.isPlayerSafe.set(character.MemberNumber, inSafeZone);
+        const inDevRoom = positionIsInRegion(character.MapPos, mapRegions.DEV_ROOM_AREA);
+        if (inDevRoom && !character.IsRoomAdmin()) {
+            character.mapTeleport(DEV_ROOM_KICK_POS);
+            this.conn.SendMessage("Whisper", "(This area is restricted to developers.)", character.MemberNumber);
+            this.isPlayerSafe.set(character.MemberNumber, true);
+        } else {
+            if (inDevRoom) {
+                this.cancelQuestsTargeting(character.MemberNumber, "(Your quest target is no longer available. You'll be assigned a new quest.)");
+            }
+
+            const inSafeZone =
+                positionIsInRegion(character.MapPos, mapRegions.ENTER_INTRODUCTION_AREA) ||
+                positionIsInRegion(character.MapPos, mapRegions.PRIVATE_ROOM_AREA) ||
+                positionIsInRegion(character.MapPos, mapRegions.BOUND_MAID_AREA);
+            this.isPlayerSafe.set(character.MemberNumber, inSafeZone);
+        }
 
         character.giveKey(["gold", "silver", "bronze"]);
 
