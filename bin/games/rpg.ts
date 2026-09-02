@@ -22,7 +22,7 @@ import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
 import { FeedbackService } from "./rpg/service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "./rpg/service/TargetPriorityService";
-import { PrisonService } from "./rpg/service/PrisonService";
+import { PrisonService, shouldImprison } from "./rpg/service/PrisonService";
 import { PlayerIdentifier } from "./rpg/util/PlayerIdentifier";
 import { PlayerCommands } from "./rpg/util/commands";
 import { mapRegions } from "./rpg/util/areas";
@@ -375,17 +375,30 @@ export class RPG {
                 this.conn.SendMessage("Whisper", "(Dominants cannot be imprisoned.)", character.MemberNumber);
                 return;
             }
-            this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
-            character.takeKey(["bronze"]);
-            this.prisonService.imprisonPlayer(character);
         }
+        this.tryImprison(character);
     }
 
     private onLeavePrisonRoom(character: API_Character): void {
-        // character.giveKey(["bronze"]);
         this.prisonService.releasePlayer(character);
-        // this.conn.SendMessage("Whisper", ``, character.MemberNumber);
-        // character.Appearance.RemoveItem("ItemArms");
+        this.prisonService.clearReleaseHold(character.MemberNumber);
+    }
+
+    private tryImprison(character: API_Character): void {
+        if (character.IsBot()) return;
+        if (!shouldImprison({
+            inPrisonRoom: positionIsInRegion(character.MapPos, mapRegions.PRISON_ROOM),
+            restrained: character.IsRestrained(),
+            leashed: character.IsLeashed(),
+            dominant: this.playerService.get(character.MemberNumber).getIsDominant(),
+            imprisoned: this.prisonService.isImprisoned(character),
+            releaseHold: this.prisonService.hasReleaseHold(character.MemberNumber),
+        })) {
+            return;
+        }
+        this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
+        character.takeKey(["bronze"]);
+        this.prisonService.imprisonPlayer(character);
     }
 
     private onEnterIntroductionArea(character: API_Character): void {
@@ -531,16 +544,20 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         this.handlePlayerRejoin();
 
         // Check for expired prison sentences
-        const expiredPrisons = this.prisonService.checkExpiredPrisons(this.conn.chatRoom.characters.at(0));
+        const expiredPrisons = this.prisonService.checkExpiredPrisons();
         for (const memberNumber of expiredPrisons) {
             const character = this.conn.chatRoom.findMember(memberNumber);
             if (character) {
                 character.giveKey(["bronze"]);
-                // Also remove restraints like when manually leaving prison
                 Util.freeCharacter(character);
                 this.conn.SendMessage("Whisper", "(Your prison time is up, you are free to leave)", memberNumber);
+                this.prisonService.releasePlayer(character);
+                this.prisonService.holdReleaseUntilLeave(character.MemberNumber);
             }
-            this.prisonService.releasePlayer(character);
+        }
+
+        for (const character of this.conn.chatRoom.characters) {
+            this.tryImprison(character);
         }
 
         this.checkBounties();
@@ -632,6 +649,9 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
             if (remainingTime <= 0) {
                 this.prisonService.releasePlayer(character);
+                if (positionIsInRegion(character.MapPos, mapRegions.PRISON_ROOM)) {
+                    this.prisonService.holdReleaseUntilLeave(character.MemberNumber);
+                }
                 this.conn.SendMessage("Whisper", "(Your prison time was up while you were away, you are now free)", character.MemberNumber);
             } else {
                 const prisonCenter = {

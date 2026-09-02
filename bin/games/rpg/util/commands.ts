@@ -7,6 +7,7 @@ import { PrisonService } from "../service/PrisonService";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { AutoMessageService } from "../service/AutoMessageService";
 import { Util } from "./Util";
+import { mapRegions } from "./areas";
 import { PlayerIdentifier } from "./PlayerIdentifier";
 import { PrivateRequest } from "../types/PrivateRequest";
 import { remainingTimeString } from "../../../utils";
@@ -145,6 +146,9 @@ export class PlayerCommands {
                 } else {
                     sender.giveKey(["bronze"]);
                     this.prisonService.releasePlayer(sender);
+                    if (positionIsInRegion(sender.MapPos, mapRegions.PRISON_ROOM)) {
+                        this.prisonService.holdReleaseUntilLeave(sender.MemberNumber);
+                    }
                     this.conn.SendMessage("Chat", `(${sender.toString()} has paid to be released from prison)`);
                     prisonPlayer.money -= PRISON_RELEASE_COST;
                     this.playerService.save(prisonPlayer);
