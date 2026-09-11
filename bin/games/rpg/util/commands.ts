@@ -329,7 +329,10 @@ export class PlayerCommands {
     }
 
     public async onCommandFeedback(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        this.feedbackService.appendFeedback(msg.Content, sender.MemberNumber, sender.toString());
+        if (!this.feedbackService.appendFeedback(msg.Content, sender.MemberNumber, sender.toString())) {
+            this.conn.SendMessage("Whisper", `(/bot feedback [your message])`, sender.MemberNumber);
+            return;
+        }
         this.conn.SendMessage("Whisper", `(Your message has been saved - I'll read it soon.
 
 If I have any follow-up questions, I might contact you while you're in the room, when the timing is appropriate.

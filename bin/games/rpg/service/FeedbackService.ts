@@ -26,8 +26,11 @@ export class FeedbackService {
     /**
      * Appends the cleaned feedback message to a file, followed by a newline.
      */
-    public appendFeedback(rawMessage: string, memberNumber: number, name:string): void {
+    public appendFeedback(rawMessage: string, memberNumber: number, name:string): boolean {
         const cleaned = this.cleanMessage(rawMessage);
+        if (!cleaned) {
+            return false;
+        }
 
         const now = new Date();
         const timestamp = now.toLocaleString('en-GB', {
@@ -40,5 +43,6 @@ export class FeedbackService {
         });
 
         appendFileSync(this.filePath, `[${timestamp}]: ${name}[#${memberNumber}] - ${cleaned} \n`, { encoding: 'utf8' });
+        return true;
     }
 }
