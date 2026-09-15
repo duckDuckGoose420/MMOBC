@@ -8,11 +8,6 @@
  * @property {number} BottomRight.Y
  */
 
-const LEAVE_SAFE_AREA_1 = {
-    TopLeft: { X: 1, Y: 24 },
-    BottomRight: { X: 3, Y: 31 },
-};
-
 const ENTER_INTRODUCTION_AREA = {
     TopLeft: { X: 0, Y: 14 },
     BottomRight: { X: 4, Y: 23 },
@@ -53,9 +48,13 @@ const DEV_ROOM_AREA = {
     BottomRight: { X: 11, Y: 21 }
 };
 
+const SHOP_AREA = {
+    TopLeft: { X: 32, Y: 11 },
+    BottomRight: { X: 39, Y: 21 }
+};
+
 
 export const mapRegions = {
-    LEAVE_SAFE_AREA_1,
     ENTER_INTRODUCTION_AREA,
     PRIVATE_ROOM_AREA,
     KIDNAP_COLLECTION_AREA,
@@ -63,4 +62,5 @@ export const mapRegions = {
     PRISON_INTAKE_AREA,
     PRISON_ROOM,
     DEV_ROOM_AREA,
+    SHOP_AREA,
 };

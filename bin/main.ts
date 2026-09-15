@@ -141,7 +141,7 @@ async function connectBot(config: ConfigFile): Promise<RopeyBot> {
             break;
         case "rpg":
             console.log("Starting game: RPG");
-            const rpgGame = new RPG(connector, requestRestart);
+            const rpgGame = new RPG(connector, requestRestart, config.superusers);
             await rpgGame.init();
             connector.setBotDescription(RPG.description);
             return {

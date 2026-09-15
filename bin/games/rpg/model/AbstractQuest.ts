@@ -3,12 +3,15 @@ import { API_Connector, API_Chatroom, API_Character, positionIsInRegion } from "
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { mapRegions } from "../util/areas";
 
+const DEV_ROOM_QUEST_CANCEL_MS = 30 * 1000;
+
 export abstract class AbstractQuest implements IQuest {
     chatRoom: API_Chatroom;
     owner: number;
     targetPlayer: number;
     private _additionalInfo: Record<string, unknown>;
     protected performanceMonitor: PerformanceMonitorService;
+    private devRoomSeenAt: number | null = null;
 
     failMessage: string;
 
@@ -44,9 +47,16 @@ export abstract class AbstractQuest implements IQuest {
             return true;
         }
         if (positionIsInRegion(c.MapPos, mapRegions.DEV_ROOM_AREA)) {
-            this.failMessage = "(Your quest target is no longer available, you'll be assigned a new quest)";
-            return true;
+            if (this.devRoomSeenAt === null) {
+                this.devRoomSeenAt = Date.now();
+            }
+            if (Date.now() - this.devRoomSeenAt >= DEV_ROOM_QUEST_CANCEL_MS) {
+                this.failMessage = "(Your quest target is no longer available, you'll be assigned a new quest)";
+                return true;
+            }
+            return false;
         }
+        this.devRoomSeenAt = null;
         return false;
     }
 

@@ -43,7 +43,8 @@ export class AutoMessageService {
         }
 
         for (const message of messages) {
-            this.conn.SendMessage("Whisper", message.text, memberNumber);
+            const text = message.text.startsWith("(") ? message.text : `(${message.text})`;
+            this.conn.SendMessage("Whisper", text, memberNumber);
         }
     }
 

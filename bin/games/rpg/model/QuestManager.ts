@@ -38,6 +38,8 @@ type QuestConstructor = new (
     performanceMonitor?: PerformanceMonitorService
 ) => IQuest;
 
+export type CatchMeBlockReason = "dominant" | "blocked" | "grace" | "safe" | "dev_room";
+
 class QuestList {
     private quests: IQuest[] = [];
 
@@ -73,6 +75,7 @@ export class QuestManager {
     private targetPriorityService: TargetPriorityService;
     private performanceMonitor: PerformanceMonitorService;
     private playerService: PlayerService;
+    private assignedFromTargetMe = new Map<number, number>();
 
     public constructor(chatroom: API_Chatroom, RPG: RPG, targetPriorityService?: TargetPriorityService, performanceMonitor?: PerformanceMonitorService, playerService?: PlayerService) {
         this.chatRoom = chatroom;
@@ -105,18 +108,25 @@ export class QuestManager {
             }
         }
         this.quests.set(active);
+        for (const quest of canceled) {
+            this.clearTargetMeAssignment(quest.owner, quest.targetPlayer);
+        }
 
         this.performanceMonitor.endTimer('cancelQuests', startTime);
         return canceled;
     }
 
-    cancelQuestForPlayer(memberNumber: number): boolean {
+    cancelQuestForPlayer(memberNumber: number, conn?: API_Connector, ownerDisplayName?: string): boolean {
+        const quest = this.playerHasQuestAssigned(memberNumber);
+        if (!quest) return false;
         const index = this.quests.getAll().findIndex(q => q.owner === memberNumber);
-        if (index !== -1) {
-            this.quests.removeAt(index);
-            return true;
+        this.quests.removeAt(index);
+        if (conn) {
+            this.notifyPriorityTargetLost(conn, quest.owner, quest.targetPlayer, ownerDisplayName);
+        } else {
+            this.clearTargetMeAssignment(quest.owner, quest.targetPlayer);
         }
-        return false;
+        return true;
     }
 
     cancelQuestsByTarget(targetNumber: number): IQuest[] {
@@ -133,6 +143,9 @@ export class QuestManager {
         }
 
         this.quests.set(remainingQuests); // Update the QuestList to exclude the removed ones
+        for (const quest of removedQuests) {
+            this.clearTargetMeAssignment(quest.owner, quest.targetPlayer);
+        }
         return removedQuests;
     }
 
@@ -192,6 +205,7 @@ export class QuestManager {
                 if (quest && quest.prerequisite()) {
                     this.quests.add(quest);
                     conn.SendMessage("Whisper", "(New quest: " + quest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
+                    this.notifyPriorityTargetAssigned(conn, memberNumber, targetNumber);
                     return;
                 }
             }
@@ -209,9 +223,7 @@ export class QuestManager {
                 continue;
             }
 
-            const playerLevel = this.RPG.playerService.get(quest.owner).level;
-            const targetLevel = this.RPG.playerService.get(quest.targetPlayer).level;
-            if (!this.isInGracePeriod(gracePeriods, quest.targetPlayer) && Math.random() < Util.questAssignmentProbability(playerLevel, targetLevel)) {
+            if (!this.isInGracePeriod(gracePeriods, quest.targetPlayer)) {
                 this.quests.add(quest);
                 conn.SendMessage("Whisper", "(New quest: " + quest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
                 return;
@@ -299,9 +311,32 @@ export class QuestManager {
             }
         }
         this.quests.set(active);
+        for (const quest of completed) {
+            this.clearTargetMeAssignment(quest.owner, quest.targetPlayer);
+        }
 
         this.performanceMonitor.endTimer('completeQuests', startTime);
         return completed;
+    }
+
+    completeQuestForPlayer(memberNumber: number): IQuest | null {
+        const quest = this.playerHasQuestAssigned(memberNumber);
+        if (!quest) return null;
+        const index = this.quests.getAll().findIndex(q => q.owner === memberNumber);
+        this.quests.removeAt(index);
+        this.clearTargetMeAssignment(quest.owner, quest.targetPlayer);
+        return quest;
+    }
+
+    getCatchMeTargetBlockReason(hunterNumber: number, baitNumber: number, gracePeriods: Map<number, number>): CatchMeBlockReason | null {
+        if (this.arePlayersBlocked(hunterNumber, baitNumber)) return "blocked";
+        if (this.isInGracePeriod(gracePeriods, baitNumber)) return "grace";
+        const isTargetSafe = this.RPG.isPlayerSafe.get(baitNumber);
+        if (isTargetSafe === undefined || isTargetSafe) return "safe";
+        if (this.playerService.get(baitNumber).getIsDominant()) return "dominant";
+        const character = this.chatRoom.findMember(baitNumber);
+        if (character && positionIsInRegion(character.MapPos, mapRegions.DEV_ROOM_AREA)) return "dev_room";
+        return null;
     }
 
     private consumeAndTryCatchMeQuest(memberNumber: number, gracePeriods: Map<number, number>): IQuest | null {
@@ -312,16 +347,33 @@ export class QuestManager {
         hunter.setPendingCatchMeTarget(null);
         this.playerService.save(hunter);
 
-        if (this.arePlayersBlocked(memberNumber, forcedTarget)) return null;
-        if (this.isInGracePeriod(gracePeriods, forcedTarget)) return null;
-
-        const isTargetSafe = this.RPG.isPlayerSafe.get(forcedTarget);
-        if (isTargetSafe === undefined || isTargetSafe) return null;
-        if (this.isUnavailableAsQuestTarget(forcedTarget)) return null;
+        if (this.getCatchMeTargetBlockReason(memberNumber, forcedTarget, gracePeriods)) return null;
 
         const quest = this.generateQuestWithTarget(memberNumber, forcedTarget);
         if (quest && quest.prerequisite()) return quest;
         return null;
+    }
+
+    private notifyPriorityTargetAssigned(conn: API_Connector, ownerNumber: number, targetNumber: number): void {
+        this.targetPriorityService.removePriority(ownerNumber, targetNumber);
+        this.assignedFromTargetMe.set(ownerNumber, targetNumber);
+        const owner = this.chatRoom.findMember(ownerNumber);
+        const ownerName = owner ? owner.toString() : `#${ownerNumber}`;
+        conn.SendMessage("Whisper", `(${ownerName} now has you as a target)`, targetNumber);
+    }
+
+    private notifyPriorityTargetLost(conn: API_Connector, ownerNumber: number, targetNumber: number, ownerDisplayName?: string): void {
+        if (!this.clearTargetMeAssignment(ownerNumber, targetNumber)) return;
+        if (!this.chatRoom.findMember(targetNumber)) return;
+        const owner = this.chatRoom.findMember(ownerNumber);
+        const ownerName = ownerDisplayName ?? (owner ? owner.toString() : `#${ownerNumber}`);
+        conn.SendMessage("Whisper", `(${ownerName} no longer has you as a target)`, targetNumber);
+    }
+
+    private clearTargetMeAssignment(ownerNumber: number, targetNumber: number): boolean {
+        if (this.assignedFromTargetMe.get(ownerNumber) !== targetNumber) return false;
+        this.assignedFromTargetMe.delete(ownerNumber);
+        return true;
     }
 
     private isQuestAssignmentInCD(questCD: Map<number, number>, memberNumber: number) {

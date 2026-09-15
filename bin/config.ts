@@ -51,9 +51,7 @@ function loadDotEnv(filePath = resolve(process.cwd(), ".env")): void {
             value = value.slice(1, -1);
         }
 
-        if (process.env[key] === undefined) {
-            process.env[key] = value;
-        }
+        process.env[key] = value;
     }
 }
 

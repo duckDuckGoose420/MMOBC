@@ -1,0 +1,24 @@
+{
+  "items": [
+    {
+      "id": "catchme",
+      "name": "Catch me if you can",
+      "warning": "This only makes their next challenge roll target you. You cannot use this if you cannot currently be assigned as a quest target (for example if you are Dominant). If they reroll, lose their quest, or never get a new roll, the item is wasted.",
+      "price": 500,
+      "sellPrice": 100,
+      "isPurchaseable": true,
+      "isSellable": true,
+      "levelRequirement": 1
+    },
+    {
+      "id": "release",
+      "name": "Release",
+      "warning": "Removes all restraints from the target, including locked ones. Collars stay on. The item is consumed even if they were already free.",
+      "price": 200,
+      "sellPrice": 50,
+      "isPurchaseable": true,
+      "isSellable": true,
+      "levelRequirement": 1
+    }
+  ]
+}

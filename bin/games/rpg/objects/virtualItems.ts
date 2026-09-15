@@ -1,19 +1,29 @@
+import itemsConfig from "../config/items.config.json";
+
 export const ITEM_CATCHME = "catchme";
+export const ITEM_RELEASE = "release";
 
 export interface VirtualItem {
     id: string;
     name: string;
     warning: string;
+    price: number;
+    sellPrice: number;
+    isPurchaseable: boolean;
+    isSellable: boolean;
+    levelRequirement: number;
 }
 
-export const VIRTUAL_ITEMS: Record<string, VirtualItem> = {
-    [ITEM_CATCHME]: {
-        id: ITEM_CATCHME,
-        name: "Catch me if you can",
-        warning: "This only makes their next challenge roll target you. If they reroll, disconnect, lose their quest, or never get a new roll, the item is wasted.",
-    },
-};
+export const VIRTUAL_ITEMS: Record<string, VirtualItem> = Object.fromEntries(
+    itemsConfig.items.map(item => [item.id, item])
+);
 
 export function getVirtualItem(id: string): VirtualItem | undefined {
-    return VIRTUAL_ITEMS[id];
+    if (VIRTUAL_ITEMS[id]) return VIRTUAL_ITEMS[id];
+    const lower = id.toLowerCase();
+    return Object.values(VIRTUAL_ITEMS).find(item => item.id.toLowerCase() === lower);
+}
+
+export function getAllVirtualItems(): VirtualItem[] {
+    return Object.values(VIRTUAL_ITEMS);
 }

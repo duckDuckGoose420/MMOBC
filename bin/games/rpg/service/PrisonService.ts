@@ -41,7 +41,6 @@ export class PrisonService {
 
     releasePlayer(character: API_Character): void {
         this.prisoners.delete(character.MemberNumber);
-        character.giveKey(["bronze"]);
         this.save();
     }
 

@@ -1,11 +1,12 @@
 import { IPlayer } from "../types/IPlayer";
 
-const linearFactor = 200;
-const exponentialFactor = 1.3;
-const nearestRoundingFactor = 10;
+export const XP_PER_QUEST = 100;
+const MAX_QUESTS_PER_LEVEL = 5;
+
 export class Player implements IPlayer {
     memberNumber: number;
     level: number;
+    xp: number;
     money: number;
     gracePeriodMinutes: number;
     isDominant: boolean;
@@ -17,6 +18,7 @@ export class Player implements IPlayer {
     constructor(memberNumber: number) {
         this.memberNumber = memberNumber;
         this.level = 1;
+        this.xp = 0;
         this.money = 0;
         this.gracePeriodMinutes = 20; // Default: 20 minutes
         this.isDominant = false; // Default: not dominant
@@ -29,34 +31,30 @@ export class Player implements IPlayer {
         this.money += amount;
     }
 
-    moneyNeededToLevelUp(): number {
-        const rawXP = 100 * Math.pow(this.level + 1, exponentialFactor);
-        return Math.round(rawXP / 100) * 100; // Round to nearest 100
+    xpNeededToLevelUp(): number {
+        return Math.min(this.level, MAX_QUESTS_PER_LEVEL) * XP_PER_QUEST;
     }
 
-    moneyThatCanBeRefunded(): number {
-        if (this.level <= 1)
-            return 0;
-        const rawXP = 100 * Math.pow(this.level, exponentialFactor);
-        return Math.round(rawXP / 100) * 100; // Round to nearest 100
+    addXp(amount: number): number {
+        this.xp += amount;
+        let levelsGained = 0;
+        while (this.levelUp()) {
+            levelsGained++;
+        }
+        return levelsGained;
     }
 
     canLevelUp(): boolean {
-        return this.money >= this.moneyNeededToLevelUp();
+        return this.xp >= this.xpNeededToLevelUp();
     }
 
     levelUp(): boolean {
         if (!this.canLevelUp())
             return false;
 
-        this.money -= this.moneyNeededToLevelUp();
+        this.xp -= this.xpNeededToLevelUp();
         this.level += 1;
         return true;
-    }
-
-    refundLevel(): void {
-        this.money += this.moneyThatCanBeRefunded();
-        this.level--;
     }
 
     toString(): string {

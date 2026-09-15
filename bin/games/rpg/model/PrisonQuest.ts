@@ -32,7 +32,7 @@ export class PrisonQuest extends AbstractQuest {
             ?.LockMemberNumber;
 
         if (lockOwner && lockOwner.toString() !== this.owner.toString()) {
-            this.failMessage = "Someone else locked your target before you, you'll be assigned a new quest";
+            this.failMessage = "(Someone else locked your target before you, you'll be assigned a new quest)";
             return true;
         } else {
             this.failMessage = "";

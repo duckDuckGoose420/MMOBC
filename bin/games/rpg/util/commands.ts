@@ -1,17 +1,20 @@
 import { API_Character, BC_Server_ChatRoomMessage, API_Connector, positionIsInRegion, CommandParser } from "bc-bot";
 import { PlayerService } from "../service/PlayerService";
-import { QuestManager } from "../model/QuestManager";
+import { CatchMeBlockReason, QuestManager } from "../model/QuestManager";
+import { IQuest } from "../types/IQuest";
+import { XP_PER_QUEST } from "../model/Player";
 import { FeedbackService } from "../service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "../service/TargetPriorityService";
 import { PrisonService } from "../service/PrisonService";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { AutoMessageService } from "../service/AutoMessageService";
+import { MapCopyService } from "../service/MapCopyService";
 import { Util } from "./Util";
 import { mapRegions } from "./areas";
 import { PlayerIdentifier } from "./PlayerIdentifier";
 import { PrivateRequest } from "../types/PrivateRequest";
 import { remainingTimeString } from "../../../utils";
-import { ITEM_CATCHME, getVirtualItem } from "../objects/virtualItems";
+import { ITEM_CATCHME, ITEM_RELEASE, getVirtualItem, getAllVirtualItems } from "../objects/virtualItems";
 
 const REROLL_CD = 3 * 60 * 1000;
 const QUEST_CD = 10 * 60 * 1000;
@@ -21,6 +24,7 @@ const PRISON_RELEASE_COST = 250;
 
 export class PlayerCommands {
     private commandParser: CommandParser;
+    private mapCopyService = new MapCopyService();
 
     constructor(
         private conn: API_Connector,
@@ -38,6 +42,7 @@ export class PlayerCommands {
         private lastTargetBeforeReroll: Map<number, number>,
         private performanceMonitor: PerformanceMonitorService,
         private autoMessageService: AutoMessageService,
+        private superusers: number[] = [],
         private requestRestart?: () => Promise<void>,
     ) {
         this.commandParser = new CommandParser(this.conn);
@@ -70,7 +75,7 @@ export class PlayerCommands {
             if (currentQuest) {
                 this.lastTargetBeforeReroll.set(sender.MemberNumber, currentQuest.targetPlayer);
             }
-            this.questManager.cancelQuestForPlayer(sender.MemberNumber);
+            this.questManager.cancelQuestForPlayer(sender.MemberNumber, this.conn);
             this.rerollCD.set(sender.MemberNumber, Date.now() + (REROLL_CD));
             this.conn.SendMessage("Whisper", "(Your quest has been cancelled, you'll receive a new one in a short time)", sender.MemberNumber);
         } else {
@@ -80,92 +85,73 @@ export class PlayerCommands {
 
     public async onCommandStats(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
         const player = this.playerService.get(sender.MemberNumber);
-        this.conn.SendMessage("Whisper", `(You are level ${player.level} and you have ${player.money} money). `, sender.MemberNumber);
+        this.conn.SendMessage("Whisper", `(You are level ${player.level} (${player.xp}/${player.xpNeededToLevelUp()} XP) and you have ${player.money} money). `, sender.MemberNumber);
     }
 
     public async onCommandLevelUp(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
         const player = this.playerService.get(sender.MemberNumber);
-        const toLevelUp = player.moneyNeededToLevelUp();
-        if (args.length == 0) {
-            this.conn.SendMessage("Whisper", `(You need ${toLevelUp} money to level up. If you have the money and you want to do so, use "/bot levelup confirm", or you can refund your last level up with "/bot levelup refund". Level decreases the likelyhood you are targeted by quests from lower level players than you are, mostly a stat for doms currently). `, sender.MemberNumber);
-            return;
-        }
-        if (args[0] == "confirm") {
-            if (player.canLevelUp()) {
-                player.levelUp();
-                this.playerService.save(player);
-                this.conn.SendMessage("Whisper", `(You are now level ${player.level}!)`, sender.MemberNumber);
-            } else {
-                this.conn.SendMessage("Whisper", `(Not enough money to level up)`, sender.MemberNumber);
-            }
-        }
-
-        if (args[0] == "refund") {
-            if (player.moneyThatCanBeRefunded() > 0) {
-                player.refundLevel();
-                this.playerService.save(player);
-                this.conn.SendMessage("Whisper", `(You got refunded one level)`, sender.MemberNumber);
-            } else {
-                this.conn.SendMessage("Whisper", `(You need to be at least level 2 to refund levels)`, sender.MemberNumber);
-            }
-        }
+        const needed = player.xpNeededToLevelUp();
+        const remaining = needed - player.xp;
+        this.conn.SendMessage("Whisper", `(You are level ${player.level} (${player.xp}/${needed} XP). You level up automatically by completing quests. ${remaining} more XP until the next level. Each level up currently gives you Catch me if you can.)`, sender.MemberNumber);
     }
 
     public async onCommandBuy(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (args.length == 0) {
-            this.conn.SendMessage("Whisper",
-                `(Use one of these:
-/bot buy release
-/bot buy prisonrelease`, sender.MemberNumber);
+        if (args[0] === "prisonrelease") {
+            const prisonPlayer = this.playerService.get(sender.MemberNumber);
+
+            if (!this.prisonService.isImprisoned(sender)) {
+                this.conn.SendMessage("Whisper", `(You are not currently imprisoned)`, sender.MemberNumber);
+                return;
+            }
+
+            if (prisonPlayer.money < PRISON_RELEASE_COST) {
+                this.conn.SendMessage("Whisper", `(You need ${PRISON_RELEASE_COST} money to buy your freedom from prison)`, sender.MemberNumber);
+            } else {
+                sender.giveKey(["bronze"]);
+                this.prisonService.releasePlayer(sender);
+                if (positionIsInRegion(sender.MapPos, mapRegions.PRISON_ROOM)) {
+                    this.prisonService.holdReleaseUntilLeave(sender.MemberNumber);
+                }
+                this.conn.SendMessage("Chat", `(${sender.toString()} has paid to be released from prison)`);
+                prisonPlayer.money -= PRISON_RELEASE_COST;
+                this.playerService.save(prisonPlayer);
+            }
             return;
         }
-        switch (args[0]) {
-            case 'release':
-                const player = this.playerService.get(sender.MemberNumber);
 
-                if (player.money < 1000) {
-                    this.conn.SendMessage("Whisper", `(You need 1000 money to buy this service)`, sender.MemberNumber);
-                } else {
-                    Util.freeCharacter(sender);
-                    this.conn.SendMessage("Chat", `(${sender.toString()} has paid to be released from their binds)`);
-                    player.money -= 1000;
-                    this.playerService.save(player);
-                }
-                break;
-
-            case 'prisonrelease':
-                const prisonPlayer = this.playerService.get(sender.MemberNumber);
-
-                if (!this.prisonService.isImprisoned(sender)) {
-                    this.conn.SendMessage("Whisper", `(You are not currently imprisoned)`, sender.MemberNumber);
-                    return;
-                }
-
-                if (prisonPlayer.money < PRISON_RELEASE_COST) {
-                    this.conn.SendMessage("Whisper", `(You need ${PRISON_RELEASE_COST} money to buy your freedom from prison)`, sender.MemberNumber);
-                } else {
-                    sender.giveKey(["bronze"]);
-                    this.prisonService.releasePlayer(sender);
-                    if (positionIsInRegion(sender.MapPos, mapRegions.PRISON_ROOM)) {
-                        this.prisonService.holdReleaseUntilLeave(sender.MemberNumber);
-                    }
-                    this.conn.SendMessage("Chat", `(${sender.toString()} has paid to be released from prison)`);
-                    prisonPlayer.money -= PRISON_RELEASE_COST;
-                    this.playerService.save(prisonPlayer);
-                }
-                break;
-
-            default:
-                this.conn.SendMessage("Whisper",
-                    `(Use one of these:
-/bot buy release
-/bot buy prisonrelease`, sender.MemberNumber);
-                break;
-
+        if (!positionIsInRegion(sender.MapPos, mapRegions.SHOP_AREA)) {
+            this.conn.SendMessage("Whisper", "(You need to be in the shop to buy items.)", sender.MemberNumber);
+            return;
         }
+
+        if (args.length === 0) {
+            this.sendShopMenu(sender);
+            return;
+        }
+
+        this.handleShopBuy(sender, args);
+    }
+
+    public async onCommandSell(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!positionIsInRegion(sender.MapPos, mapRegions.SHOP_AREA)) {
+            this.conn.SendMessage("Whisper", "(You need to be in the shop to sell items.)", sender.MemberNumber);
+            return;
+        }
+
+        if (args.length === 0) {
+            this.sendShopMenu(sender);
+            return;
+        }
+
+        this.handleShopSell(sender, args);
     }
 
     public async onCommandBounty(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (args.length === 0) {
+            this.sendBountyList(sender.MemberNumber);
+            return;
+        }
+
         if (args.length != 2 || !Util.isValidIntegerString(args[1])) {
             this.conn.SendMessage("Whisper", `(Incorrect use of the command)`, sender.MemberNumber);
             return;
@@ -202,6 +188,24 @@ export class PlayerCommands {
         }
     }
 
+    private sendBountyList(memberNumber: number): void {
+        if (this.bounties.size === 0) {
+            this.conn.SendMessage("Whisper", "(There are currently no active bounties)", memberNumber);
+            return;
+        }
+
+        const lines = ["(Active Bounties:"];
+        for (const [targetNumber, bounty] of this.bounties) {
+            const target = this.conn.chatRoom.findMember(targetNumber);
+            const name = target
+                ? `${target.toString()}[#${target.MemberNumber}]`
+                : `Player #${targetNumber}`;
+            lines.push(`${name}: ${bounty} money`);
+        }
+        lines.push(")");
+        this.conn.SendMessage("Whisper", lines.join("\n"), memberNumber);
+    }
+
     public async onCommandHelp(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
         const helpText = [
             "(",
@@ -211,12 +215,17 @@ export class PlayerCommands {
             "/bot quest",
             "/bot reroll",
             "/bot pay [player] [amount]",
+            "/bot give [player] [item] [count] - Give an inventory item (count defaults to 1)",
             "/bot stats",
             "/bot inventory - List your virtual items",
-            "/bot use [item] [player] - Use an item from your inventory. Check /bot inventory for what you have and how each item works.",
+            "/bot use [item] [player] - Use an item from your inventory",
+            "/bot shop - Open the shop (only in the shop area)",
+            "/bot buy [item] [count]",
+            "/bot sell [item] [count]",
+            "/bot bounty - List active bounties",
             "/bot bounty [player] [bounty]",
             "/bot levelup",
-            "/bot buy release - Cost: 1000",
+            "/bot buy prisonrelease - Cost: 250",
             "",
             "Private room commands:",
             "/bot private buy [player] - Cost 100",
@@ -546,11 +555,19 @@ Thanks for your feedback!)`, sender.MemberNumber);
                pos.Y >= region.TopLeft.Y && pos.Y <= region.BottomRight.Y;
     }
 
+    private sendAdminWhisper(memberNumber: number, text: string): void {
+        this.conn.SendMessage("Whisper", text.startsWith("(") ? text : `(${text})`, memberNumber);
+    }
+
+    private isSuperuser(sender: API_Character): boolean {
+        return this.superusers.includes(sender.MemberNumber);
+    }
+
     // ===== ADMIN COMMANDS =====
-    // All admin commands start with admin check and silent fail for non-admins
+    // All admin commands start with superuser check and silent fail for others
 
     public async onCommandDebug(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (args.length === 0) {
             // General debug overview
@@ -560,12 +577,12 @@ Thanks for your feedback!)`, sender.MemberNumber);
             const bountyCount = this.bounties.size;
             const privateRoomEmpty = this.isPrivateRoomEmpty();
 
-            this.conn.SendMessage("Whisper", `(Debug Overview:
+            this.sendAdminWhisper(sender.MemberNumber, `(Debug Overview:
 Players: ${playerCount}
 Active Quests: ${questCount}
 Searching for Quest: ${searchingCount}
 Active Bounties: ${bountyCount}
-Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
+Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`);
             return;
         }
 
@@ -578,7 +595,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                     playerList += this.formatPlayerShortInfo(player) + "\n";
                 }
                 playerList += ")";
-                this.conn.SendMessage("Whisper", playerList, sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, playerList);
                 break;
 
             case 'room':
@@ -612,7 +629,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                 }
 
                 roomInfo += `Private Room: ${this.isPrivateRoomEmpty() ? 'Empty' : 'In Use'})`;
-                this.conn.SendMessage("Whisper", roomInfo, sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, roomInfo);
                 break;
 
             case 'quests':
@@ -626,7 +643,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                     }
                 }
                 questInfo += ")";
-                this.conn.SendMessage("Whisper", questInfo, sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, questInfo);
                 break;
 
             case 'dominant':
@@ -638,7 +655,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                     dominantInfo += this.formatPlayerShortInfo(player) + "\n";
                 }
                 dominantInfo += ")";
-                this.conn.SendMessage("Whisper", dominantInfo, sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, dominantInfo);
                 break;
 
             case 'bounties':
@@ -653,7 +670,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                     }
                 }
                 bountyInfo += ")";
-                this.conn.SendMessage("Whisper", bountyInfo, sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, bountyInfo);
                 break;
 
             case 'automessages':
@@ -676,13 +693,13 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                     }
                 }
                 prisonInfo += ")";
-                this.conn.SendMessage("Whisper", prisonInfo, sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, prisonInfo);
                 break;
 
             default:
                 // Check if it's a common typo first
                 if (args[0] === 'players') {
-                    this.conn.SendMessage("Whisper", "(Did you mean '/bot debug player'? Use 'player' not 'players')", sender.MemberNumber);
+                    this.sendAdminWhisper(sender.MemberNumber, "(Did you mean '/bot debug player'? Use 'player' not 'players')");
                     return;
                 }
 
@@ -696,15 +713,15 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
                         results.push(this.formatPlayerDetailedInfo(target.MemberNumber));
                     }
                 }
-                this.conn.SendMessage("Whisper", results.join("\n\n"), sender.MemberNumber);
+                this.sendAdminWhisper(sender.MemberNumber, results.join("\n\n"));
         }
     }
 
     public async onCommandAdmin(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (args.length === 0 || args[0] === 'help') {
-            this.conn.SendMessage("Whisper", `(Admin Commands:
+            this.sendAdminWhisper(sender.MemberNumber, `(Admin Commands:
 /bot debug - General overview
 /bot debug player - List all players
 /bot debug [player] - Player details (multiple players supported)
@@ -716,49 +733,48 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 /bot debug automessages - Whisper all auto messages once
 
 /bot reset [player] - Reset player cooldowns and quest
+/bot complete [player] - Force complete a player's quest
 /bot targetme [player] [player] ... - Make players prioritize targeting you
 /bot donttargetme [player] [player] ... - Remove priority or block you as their target
-/bot give [player] [item] [count] - Give an inventory item (count defaults to 1)
+/bot giveitem [player] [item] [count] - Give an inventory item (count defaults to 1)
 /bot say [message] - Send a public chat message as the bot
 /bot rejoin - Restart the bot and reload code changes
+/bot mapcopy - Save the current room map
+/bot mapcopy rollback - Restore the previous map (in memory, lost after restart)
 
-/bot admin help - This help)`, sender.MemberNumber);
+/bot admin help - This help)`);
             return;
         }
 
-        this.conn.SendMessage("Whisper", "(Unknown admin subcommand. Use /bot admin help for available commands)", sender.MemberNumber);
+        this.sendAdminWhisper(sender.MemberNumber, "(Unknown admin subcommand. Use /bot admin help for available commands)");
     }
 
     public async onCommandGive(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
-
-        if (args.length < 2) {
+        const parsed = this.parseGiveTargetItemCount(args);
+        if (!parsed) {
             this.conn.SendMessage("Whisper", "(Usage: /bot give [player] [item] [count])", sender.MemberNumber);
             return;
         }
 
-        const parts = [...args];
-        let count = 1;
-        if (parts.length >= 3 && Util.isValidIntegerString(parts[parts.length - 1])) {
-            count = Number(parts.pop());
-        }
-
-        if (count < 1) {
+        if (parsed.count < 1) {
             this.conn.SendMessage("Whisper", "(Count must be at least 1)", sender.MemberNumber);
             return;
         }
 
-        const itemId = parts.pop()!;
-        const item = getVirtualItem(itemId);
+        const item = getVirtualItem(parsed.itemId);
         if (!item) {
-            this.conn.SendMessage("Whisper", "(Unknown item)", sender.MemberNumber);
+            this.conn.SendMessage("Whisper", "(Unknown item. Use /bot inventory to see what you have.)", sender.MemberNumber);
             return;
         }
 
-        const targetIdentifier = parts.join(' ');
-        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, parsed.targetIdentifier);
         if (typeof target === 'string') {
             this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
+            return;
+        }
+
+        if (sender.MemberNumber == target.MemberNumber) {
+            this.conn.SendMessage("Whisper", `(*Takes the item from your hand and puts it in the other)`, sender.MemberNumber);
             return;
         }
 
@@ -767,26 +783,72 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             return;
         }
 
+        const player = this.playerService.get(sender.MemberNumber);
+        if (!player.removeItem(item.id, parsed.count)) {
+            this.conn.SendMessage("Whisper", `(You don't have that many ${item.name} to give)`, sender.MemberNumber);
+            return;
+        }
+
+        const targetPlayer = this.playerService.get(target.MemberNumber);
+        targetPlayer.addItem(item.id, parsed.count);
+
+        this.playerService.save(player);
+        this.playerService.save(targetPlayer);
+
+        this.conn.SendMessage("Chat", `(${sender.toString()} gave ${target.toString()} ${parsed.count}x ${item.name})`);
+    }
+
+    public async onCommandGiveItem(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!this.isSuperuser(sender)) return;
+
+        const parsed = this.parseGiveTargetItemCount(args);
+        if (!parsed) {
+            this.sendAdminWhisper(sender.MemberNumber, "(Usage: /bot giveitem [player] [item] [count])");
+            return;
+        }
+
+        if (parsed.count < 1) {
+            this.sendAdminWhisper(sender.MemberNumber, "(Count must be at least 1)");
+            return;
+        }
+
+        const item = getVirtualItem(parsed.itemId);
+        if (!item) {
+            this.sendAdminWhisper(sender.MemberNumber, "(Unknown item)");
+            return;
+        }
+
+        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, parsed.targetIdentifier);
+        if (typeof target === 'string') {
+            this.sendAdminWhisper(sender.MemberNumber, `(${target})`);
+            return;
+        }
+
+        if (target.IsBot()) {
+            this.sendAdminWhisper(sender.MemberNumber, "(You cannot give items to the bot)");
+            return;
+        }
+
         const player = this.playerService.get(target.MemberNumber);
-        player.addItem(itemId, count);
+        player.addItem(item.id, parsed.count);
         this.playerService.save(player);
 
-        this.conn.SendMessage("Whisper", `(Gave ${target.toString()} ${count}x ${item.name})`, sender.MemberNumber);
-        this.conn.SendMessage("Whisper", `(You received ${count}x ${item.name}. Check /bot inventory)`, target.MemberNumber);
+        this.sendAdminWhisper(sender.MemberNumber, `(Gave ${target.toString()} ${parsed.count}x ${item.name})`);
+        this.conn.SendMessage("Whisper", `(You received ${parsed.count}x ${item.name}. Check /bot inventory)`, target.MemberNumber);
     }
 
     public async onCommandReset(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (args.length === 0) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot reset [player])", sender.MemberNumber);
+            this.sendAdminWhisper(sender.MemberNumber, "(Usage: /bot reset [player])");
             return;
         }
 
         const targetIdentifier = args.join(' ');
         const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
         if (typeof target === 'string') {
-            this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
+            this.sendAdminWhisper(sender.MemberNumber, `(${target})`);
             return;
         }
 
@@ -807,14 +869,63 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             this.playerService.save(resetPlayer);
         }
 
-        this.conn.SendMessage("Whisper", `(${target.toString()} has been reset)`, sender.MemberNumber);
+        this.sendAdminWhisper(sender.MemberNumber, `(${target.toString()} has been reset)`);
+    }
+
+    public async onCommandComplete(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!this.isSuperuser(sender)) return;
+
+        if (args.length === 0) {
+            this.sendAdminWhisper(sender.MemberNumber, "(Usage: /bot complete [player])");
+            return;
+        }
+
+        const targetIdentifier = args.join(' ');
+        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+        if (typeof target === 'string') {
+            this.sendAdminWhisper(sender.MemberNumber, `(${target})`);
+            return;
+        }
+
+        const quest = this.questManager.completeQuestForPlayer(target.MemberNumber);
+        if (!quest) {
+            this.sendAdminWhisper(sender.MemberNumber, `(${target.toString()} has no active quest)`);
+            return;
+        }
+
+        this.rewardCompletedQuest(quest);
+        this.sendAdminWhisper(sender.MemberNumber, `(Force completed quest for ${target.toString()})`);
+    }
+
+    public rewardCompletedQuest(quest: IQuest): void {
+        const player = this.playerService.get(quest.owner);
+        player.money += 100;
+        const levelsGained = player.addXp(XP_PER_QUEST);
+        if (levelsGained > 0) {
+            player.addItem(ITEM_CATCHME, levelsGained);
+        }
+        this.playerService.save(player);
+        this.questCD.set(quest.owner, Date.now() + (QUEST_CD));
+        const gracePeriodMinutes = player.getGracePeriodMinutes();
+        let levelUpText = "";
+        if (levelsGained > 0) {
+            const item = getVirtualItem(ITEM_CATCHME);
+            levelUpText = ` You reached level ${player.level} and received ${levelsGained}x ${item?.name ?? "Catch me if you can"}.`;
+        }
+        if (gracePeriodMinutes > 0) {
+            const gracePeriodMs = gracePeriodMinutes * 60 * 1000;
+            this.gracePeriods.set(quest.owner, Date.now() + gracePeriodMs);
+            this.conn.SendMessage("Whisper", "(You have completed your quest!" + levelUpText + " You have " + remainingTimeString(Date.now() + gracePeriodMs + 5000) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [player]\")", quest.owner);
+        } else {
+            this.conn.SendMessage("Whisper", "(You have completed your quest!" + levelUpText + ")", quest.owner);
+        }
     }
 
     public async onCommandTargetMe(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (args.length === 0) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot targetme [player] [player] ...)", sender.MemberNumber);
+            this.sendAdminWhisper(sender.MemberNumber, "(Usage: /bot targetme [player] [player] ...)");
             return;
         }
 
@@ -841,14 +952,14 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             response += `Players not found: ${failed.join(', ')}`;
         }
 
-        this.conn.SendMessage("Whisper", `(${response})`, sender.MemberNumber);
+        this.sendAdminWhisper(sender.MemberNumber, `(${response})`);
     }
 
     public async onCommandDontTargetMe(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (args.length === 0) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot donttargetme [player] [player] ...)", sender.MemberNumber);
+            this.sendAdminWhisper(sender.MemberNumber, "(Usage: /bot donttargetme [player] [player] ...)");
             return;
         }
 
@@ -876,25 +987,49 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             }
         }
 
-        this.conn.SendMessage("Whisper", `(${results.join('\n')})`, sender.MemberNumber);
+        this.sendAdminWhisper(sender.MemberNumber, `(${results.join('\n')})`);
     }
 
     public async onCommandSay(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (args.length === 0) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot say [message])", sender.MemberNumber);
+            this.sendAdminWhisper(sender.MemberNumber, "(Usage: /bot say [message])");
             return;
         }
 
         this.conn.SendMessage("Chat", args.join(' '));
     }
 
+    public async onCommandMapCopy(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!this.isSuperuser(sender)) return;
+
+        if (args[0] === "rollback") {
+            const restored = this.mapCopyService.rollback();
+            if (!restored) {
+                this.sendAdminWhisper(sender.MemberNumber, "(No map rollback available)");
+                return;
+            }
+            this.conn.chatRoom.map.setMapFromString(restored);
+            this.sendAdminWhisper(sender.MemberNumber, `(Map rollback applied. ${this.mapCopyService.remainingRollbacks()} remaining.)`);
+            return;
+        }
+
+        const mapData = this.conn.chatRoom.map.mapData;
+        if (!mapData) {
+            this.sendAdminWhisper(sender.MemberNumber, "(No map data to copy)");
+            return;
+        }
+
+        this.mapCopyService.copy(mapData);
+        this.sendAdminWhisper(sender.MemberNumber, `(Map saved. ${this.mapCopyService.remainingRollbacks()} rollback(s) available until restart.)`);
+    }
+
     public async onCommandRejoin(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (!sender.IsRoomAdmin()) return;
+        if (!this.isSuperuser(sender)) return;
 
         if (!this.requestRestart) {
-            this.conn.SendMessage("Whisper", "(Restart is not available)", sender.MemberNumber);
+            this.sendAdminWhisper(sender.MemberNumber, "(Restart is not available)");
             return;
         }
 
@@ -1000,9 +1135,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         for (const [itemId, count] of entries) {
             const item = getVirtualItem(itemId);
             if (!item) continue;
-            lines.push(`${item.name} x${count}`);
-            lines.push(item.warning);
-            lines.push(`Use: /bot use ${item.id} [player]`);
+            lines.push(`${item.name} x${count} - /bot use ${item.id} [player]`);
         }
         lines.push(")");
         this.conn.SendMessage("Whisper", lines.join("\n"), sender.MemberNumber);
@@ -1021,20 +1154,10 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
             return;
         }
 
-        if (itemId !== ITEM_CATCHME) {
-            this.conn.SendMessage("Whisper", `(You cannot use ${item.name} yet)`, sender.MemberNumber);
-            return;
-        }
-
         const targetIdentifier = args.slice(1).join(' ');
         const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
         if (typeof target === 'string') {
             this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
-            return;
-        }
-
-        if (sender.MemberNumber === target.MemberNumber) {
-            this.conn.SendMessage("Whisper", "(You cannot use that on yourself)", sender.MemberNumber);
             return;
         }
 
@@ -1044,23 +1167,205 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         }
 
         const player = this.playerService.get(sender.MemberNumber);
-        if (player.getItemCount(ITEM_CATCHME) < 1) {
+        if (player.getItemCount(itemId) < 1) {
             this.conn.SendMessage("Whisper", "(You don't have that item)", sender.MemberNumber);
             return;
         }
 
-        const hunter = this.playerService.get(target.MemberNumber);
-        if (hunter.getPendingCatchMeTarget() !== null) {
-            this.conn.SendMessage("Whisper", "(That player already has a pending Catch me if you can. The item was not used.)", sender.MemberNumber);
+        if (itemId === ITEM_CATCHME) {
+            if (sender.MemberNumber === target.MemberNumber) {
+                this.conn.SendMessage("Whisper", "(You cannot use that on yourself)", sender.MemberNumber);
+                return;
+            }
+
+            const hunter = this.playerService.get(target.MemberNumber);
+            if (hunter.getPendingCatchMeTarget() !== null) {
+                this.conn.SendMessage("Whisper", "(That player already has a pending Catch me if you can. The item was not used.)", sender.MemberNumber);
+                return;
+            }
+
+            const blockReason = this.questManager.getCatchMeTargetBlockReason(
+                target.MemberNumber,
+                sender.MemberNumber,
+                this.gracePeriods,
+            );
+            if (blockReason) {
+                this.conn.SendMessage("Whisper", `(${this.catchMeBlockMessage(blockReason)})`, sender.MemberNumber);
+                return;
+            }
+
+            player.removeItem(ITEM_CATCHME, 1);
+            hunter.setPendingCatchMeTarget(sender.MemberNumber);
+            this.playerService.save(player);
+            this.playerService.save(hunter);
+
+            this.conn.SendMessage("Whisper", `(You used ${item.name} on ${target.toString()}. ${item.warning})`, sender.MemberNumber);
             return;
         }
 
-        player.removeItem(ITEM_CATCHME, 1);
-        hunter.setPendingCatchMeTarget(sender.MemberNumber);
-        this.playerService.save(player);
-        this.playerService.save(hunter);
+        if (itemId === ITEM_RELEASE) {
+            player.removeItem(ITEM_RELEASE, 1);
+            this.playerService.save(player);
+            await Util.freeCharacter(target);
+            if (sender.MemberNumber === target.MemberNumber) {
+                this.conn.SendMessage("Chat", `(${sender.toString()} has used a release item to be freed from their binds)`);
+            } else {
+                this.conn.SendMessage("Chat", `(${sender.toString()} has used a release item to free ${target.toString()} from their binds)`);
+            }
+            this.conn.SendMessage("Whisper", `(You used ${item.name} on ${target.toString()}. ${item.warning})`, sender.MemberNumber);
+            return;
+        }
 
-        this.conn.SendMessage("Whisper", `(You used ${item.name} on ${target.toString()}. ${item.warning})`, sender.MemberNumber);
+        this.conn.SendMessage("Whisper", `(You cannot use ${item.name} yet)`, sender.MemberNumber);
+    }
+
+    public async onCommandShop(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (!positionIsInRegion(sender.MapPos, mapRegions.SHOP_AREA)) {
+            this.conn.SendMessage("Whisper", "(You need to be in the shop to buy or sell items.)", sender.MemberNumber);
+            return;
+        }
+
+        if (args[0] === "buy") {
+            this.conn.SendMessage("Whisper", "(Use /bot buy [item] [count] to buy items.)", sender.MemberNumber);
+            return;
+        }
+        if (args[0] === "sell") {
+            this.conn.SendMessage("Whisper", "(Use /bot sell [item] [count] to sell items.)", sender.MemberNumber);
+            return;
+        }
+
+        this.sendShopMenu(sender);
+    }
+
+    private sendShopMenu(sender: API_Character): void {
+        const player = this.playerService.get(sender.MemberNumber);
+        const lines = [`(Shop: ${player.money} money, level ${player.level}`];
+
+        for (const item of getAllVirtualItems()) {
+            if (!item.isPurchaseable && !item.isSellable) continue;
+            lines.push("");
+            lines.push(`${item.name} (${item.id})`);
+            if (item.isPurchaseable) {
+                const levelNote = item.levelRequirement > 1 ? `, requires level ${item.levelRequirement}` : "";
+                lines.push(`    Buy: ${item.price} money${levelNote} - /bot buy ${item.id}`);
+            }
+            if (item.isSellable) {
+                lines.push(`    Sell: ${item.sellPrice} money - /bot sell ${item.id}`);
+            }
+            lines.push(`    ${item.warning}`);
+        }
+
+        lines.push(")");
+        this.conn.SendMessage("Whisper", lines.join("\n"), sender.MemberNumber);
+    }
+
+    private handleShopBuy(sender: API_Character, args: string[]): void {
+        const parsed = this.parseItemAndCount(args);
+        if (!parsed) {
+            this.conn.SendMessage("Whisper", "(Usage: /bot buy [item] [count])", sender.MemberNumber);
+            return;
+        }
+        if (parsed.count < 1) {
+            this.conn.SendMessage("Whisper", "(Count must be at least 1)", sender.MemberNumber);
+            return;
+        }
+
+        const item = getVirtualItem(parsed.itemId);
+        if (!item) {
+            this.conn.SendMessage("Whisper", "(Unknown item. Use /bot shop to see what is for sale.)", sender.MemberNumber);
+            return;
+        }
+        if (!item.isPurchaseable) {
+            this.conn.SendMessage("Whisper", `(${item.name} cannot be bought.)`, sender.MemberNumber);
+            return;
+        }
+
+        const player = this.playerService.get(sender.MemberNumber);
+        if (player.level < item.levelRequirement) {
+            this.conn.SendMessage("Whisper", `(You need to be level ${item.levelRequirement} to buy ${item.name}.)`, sender.MemberNumber);
+            return;
+        }
+
+        const totalCost = item.price * parsed.count;
+        if (player.money < totalCost) {
+            this.conn.SendMessage("Whisper", `(You need ${totalCost} money to buy ${parsed.count}x ${item.name}.)`, sender.MemberNumber);
+            return;
+        }
+
+        player.money -= totalCost;
+        player.addItem(item.id, parsed.count);
+        this.playerService.save(player);
+        this.conn.SendMessage("Whisper", `(You bought ${parsed.count}x ${item.name} for ${totalCost} money.)`, sender.MemberNumber);
+    }
+
+    private handleShopSell(sender: API_Character, args: string[]): void {
+        const parsed = this.parseItemAndCount(args);
+        if (!parsed) {
+            this.conn.SendMessage("Whisper", "(Usage: /bot sell [item] [count])", sender.MemberNumber);
+            return;
+        }
+        if (parsed.count < 1) {
+            this.conn.SendMessage("Whisper", "(Count must be at least 1)", sender.MemberNumber);
+            return;
+        }
+
+        const item = getVirtualItem(parsed.itemId);
+        if (!item) {
+            this.conn.SendMessage("Whisper", "(Unknown item. Use /bot shop to see what you can sell.)", sender.MemberNumber);
+            return;
+        }
+        if (!item.isSellable) {
+            this.conn.SendMessage("Whisper", `(${item.name} cannot be sold.)`, sender.MemberNumber);
+            return;
+        }
+
+        const player = this.playerService.get(sender.MemberNumber);
+        if (player.getItemCount(item.id) < parsed.count) {
+            this.conn.SendMessage("Whisper", `(You don't have ${parsed.count}x ${item.name}.)`, sender.MemberNumber);
+            return;
+        }
+
+        const totalValue = item.sellPrice * parsed.count;
+        player.removeItem(item.id, parsed.count);
+        player.money += totalValue;
+        this.playerService.save(player);
+        this.conn.SendMessage("Whisper", `(You sold ${parsed.count}x ${item.name} for ${totalValue} money.)`, sender.MemberNumber);
+    }
+
+    private parseItemAndCount(args: string[]): { itemId: string, count: number } | null {
+        if (args.length === 0) return null;
+        if (args.length >= 2 && Util.isValidIntegerString(args[args.length - 1])) {
+            return { itemId: args.slice(0, -1).join(" "), count: Number(args[args.length - 1]) };
+        }
+        return { itemId: args.join(" "), count: 1 };
+    }
+
+    private parseGiveTargetItemCount(args: string[]): { targetIdentifier: string, itemId: string, count: number } | null {
+        if (args.length < 2) return null;
+        const parts = [...args];
+        let count = 1;
+        if (parts.length >= 3 && Util.isValidIntegerString(parts[parts.length - 1])) {
+            count = Number(parts.pop());
+        }
+        const itemId = parts.pop()!;
+        const targetIdentifier = parts.join(" ");
+        if (!targetIdentifier) return null;
+        return { targetIdentifier, itemId, count };
+    }
+
+    private catchMeBlockMessage(reason: CatchMeBlockReason): string {
+        switch (reason) {
+            case "dominant":
+                return "You are currently a Dominant and cannot be targeted by quests. Use /bot dominant to toggle. The item was not used.";
+            case "blocked":
+                return "You cannot currently use that on that player. The item was not used.";
+            case "grace":
+                return "You are in a grace period and cannot currently be targeted by quests. The item was not used.";
+            case "safe":
+                return "You cannot currently be targeted while in a safe area. The item was not used.";
+            case "dev_room":
+                return "You cannot currently be targeted in this area. The item was not used.";
+        }
     }
 
     // ===== HELPER FUNCTIONS FOR ADMIN COMMANDS =====
@@ -1116,6 +1421,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
 
         let info = `Player Debug - ${player.toString()}:\n`;
         info += `Level: ${playerData.level}\n`;
+        info += `XP: ${playerData.xp}/${playerData.xpNeededToLevelUp()}\n`;
         info += `Money: ${playerData.money}\n`;
         info += `Dominant: ${playerData.getIsDominant() ? 'Yes' : 'No'}\n`;
 
@@ -1207,6 +1513,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("reroll", this.onCommandReroll.bind(this));
         this.commandParser.register("stats", this.onCommandStats.bind(this));
         this.commandParser.register("buy", this.onCommandBuy.bind(this));
+        this.commandParser.register("sell", this.onCommandSell.bind(this));
         this.commandParser.register("bounty", this.onCommandBounty.bind(this));
         this.commandParser.register("help", this.onCommandHelp.bind(this));
         //this.commandParser.register("claim", this.onCommandClaim.bind(this));
@@ -1215,21 +1522,25 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`, sender.MemberNumber);
         this.commandParser.register("settings", this.onCommandSettings.bind(this));
         this.commandParser.register("levelup", this.onCommandLevelUp.bind(this));
         this.commandParser.register("pay", this.onCommandPay.bind(this));
+        this.commandParser.register("give", this.onCommandGive.bind(this));
         this.commandParser.register("prisontime", this.onCommandPrisonTime.bind(this));
         this.commandParser.register("performance", this.onCommandPerformance.bind(this));
         this.commandParser.register("dominant", this.onCommandDominant.bind(this));
         this.commandParser.register("block", this.onCommandBlock.bind(this));
         this.commandParser.register("inventory", this.onCommandInventory.bind(this));
         this.commandParser.register("use", this.onCommandUse.bind(this));
+        this.commandParser.register("shop", this.onCommandShop.bind(this));
 
         // Admin Commands (invisible to non-admins)
         this.commandParser.register("debug", this.onCommandDebug.bind(this));
         this.commandParser.register("admin", this.onCommandAdmin.bind(this));
         this.commandParser.register("reset", this.onCommandReset.bind(this));
-        this.commandParser.register("give", this.onCommandGive.bind(this));
+        this.commandParser.register("complete", this.onCommandComplete.bind(this));
+        this.commandParser.register("giveitem", this.onCommandGiveItem.bind(this));
         this.commandParser.register("targetme", this.onCommandTargetMe.bind(this));
         this.commandParser.register("donttargetme", this.onCommandDontTargetMe.bind(this));
         this.commandParser.register("say", this.onCommandSay.bind(this));
         this.commandParser.register("rejoin", this.onCommandRejoin.bind(this));
+        this.commandParser.register("mapcopy", this.onCommandMapCopy.bind(this));
     }
 }

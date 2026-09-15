@@ -1,6 +1,7 @@
 export interface IPlayer {
   memberNumber: number;
   level: number;
+  xp: number;
   money: number;
   gracePeriodMinutes: number;
   isDominant: boolean;
@@ -9,11 +10,10 @@ export interface IPlayer {
   pendingCatchMeTarget: number | null;
 
     addMoney(amount: number): void;
-    moneyNeededToLevelUp(): number;
-    moneyThatCanBeRefunded(): number;
+    addXp(amount: number): number;
+    xpNeededToLevelUp(): number;
     canLevelUp(): boolean;
     levelUp(): boolean;
-    refundLevel(): void;
     toString(): string;
 
     // Settings methods

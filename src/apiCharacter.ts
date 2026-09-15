@@ -335,14 +335,24 @@ export class API_Character {
     }
 
     public giveKey(keys: string[]): void {
-        for (const key of keys) {
-            this.connection.SendMessage("Hidden", `ChatRoomMapViewChangeKey`, this.MemberNumber, [{Tag: "MapViewChangeKey", Key: key, Bool: true}]);
-        }
+        this.changeKeys(keys);
     }
 
     public takeKey(keys: string[]): void {
-        for (const key of keys) {
-            this.connection.SendMessage("Hidden", `ChatRoomMapViewChangeKey`, this.MemberNumber, [{Tag: "MapViewChangeKey", Key: key, Bool: false}]);
-        }
+        this.changeKeys([], keys);
+    }
+
+    public changeKeys(give: string[], take: string[] = []): void {
+        const entries = [
+            ...give.map((key) => ({ Tag: "MapViewChangeKey", Key: key, Bool: true })),
+            ...take.map((key) => ({ Tag: "MapViewChangeKey", Key: key, Bool: false })),
+        ];
+        if (entries.length === 0) return;
+        this.connection.SendMessage(
+            "Hidden",
+            "ChatRoomMapViewChangeKey",
+            this.MemberNumber,
+            entries,
+        );
     }
 }

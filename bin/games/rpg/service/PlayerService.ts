@@ -8,6 +8,7 @@ export class PlayerService {
     private playerStorage = new Storage("./bin/games/rpg/data/players");
     private settingsStorage = new Storage("./bin/games/rpg/data/settings");
     private performanceMonitor: PerformanceMonitorService;
+    private pendingCatchMeTargets = new Map<number, number>();
 
     constructor(performanceMonitor?: PerformanceMonitorService) {
         this.performanceMonitor = performanceMonitor || new PerformanceMonitorService();
@@ -16,7 +17,17 @@ export class PlayerService {
     save(player: IPlayer): void {
         // Performance monitoring: Track file system writes
         this.performanceMonitor.incrementCounter('playerService_save_calls');
-        this.playerStorage.put(player.memberNumber.toString(), player);
+        this.syncPendingCatchMe(player);
+        this.playerStorage.put(player.memberNumber.toString(), {
+            memberNumber: player.memberNumber,
+            money: player.money,
+            level: player.level,
+            xp: player.xp,
+            blockedPlayers: player.blockedPlayers,
+            gracePeriodMinutes: player.gracePeriodMinutes,
+            isDominant: player.isDominant,
+            inventory: player.inventory,
+        });
     }
 
     get(memberNumber: number): IPlayer {
@@ -26,11 +37,15 @@ export class PlayerService {
         let playerData = this.playerStorage.get(memberNumber.toString());
 
         if (!playerData) {
-            return new Player(memberNumber);
+            const player = new Player(memberNumber);
+            this.applyPendingCatchMe(player);
+            return player;
         } else {
             let player: Player = new Player(memberNumber);
+            this.applyPendingCatchMe(player);
             player.money = playerData.money;
             player.level = playerData.level;
+            player.xp = typeof playerData.xp === 'number' ? playerData.xp : 0;
 
             if (Array.isArray(playerData.blockedPlayers)) {
                 player.blockedPlayers = playerData.blockedPlayers.filter((n: unknown) => typeof n === 'number');
@@ -62,12 +77,37 @@ export class PlayerService {
 
             player.inventory = this.loadInventory(playerData.inventory);
 
-            if (typeof playerData.pendingCatchMeTarget === 'number') {
-                player.pendingCatchMeTarget = playerData.pendingCatchMeTarget;
-            }
-
             return player;
         }
+    }
+
+    serializePendingCatchMe(): Record<string, number> {
+        const record: Record<string, number> = {};
+        for (const [memberNumber, target] of this.pendingCatchMeTargets) {
+            record[memberNumber.toString()] = target;
+        }
+        return record;
+    }
+
+    restorePendingCatchMe(record: Record<string, number>): void {
+        this.pendingCatchMeTargets.clear();
+        for (const [memberNumber, target] of Object.entries(record)) {
+            if (typeof target === 'number') {
+                this.pendingCatchMeTargets.set(Number(memberNumber), target);
+            }
+        }
+    }
+
+    private syncPendingCatchMe(player: IPlayer): void {
+        if (player.pendingCatchMeTarget === null) {
+            this.pendingCatchMeTargets.delete(player.memberNumber);
+        } else {
+            this.pendingCatchMeTargets.set(player.memberNumber, player.pendingCatchMeTarget);
+        }
+    }
+
+    private applyPendingCatchMe(player: Player): void {
+        player.pendingCatchMeTarget = this.pendingCatchMeTargets.get(player.memberNumber) ?? null;
     }
 
     getLevel(memberNumber: number): number {

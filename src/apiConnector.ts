@@ -23,6 +23,12 @@ import { EventEmitter } from "stream";
 import { BC_Server_ChatRoomMessage, TBeepType } from "./logicEvent.ts";
 import { SocketWrapper } from "./socketWrapper.ts";
 import { wait } from "./util/wait.ts";
+import {
+    CHAT_MESSAGE_MAX_LENGTH,
+    flattenInnerOocParens,
+    splitMultilineChat,
+} from "./chatMessage.ts";
+import { toChatRoomAdminRoom } from "./chatRoomAdminRoom.ts";
 
 export enum LeaveReason {
     DISCONNECT = "ServerDisconnect",
@@ -236,9 +242,22 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
         target?: number,
         dict?: Record<string, any>[],
     ): void {
-        if (msg.length > 1000) {
+        if (msg.includes("\n")) {
+            const chunks = splitMultilineChat(msg);
+            if (chunks.length > 1) {
+                for (const chunk of chunks) {
+                    this.SendMessage(type, chunk, target, dict);
+                }
+                return;
+            }
+            if (chunks.length === 1) msg = chunks[0];
+        }
+        if (type === "Whisper" || type === "Chat" || type === "Emote") {
+            msg = flattenInnerOocParens(msg);
+        }
+        if (msg.length > CHAT_MESSAGE_MAX_LENGTH) {
             console.error("Message too long, truncating");
-            msg = msg.substring(0, 1000);
+            msg = msg.substring(0, CHAT_MESSAGE_MAX_LENGTH);
         }
 
         console.log(`Sending ${type}`, msg);
@@ -268,14 +287,8 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
         const payload = {
             Action: "Update",
             MemberNumber: 0,
-            Room: {
-                ...this.chatRoom.ToInfo(),
-                //...update,
-            },
+            Room: toChatRoomAdminRoom(this.chatRoom.ToInfo()),
         } as ChatRoomAdmin;
-        if (payload.Room.Limit !== undefined)
-            payload.Room.Limit = payload.Room.Limit + "";
-        //console.log("Updating chat room", payload);
         this.chatRoomAdmin(payload);
     }
 

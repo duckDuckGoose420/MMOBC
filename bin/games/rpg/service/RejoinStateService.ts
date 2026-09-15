@@ -18,9 +18,11 @@ export interface RejoinState {
     lastTargetBeforeReroll: Record<string, number>;
     isPlayerSafe: Record<string, boolean>;
     targetPriorities: Record<string, Record<string, TargetStatus>>;
+    pendingCatchMeTargets?: Record<string, number>;
     privatePlayRequests: Record<string, PrivateRequestSnapshot>;
     alreadyEnteredBoundMaid: number[];
     alreadyEnteredIntroduction: number[];
+    hasLeftSpawnSafeArea: number[];
     processedPlayers: number[];
     closedPermissionNotifiedPlayers: number[];
 }
@@ -58,16 +60,27 @@ export function mapToRecord(map: Map<number, number>): Record<string, number> {
     return record;
 }
 
-export function recordToMap(record: Record<string, number>): Map<number, number> {
-    return new Map(Object.entries(record).map(([key, value]) => [Number(key), value]));
+export function recordToMap(
+    record: Record<string, number>,
+    target: Map<number, number> = new Map(),
+): Map<number, number> {
+    target.clear();
+    for (const [key, value] of Object.entries(record)) {
+        target.set(Number(key), value);
+    }
+    return target;
 }
 
 export function setToArray(set: Set<number>): number[] {
     return [...set];
 }
 
-export function arrayToSet(values: number[]): Set<number> {
-    return new Set(values);
+export function arrayToSet(values: number[], target: Set<number> = new Set()): Set<number> {
+    target.clear();
+    for (const value of values) {
+        target.add(value);
+    }
+    return target;
 }
 
 export function booleanMapToRecord(map: Map<number, boolean>): Record<string, boolean> {
@@ -78,8 +91,15 @@ export function booleanMapToRecord(map: Map<number, boolean>): Record<string, bo
     return record;
 }
 
-export function recordToBooleanMap(record: Record<string, boolean>): Map<number, boolean> {
-    return new Map(Object.entries(record).map(([key, value]) => [Number(key), value]));
+export function recordToBooleanMap(
+    record: Record<string, boolean>,
+    target: Map<number, boolean> = new Map(),
+): Map<number, boolean> {
+    target.clear();
+    for (const [key, value] of Object.entries(record)) {
+        target.set(Number(key), value);
+    }
+    return target;
 }
 
 export function privateRequestsToRecord(map: Map<number, PrivateRequestSnapshot>): Record<string, PrivateRequestSnapshot> {
@@ -90,13 +110,16 @@ export function privateRequestsToRecord(map: Map<number, PrivateRequestSnapshot>
     return record;
 }
 
-export function recordToPrivateRequests(record: Record<string, PrivateRequestSnapshot>): Map<number, PrivateRequestSnapshot> {
-    const map = new Map<number, PrivateRequestSnapshot>();
+export function recordToPrivateRequests(
+    record: Record<string, PrivateRequestSnapshot>,
+    target: Map<number, PrivateRequestSnapshot> = new Map(),
+): Map<number, PrivateRequestSnapshot> {
+    target.clear();
     const now = Date.now();
     for (const [key, value] of Object.entries(record)) {
         if (value.expiration > now) {
-            map.set(Number(key), value);
+            target.set(Number(key), value);
         }
     }
-    return map;
+    return target;
 }
