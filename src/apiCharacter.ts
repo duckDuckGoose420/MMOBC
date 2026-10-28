@@ -334,8 +334,10 @@ export class API_Character {
     }
 
     public update(data: Partial<API_Character_Data>): void {
+        // Rebuilding item objects is expensive; in-place appearance edits call rebuildAppearance() themselves
+        const appearanceChanged = data.Appearance !== undefined && data.Appearance !== this.data.Appearance;
         Object.assign(this.data, data);
-        this.rebuildAppearance();
+        if (appearanceChanged) this.rebuildAppearance();
     }
 
     public rebuildAppearance(): void {

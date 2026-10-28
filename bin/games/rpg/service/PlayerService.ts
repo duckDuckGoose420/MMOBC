@@ -15,7 +15,7 @@ export class PlayerService {
     }
 
     save(player: IPlayer): void {
-        // Performance monitoring: Track file system writes
+        // Performance monitoring: Track store writes (node-storage persists asynchronously)
         this.performanceMonitor.incrementCounter('playerService_save_calls');
         this.syncPendingCatchMe(player);
         this.playerStorage.put(player.memberNumber.toString(), {
@@ -35,54 +35,54 @@ export class PlayerService {
     }
 
     get(memberNumber: number): IPlayer {
-        // Performance monitoring: Track file system reads
+        // Performance monitoring: Track store reads (in-memory, no file access)
         this.performanceMonitor.incrementCounter('playerService_get_calls');
 
-        let playerData = this.playerStorage.get(memberNumber.toString());
+        const player = new Player(memberNumber);
+        this.applyPendingCatchMe(player);
 
-        if (!playerData) {
-            const player = new Player(memberNumber);
-            this.applyPendingCatchMe(player);
-            return player;
-        } else {
-            let player: Player = new Player(memberNumber);
-            this.applyPendingCatchMe(player);
-            player.money = playerData.money;
-            player.level = playerData.level;
-            player.xp = typeof playerData.xp === 'number' ? playerData.xp : 0;
+        const playerData = this.playerStorage.get(memberNumber.toString());
+        if (!playerData) return player;
 
-            if (Array.isArray(playerData.blockedPlayers)) {
-                player.blockedPlayers = playerData.blockedPlayers.filter((n: unknown) => typeof n === 'number');
-            }
+        player.money = playerData.money;
+        player.level = playerData.level;
+        player.xp = typeof playerData.xp === 'number' ? playerData.xp : 0;
 
-            // Check if gracePeriodMinutes exists in player data (new format)
-            if (playerData.gracePeriodMinutes !== undefined) {
-                player.gracePeriodMinutes = playerData.gracePeriodMinutes;
-            } else {
-                // Migration: Load from old settings file
-                const settingsData = this.settingsStorage.get(memberNumber.toString());
-                if (settingsData && settingsData.gracePeriodEnabled !== undefined) {
-                    // Convert old boolean to minutes: true = 20, false = 0
-                    player.gracePeriodMinutes = settingsData.gracePeriodEnabled ? 20 : 0;
-                    // Save migrated data
-                    this.save(player);
-                }
-            }
-
-            // Check if isDominant exists in player data (new format)
-            if (playerData.isDominant !== undefined) {
-                player.isDominant = playerData.isDominant;
-            } else {
-                // Migration: Default to false for existing players
-                player.isDominant = false;
-                // Save migrated data
-                this.save(player);
-            }
-
-            player.inventory = this.loadInventory(playerData.inventory);
-
-            return player;
+        if (Array.isArray(playerData.blockedPlayers)) {
+            player.blockedPlayers = playerData.blockedPlayers.filter((n: unknown) => typeof n === 'number');
         }
+        player.inventory = this.loadInventory(playerData.inventory);
+
+        let needsMigrationSave = false;
+
+        // Check if gracePeriodMinutes exists in player data (new format)
+        if (playerData.gracePeriodMinutes !== undefined) {
+            player.gracePeriodMinutes = playerData.gracePeriodMinutes;
+        } else {
+            // Migration: Load from old settings file
+            const settingsData = this.settingsStorage.get(memberNumber.toString());
+            if (settingsData && settingsData.gracePeriodEnabled !== undefined) {
+                // Convert old boolean to minutes: true = 20, false = 0
+                player.gracePeriodMinutes = settingsData.gracePeriodEnabled ? 20 : 0;
+                needsMigrationSave = true;
+            }
+        }
+
+        // Check if isDominant exists in player data (new format)
+        if (playerData.isDominant !== undefined) {
+            player.isDominant = playerData.isDominant;
+        } else {
+            // Migration: Default to false for existing players
+            player.isDominant = false;
+            needsMigrationSave = true;
+        }
+
+        // Save migrated data only once the player is fully loaded
+        if (needsMigrationSave) {
+            this.save(player);
+        }
+
+        return player;
     }
 
     serializePendingCatchMe(): Record<string, number> {

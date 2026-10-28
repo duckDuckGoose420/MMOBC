@@ -336,9 +336,7 @@ export class RPG {
     };
 
     private onMessage = async (msg: MessageEvent) => {
-        // Performance monitoring: Track message handler calls
-        this.performanceMonitor.incrementCounter('onMessage_calls');
-        const startTime = this.performanceMonitor.startTimer('onMessage');
+        const startTime = this.performanceMonitor.startTimer();
 
         if (
             msg.message.Type === "Activity" &&
@@ -349,10 +347,8 @@ export class RPG {
                     let orgasms = Number(quest.additionalInfo["orgasms"]) + 1;
                     quest.additionalInfo["orgasms"] = orgasms;
                     this.climaxTracker.set(quest.targetPlayer, Date.now());
-                    console.log(quest.additionalInfo);
                 }
             }
-            console.log(msg);
             console.log(`${msg.sender.toString()} climaxed!`);
         }
 
@@ -538,9 +534,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
 
     private checkBounties() {
-        // Performance monitoring: Track bounty checking
-        this.performanceMonitor.incrementCounter('checkBounties_calls');
-        const startTime = this.performanceMonitor.startTimer('checkBounties');
+        const startTime = this.performanceMonitor.startTimer();
 
         for (const [key] of this.bounties) {
             let target = this.conn.chatRoom.findMember(key);
@@ -568,9 +562,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
 
     private runLoop() {
-        // Performance monitoring: Track main loop
-        this.performanceMonitor.incrementCounter('runLoop_calls');
-        const startTime = this.performanceMonitor.startTimer('runLoop');
+        const startTime = this.performanceMonitor.startTimer();
 
         const completedQuests = this.questManager.completeQuests();
         for (const quest of completedQuests) {
@@ -588,6 +580,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         this.handlePlayerRejoin();
 
         // Check for expired prison sentences
+        const prisonStartTime = this.performanceMonitor.startTimer();
         const expiredPrisons = this.prisonService.checkExpiredPrisons();
         for (const memberNumber of expiredPrisons) {
             const character = this.conn.chatRoom.findMember(memberNumber);
@@ -604,6 +597,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         for (const character of this.conn.chatRoom.characters) {
             this.tryImprison(character);
         }
+        this.performanceMonitor.endTimer('prisonSweep', prisonStartTime);
 
         this.checkBounties();
 
@@ -614,9 +608,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
      * Handles players rejoining the room - checks prison status and gives keys
      */
     private handlePlayerRejoin(): void {
-        // Performance monitoring: Track player rejoin handling
-        this.performanceMonitor.incrementCounter('handlePlayerRejoin_calls');
-        const startTime = this.performanceMonitor.startTimer('handlePlayerRejoin');
+        const startTime = this.performanceMonitor.startTimer();
 
         const allCharacters = this.conn.chatRoom.characters;
 

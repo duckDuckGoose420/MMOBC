@@ -37,7 +37,7 @@ export class PerformanceMonitorService {
     /**
      * Start timing an operation
      */
-    startTimer(key: string): number {
+    startTimer(): number {
         return performance.now();
     }
 
