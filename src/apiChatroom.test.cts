@@ -21,16 +21,20 @@ function characterData(memberNumber: number, lockMember?: number): API_Character
         MemberNumber: memberNumber,
         ActivePose: [],
         WhiteList: [],
+        BlackList: [],
+        Reputation: [],
         OnlineSharedSettings: {} as any,
         ItemPermission: 0,
         FriendList: [],
         MapData: { Pos: { X: 1, Y: 1 }, PrivateState: {} } as any,
+        BlockItems: {},
+        LimitedItems: {},
     };
 }
 
 function createRoom(members: number[]) {
-    const conn: any = { Player: { MemberNumber: 999 }, getBot: () => undefined };
-    const bot = new API_Character(characterData(999), conn, undefined as any);
+    const conn: any = { Player: { MemberNumber: 999 }, getBot: () => undefined, emit() {} };
+    const bot = new API_Character(characterData(999), conn);
     const room = new API_Chatroom(
         { Name: "r", Character: members.map((m) => characterData(m)), Admin: [], Ban: [], Limit: 10 } as any,
         conn,

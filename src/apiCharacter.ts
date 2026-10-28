@@ -21,19 +21,6 @@ interface PoseObject {
     Name: string;
 }
 
-interface SingleScriptPermission {
-    permission: 1|0;
-}
-
-interface ScriptPermissionsType {
-    Block: SingleScriptPermission;
-    Hide: SingleScriptPermission;
-}
-
-interface ItemPermissionList {
-    [groupName: string]: Record<string, string>;
-}
-
 export enum ItemPermissionLevel {
     EveryoneNoExceptions = 0,
     EveryoneExceptBlacklist = 1,
@@ -43,11 +30,6 @@ export enum ItemPermissionLevel {
     OwnerOnly = 5,
 }
 
-export interface OnlineSharedSettingsType {
-    GameVersion: string;
-    ScriptPermissions?: ScriptPermissionsType;
-}
-
 export interface API_Character_Data {
     ID: string;
     Name: string;
@@ -55,14 +37,68 @@ export interface API_Character_Data {
     Description: string;
     Appearance: BC_AppearanceItem[];
     MemberNumber: number;
-    ActivePose: AssetPoseName[];
+    ActivePose: readonly AssetPoseName[];
     WhiteList: number[];
-    OnlineSharedSettings: OnlineSharedSettingsType;
+    BlackList: ServerAccountDataSynced["BlackList"];
+    Reputation: NonNullable<ServerAccountDataSynced["Reputation"]>;
+    OnlineSharedSettings: CharacterOnlineSharedSettings;
     ItemPermission: ItemPermissionLevel;
     FriendList: number[];
     MapData?: ChatRoomMapData;
-    BlockItems: ItemPermissionList;
-    LimitedItems: ItemPermissionList;
+    BlockItems: ServerItemPermissionsPacked;
+    LimitedItems: ServerItemPermissionsPacked;
+}
+
+export function transformToCharacterData(
+    character: ServerAccountDataSynced,
+): API_Character_Data {
+    const defaultOnlineSettings: CharacterOnlineSharedSettings = {
+        AllowFullWardrobeAccess: false,
+        BlockBodyCosplay: false,
+        AllowPlayerLeashing: false,
+        AllowRename: false,
+        DisablePickingLocksOnSelf: false,
+        GameVersion: "",
+        ItemsAffectExpressions: false,
+        ScriptPermissions: {
+            Hide: {
+                permission: 0,
+            },
+            Block: {
+                permission: 0,
+            },
+        },
+        WheelFortune: "",
+    };
+    let blockItems: ServerItemPermissionsPacked = {};
+    if (Array.isArray(character.BlockItems)) {
+        console.warn("character with unpacked blocked items?");
+    } else {
+        blockItems = character.BlockItems ?? {};
+    }
+    let limitedItems: ServerItemPermissionsPacked = {};
+    if (Array.isArray(character.LimitedItems)) {
+        console.warn("character with unpacked limited items?");
+    } else {
+        limitedItems = character.LimitedItems ?? {};
+    }
+    return {
+        ...character,
+        Reputation: character.Reputation ?? [],
+        Nickname: character.Nickname ?? "",
+        Description: character.Description ?? "",
+        Appearance: character.Appearance ?? [],
+        ActivePose: character.ActivePose ?? [],
+        FriendList:
+            "FriendList" in character ? (character.FriendList as number[]) : [],
+        OnlineSharedSettings: Object.assign(
+            defaultOnlineSettings,
+            character.OnlineSharedSettings,
+        ),
+        MapData: character.MapData,
+        BlockItems: blockItems,
+        LimitedItems: limitedItems,
+    };
 }
 
 export function isNaked(character: API_Character): boolean {
@@ -85,9 +121,8 @@ export class API_Character {
     private _appearance: AppearanceType;
 
     constructor(
-        private readonly data: API_Character_Data,
+        protected readonly data: API_Character_Data,
         public readonly connection: API_Connector,
-        private _chatRoom: API_Chatroom,
     ) {
         this._appearance = new AppearanceType(this, data);
     }
@@ -104,34 +139,104 @@ export class API_Character {
     public get MemberNumber(): number {
         return this.data.MemberNumber;
     }
-    public get Dominant(): number {
-        return this.Dominant;
-    }
     public get Pose(): PoseObject[] {
         return this.data.ActivePose.map((p) => {
             return { Name: p };
         });
     }
+    public get BlackList(): API_Character_Data["BlackList"] {
+        return this.data.BlackList;
+    }
     public get WhiteList(): number[] {
         return this.data.WhiteList;
     }
-    public get OnlineSharedSettings(): OnlineSharedSettingsType {
+    protected manageWhitelist(arg: "add" | "remove", ...members: number[]) {
+        const list = new Set(this.connection.Player.WhiteList);
+        let update = false;
+        if (arg === "add") {
+            for (const member of members) {
+                if (member === this.MemberNumber) continue;
+                list.add(member);
+                update = true;
+            }
+        } else if (arg === "remove") {
+            for (const member of members) {
+                list.delete(member);
+                update = true;
+            }
+        }
+        if (update) {
+            this.connection.accountUpdate({ WhiteList: [...list.values()] });
+        }
+    }
+    public whitelist(): void {
+        this.manageWhitelist("add", this.MemberNumber);
+    }
+    public unwhitelist(): void {
+        this.manageWhitelist("remove", this.MemberNumber);
+    }
+
+    // #region Other Misc Character Info
+    public get Dominance() {
+        if (!this.data.Reputation.length) return 0;
+        return (
+            this.data.Reputation.find((r) => r.Type === "Dominant")?.Value ?? 0
+        );
+    }
+    // #endregion
+
+    // #region Online Shared Settings
+
+    public get OnlineSharedSettings(): CharacterOnlineSharedSettings {
         return this.data.OnlineSharedSettings;
     }
+    get allowFullWardrobeAccess(): boolean {
+        return this.data.OnlineSharedSettings.AllowFullWardrobeAccess;
+    }
+    get blockBodyCosplay(): boolean {
+        return this.data.OnlineSharedSettings.BlockBodyCosplay;
+    }
+    get allowPlayerLeashing(): boolean {
+        return this.data.OnlineSharedSettings.AllowPlayerLeashing;
+    }
+    get allowRename(): boolean {
+        return this.data.OnlineSharedSettings.AllowRename;
+    }
+    get disablePickingLocksOnSelf(): boolean {
+        return this.data.OnlineSharedSettings.DisablePickingLocksOnSelf;
+    }
+    get gameVersion(): string {
+        return this.data.OnlineSharedSettings.GameVersion ?? "";
+    }
+    get itemsAffectExpressions(): boolean {
+        return this.data.OnlineSharedSettings.ItemsAffectExpressions;
+    }
+    // get WheelFortune(): string {
+    //     return this.data.OnlineSharedSettings.WheelFortune;
+    // }
+
+    public getScriptPermissions(): { hide: boolean; block: boolean } {
+        const ret = {
+            hide:
+                this.data.OnlineSharedSettings.ScriptPermissions.Hide
+                    .permission !== 0,
+            block:
+                this.data.OnlineSharedSettings.ScriptPermissions.Block
+                    .permission !== 0,
+        };
+        return ret;
+    }
+
+    // #endregion
     public get ItemPermission(): ItemPermissionLevel {
         return this.data.ItemPermission;
     }
-    public get ChatRoomPosition(): number {
-        return 0; /* TODO */
+    public get ChatRoomPosition(): number | undefined {
+        return this.chatRoom?.characters.indexOf(this);
     }
-
-    public get chatRoom() {
-        return this._chatRoom;
+    public get chatRoom(): API_Chatroom | undefined {
+        return this.connection._chatRoom;
     }
-    public set chatRoom(room: API_Chatroom) {
-        this._chatRoom = room;
-    }
-
     public get X(): number {
         return this.data.MapData?.Pos?.X ?? 0;
     }
@@ -144,13 +249,16 @@ export class API_Character {
     }
 
     public IsRoomAdmin(): boolean {
-        return this.chatRoom.Admin.includes(this.MemberNumber);
+        return this.chatRoom?.Admin.includes(this.MemberNumber) ?? false;
     }
 
     public mapTeleport(pos: ChatRoomMapPos): void {
-        this.connection.SendMessage("Hidden", "ChatRoomMapViewTeleport", this.MemberNumber, [
-            {Tag: "MapViewTeleport", Position: pos}
-        ]);
+        this.connection.SendMessage(
+            "Hidden",
+            "ChatRoomMapViewTeleport",
+            this.MemberNumber,
+            [{ Tag: "MapViewTeleport", Position: pos }],
+        );
     }
 
     public Tell(msgType: TellType, msg: string): void {
@@ -173,27 +281,30 @@ export class API_Character {
         if (this.data.BlockItems[asset.Group]?.[asset.Name]) {
             return false;
         }
-        if (this.data.LimitedItems[asset.Group]?.[asset.Name] && !this.WhiteList.includes(this.connection.Player.MemberNumber)) {
+        if (
+            this.data.LimitedItems[asset.Group]?.[asset.Name] &&
+            !this.WhiteList.includes(this.connection.Player.MemberNumber)
+        ) {
             return false;
         }
         return true;
     }
 
     public hasPenis(): boolean {
-        return this.Appearance.InventoryGet("Pussy").Name === "Penis";
+        return this.Appearance.InventoryGet("Pussy")?.Name === "Penis";
     }
 
     public upperBodyStyle(): "male" | "female" {
         const upperBody = this.Appearance.InventoryGet("BodyUpper");
-        return upperBody.Name.startsWith("Flat") ? "male" : "female";
+        return upperBody?.Name.startsWith("Flat") ? "male" : "female";
     }
 
     public lowerBodyStyle(): "male" | "female" {
         const upperBody = this.Appearance.InventoryGet("Pussy");
-        return upperBody.Name === "Penis" ? "male" : "female";
+        return upperBody?.Name === "Penis" ? "male" : "female";
     }
 
-    public async Kick(): Promise<void> {
+    public Kick(): void {
         this.connection.chatRoomAdmin({
             Action: "Kick",
             MemberNumber: this.MemberNumber,
@@ -201,9 +312,17 @@ export class API_Character {
         });
     }
 
-    public Ban(): void {}
+    public Ban(): void {
+        this.chatRoom?.banCharacter(this);
+    }
 
-    public Demote(): void {}
+    public Promote(): void {
+        this.chatRoom?.promoteAdmin(this);
+    }
+
+    public Demote(): void {
+        this.chatRoom?.demoteAdmin(this);
+    }
 
     public IsBot(): boolean {
         return this.data.MemberNumber === this.connection.Player.MemberNumber;
@@ -247,8 +366,8 @@ export class API_Character {
         // See above
         return !Boolean(
             this.Appearance.InventoryGet("ItemMouth") ||
-                this.Appearance.InventoryGet("ItemMouth2") ||
-                this.Appearance.InventoryGet("ItemMouth3"),
+            this.Appearance.InventoryGet("ItemMouth2") ||
+            this.Appearance.InventoryGet("ItemMouth3"),
         );
     }
 
@@ -262,7 +381,7 @@ export class API_Character {
         return false;
     }
 
-    public SetHeightOverride(override: number | null): void {
+    public SetHeightOverride(override: number | undefined): void {
         const emoticon = this.Appearance.InventoryGet("Emoticon");
         if (!emoticon) {
             console.warn("No emoticon found for height override");
@@ -276,36 +395,28 @@ export class API_Character {
         // TODO
     }
 
-    public get FriendList(): number[] {
-        if (!Array.isArray(this.data.FriendList)) {
-            this.data.FriendList = [];
-        }
-        return this.data.FriendList;
-    }
-
-    public FriendListAdd(memberNum: number): boolean {
-        if (this.FriendList.includes(memberNum)) {
-            return false;
-        }
-
-        this.data.FriendList.push(memberNum);
-        this.connection.accountUpdate({
-            FriendList: this.data.FriendList,
-        });
-        return true;
-    }
-
-    public FriendListRemove(memberNum: number): void {
-        this.data.FriendList = this.FriendList.filter(
-            (m) => m !== memberNum,
+    get isFriend(): boolean {
+        return this.connection.Player.friendList.includes(
+            this.data.MemberNumber,
         );
-        this.connection.accountUpdate({
-            FriendList: this.data.FriendList,
-        });
+    }
+
+    /**
+     * Add the character as a friend.
+     */
+    public friend(): void {
+        this.connection.Player.addFriends(this.data.MemberNumber);
+    }
+
+    /**
+     * Remove the character as a friend.
+     */
+    public unfriend(): void {
+        this.connection.Player.removeFriends(this.data.MemberNumber);
     }
 
     public MoveToPos(pos: number): void {
-        this._chatRoom.moveCharacterToPos(this.data.MemberNumber, pos);
+        this.chatRoom?.moveCharacterToPos(this.data.MemberNumber, pos);
     }
 
     public SetExpression(
@@ -320,9 +431,19 @@ export class API_Character {
     }
 
     public sendItemUpdate(data: BC_AppearanceItem): void {
+        // ref: ChatRoomCharacterItemUpdate() in BC code
+        const item = this.Appearance.InventoryGet(data.Group)?.getData();
         this.connection.updateCharacterItem({
             Target: this.MemberNumber,
-            ...data,
+            Group: data.Group,
+            Name: item != null ? item.Name : undefined,
+            Color: item != null && item.Color != null ? item.Color : "Default",
+            Difficulty: data.Difficulty ?? 0,
+            Property:
+                item != null && item.Property != null
+                    ? item.Property
+                    : undefined,
+            Craft: item != null && item.Craft != null ? item.Craft : undefined,
         });
     }
 

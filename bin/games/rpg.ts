@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import { API_Character, API_Connector, BC_Server_ChatRoomMessage, CommandParser, ItemPermissionLevel, MapRegion, MessageEvent, positionIsInRegion } from "bc-bot";
+import { API_Character, API_Connector, API_Message, BC_Server_ChatRoomMessage, CommandParser, ItemPermissionLevel, MapRegion, positionIsInRegion } from "bc-bot";
 import { decompressFromBase64 } from "lz-string";
 import { remainingTimeString } from "../utils";
 import mapConfig from "./rpg/config/map.config.json";
@@ -143,7 +143,7 @@ export class RPG {
 
         this.playerService = new PlayerService(this.performanceMonitor);
         this.autoMessageService = new AutoMessageService(this.conn);
-        this.questManager = new QuestManager(conn.chatRoom, this, this.targetPriorityService, this.performanceMonitor, this.playerService);
+        this.questManager = new QuestManager(conn.chatRoom!, this, this.targetPriorityService, this.performanceMonitor, this.playerService);
         this.commands = new PlayerCommands(
             this.conn,
             this.playerService,
@@ -335,7 +335,7 @@ export class RPG {
         );
     };
 
-    private onMessage = async (msg: MessageEvent) => {
+    private onMessage = async (msg: API_Message) => {
         const startTime = this.performanceMonitor.startTimer();
 
         if (
@@ -355,12 +355,15 @@ export class RPG {
         this.performanceMonitor.endTimer('onMessage', startTime);
     };
 
-    private onCharacterLeft = (event: { character: API_Character }) => {
-        if (!event?.character) return;
+    private onCharacterLeft = (
+        _sourceMemberNumber: number,
+        character: API_Character,
+    ) => {
+        if (!character) return;
         this.questManager.cancelQuestForPlayer(
-            event.character.MemberNumber,
+            character.MemberNumber,
             this.conn,
-            event.character.toString(),
+            character.toString(),
         );
     };
 

@@ -1,4 +1,4 @@
-export const CHAT_MESSAGE_MAX_LENGTH = 1000;
+export const CHAT_MESSAGE_MAX_LENGTH = 2000;
 
 function parensAreBalanced(text: string): boolean {
     let depth = 0;

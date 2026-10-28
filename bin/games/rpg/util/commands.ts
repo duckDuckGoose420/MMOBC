@@ -1,4 +1,4 @@
-import { API_Character, BC_Server_ChatRoomMessage, API_Connector, positionIsInRegion, CommandParser, MessageEvent } from "bc-bot";
+import { API_Character, API_Message, BC_Server_ChatRoomMessage, API_Connector, positionIsInRegion, CommandParser } from "bc-bot";
 import { PlayerService } from "../service/PlayerService";
 import { CatchMeBlockReason, QuestManager } from "../model/QuestManager";
 import { IQuest } from "../types/IQuest";
@@ -50,14 +50,14 @@ export class PlayerCommands {
         this.conn.on("Message", this.onIncomingFriendRequest);
     }
 
-    private onIncomingFriendRequest = (ev: MessageEvent) => {
+    private onIncomingFriendRequest = (ev: API_Message) => {
         if (ev.message.Type !== "Hidden" || ev.message.Content !== "ChatRoomFriendRequestAdd") return;
         if (!ev.sender || ev.sender.IsBot()) return;
         this.sendFriendRequest(ev.sender.MemberNumber);
     };
 
     private sendFriendRequest(memberNumber: number): boolean {
-        const added = this.conn.Player.FriendListAdd(memberNumber);
+        const added = this.conn.Player.addFriends(memberNumber);
         if (added) {
             this.conn.SendMessage("Hidden", "ChatRoomFriendRequestAdd", memberNumber);
         }

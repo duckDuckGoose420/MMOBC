@@ -260,7 +260,7 @@ export class AdministrationLogic extends LogicBase {
 			}
 			respond("Ok");
 			return connection.ChatRoomUpdate({
-				Private: argv[0] === "true"
+				Visibility: argv[0] === "true" ? ["Admin", "Whitelist"] : ["All"],
 			});
 		});
 
@@ -747,10 +747,9 @@ export class AdministrationLogic extends LogicBase {
 
 			logger.alert(`${this.a_LogHeader(target.connection)} RoomGuard kicked ${target}: ${data.points}\n`, ...data.log);
 			target.connection.SendMessage("Emote", `*${target} has been automatically kicked by Room Guard™, as their actions have been detected as likely disruptive.`);
-			target.Kick().then(() => {
-				// Reset points to 0, resetting roomguard for specific user after kicking
-				data!.points = 0;
-			}, logger.fatal.bind(logger));
+			target.Kick();
+			// Reset points to 0, resetting roomguard for specific user after kicking
+			data.points = 0;
 
 			if (canBeBannedUntil != null && canBeBannedUntil >= Date.now()) {
 				this.a_start_kickvote(target.connection, true, target, target.connection.Player, "Room Guard™ detected repeated, likely disruptive or spammy actions.");

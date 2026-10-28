@@ -1,6 +1,6 @@
 export * from "./api.ts";
-export * from "./apiCharacter.ts"
-export * from "./apiChatroom.ts"
+export * from "./apiCharacter.ts";
+export * from "./apiChatroom.ts";
 export * from "./apiConnector.ts";
 export * from "./apiMap.ts";
 export * from "./appearance.ts";
@@ -11,3 +11,4 @@ export * from "./jmod.ts";
 export * from "./logicBase.ts";
 export * from "./logicEvent.ts";
 export * from "./outfitColour.ts";
+export * from "./playerCharacter.ts";
