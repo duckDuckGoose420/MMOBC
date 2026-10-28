@@ -92,6 +92,9 @@ export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
 
     public update(data: Partial<API_Chatroom_Data>) {
         Object.assign(this.data, data);
+        if (data.Character) {
+            this.data.Character.forEach((c) => this.characterFromCache(c));
+        }
         if (data.MapData) {
             this.map.onMapUpdate();
         }
@@ -351,8 +354,12 @@ export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
             this.characterCache.set(char.MemberNumber, char);
 
             if (this.characterCache.size > 20) this.pruneCharacterCache();
-        } else {
+        } else if (char.getData() !== data) {
+            // Keep the room entry and the cached character on one object, otherwise
+            // syncs applied to the character get reverted by the next read
             char.update(data);
+            const index = this.data.Character.indexOf(data);
+            if (index !== -1) this.data.Character[index] = char.getData();
         }
 
         return char;

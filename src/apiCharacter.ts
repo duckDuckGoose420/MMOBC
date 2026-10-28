@@ -333,6 +333,10 @@ export class API_Character {
         });
     }
 
+    public getData(): API_Character_Data {
+        return this.data;
+    }
+
     public update(data: Partial<API_Character_Data>): void {
         // Rebuilding item objects is expensive; in-place appearance edits call rebuildAppearance() themselves
         const appearanceChanged = data.Appearance !== undefined && data.Appearance !== this.data.Appearance;
