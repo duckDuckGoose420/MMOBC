@@ -276,19 +276,27 @@ export class API_Character {
         // TODO
     }
 
-    public FriendListAdd(memberNum: number): void {
-        if (this.data.FriendList.includes(memberNum)) {
-            return;
+    public get FriendList(): number[] {
+        if (!Array.isArray(this.data.FriendList)) {
+            this.data.FriendList = [];
+        }
+        return this.data.FriendList;
+    }
+
+    public FriendListAdd(memberNum: number): boolean {
+        if (this.FriendList.includes(memberNum)) {
+            return false;
         }
 
         this.data.FriendList.push(memberNum);
         this.connection.accountUpdate({
             FriendList: this.data.FriendList,
         });
+        return true;
     }
 
     public FriendListRemove(memberNum: number): void {
-        this.data.FriendList = this.data.FriendList.filter(
+        this.data.FriendList = this.FriendList.filter(
             (m) => m !== memberNum,
         );
         this.connection.accountUpdate({

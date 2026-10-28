@@ -1,6 +1,12 @@
 import { API_Character, API_Chatroom } from "bc-bot";
 
 export class PlayerIdentifier {
+    static parseMemberNumber(identifier: string): number | null {
+        const digits = identifier.startsWith("#") ? identifier.slice(1) : identifier;
+        if (!/^[0-9]+$/.test(digits)) return null;
+        return Number.parseInt(digits, 10);
+    }
+
     /**
      * Identifies a player in the room by MemberNumber or Name
      * @param room The chat room to search in
@@ -8,8 +14,8 @@ export class PlayerIdentifier {
      * @returns API_Character if found, error message string if not found
      */
     static identifyPlayerInRoom(room: API_Chatroom, identifier: string): API_Character | string {
-        if (/^[0-9]+$/.test(identifier)) {
-            const MemberNumber = Number.parseInt(identifier, 10);
+        const MemberNumber = PlayerIdentifier.parseMemberNumber(identifier);
+        if (MemberNumber !== null) {
             const target = room.characters.find(c => c.MemberNumber === MemberNumber);
             if (!target) {
                 return `Could not find player #${MemberNumber} in room`;

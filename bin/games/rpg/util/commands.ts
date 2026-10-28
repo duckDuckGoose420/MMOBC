@@ -1,4 +1,4 @@
-import { API_Character, BC_Server_ChatRoomMessage, API_Connector, positionIsInRegion, CommandParser } from "bc-bot";
+import { API_Character, BC_Server_ChatRoomMessage, API_Connector, positionIsInRegion, CommandParser, MessageEvent } from "bc-bot";
 import { PlayerService } from "../service/PlayerService";
 import { CatchMeBlockReason, QuestManager } from "../model/QuestManager";
 import { IQuest } from "../types/IQuest";
@@ -47,6 +47,21 @@ export class PlayerCommands {
     ) {
         this.commandParser = new CommandParser(this.conn);
         this.registerAllCommands();
+        this.conn.on("Message", this.onIncomingFriendRequest);
+    }
+
+    private onIncomingFriendRequest = (ev: MessageEvent) => {
+        if (ev.message.Type !== "Hidden" || ev.message.Content !== "ChatRoomFriendRequestAdd") return;
+        if (!ev.sender || ev.sender.IsBot()) return;
+        this.sendFriendRequest(ev.sender.MemberNumber);
+    };
+
+    private sendFriendRequest(memberNumber: number): boolean {
+        const added = this.conn.Player.FriendListAdd(memberNumber);
+        if (added) {
+            this.conn.SendMessage("Hidden", "ChatRoomFriendRequestAdd", memberNumber);
+        }
+        return added;
     }
 
     public async onCommandQuest(
@@ -218,7 +233,7 @@ export class PlayerCommands {
             "/bot give [player] [item] [count] - Give an inventory item (count defaults to 1)",
             "/bot stats",
             "/bot inventory - List your virtual items",
-            "/bot use [item] [player] - Use an item from your inventory",
+            "/bot use [item] [player] - Use an item from your inventory. Player is optional for release",
             "/bot shop - Open the shop (only in the shop area)",
             "/bot buy [item] [count]",
             "/bot sell [item] [count]",
@@ -236,7 +251,8 @@ export class PlayerCommands {
             "",
             "/bot settings - Configure grace period (0-20 min)",
             "/bot dominant - Toggle dominant status (prevents being targeted by quests)",
-            "/bot block [player] - Toggle blocking a player (you won't be matched as quest targets)",
+            "/bot block [player] - Toggle blocking a player (you won't be matched as quest targets). Use Member Number if they are not in the room",
+            "/bot friend - Send a friend request so you can see when the bot is online",
             "",
             "/bot feedback [your message]"
         ].join("\n");
@@ -357,7 +373,7 @@ Thanks for your feedback!)`, sender.MemberNumber);
 /bot settings graceperiod [0-20] - Set grace period in minutes (0 = disabled, 20 = maximum)
 /bot settings dominant - Check your current dominant status
 /bot dominant - Toggle dominant status (prevents being targeted by quests)
-/bot block [player] - Toggle blocking a player (you won't be matched as quest targets))`, sender.MemberNumber);
+/bot block [player] - Toggle blocking a player (you won't be matched as quest targets). Use Member Number if they are not in the room)`, sender.MemberNumber);
         }
 
         const player = this.playerService.get(sender.MemberNumber);
@@ -1084,42 +1100,80 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`);
                     return character ? `${character.toString()} [#${n}]` : `#${n}`;
                 }).join(', ');
             }
-            this.conn.SendMessage("Whisper", `(Usage: /bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other.\nCurrently blocked: ${list})`, sender.MemberNumber);
+            this.conn.SendMessage("Whisper", `(Usage: /bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other.\nUse Member Number if they are not in the room.\nCurrently blocked: ${list})`, sender.MemberNumber);
             return;
         }
 
         const targetIdentifier = args.join(' ');
-        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
-        if (typeof target === 'string') {
-            this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
+        const resolved = this.resolveBlockTarget(sender, player, targetIdentifier);
+        if (typeof resolved === 'string') {
+            this.conn.SendMessage("Whisper", `(${resolved})`, sender.MemberNumber);
             return;
         }
 
-        if (sender.MemberNumber === target.MemberNumber) {
-            this.conn.SendMessage("Whisper", `(You cannot block yourself)`, sender.MemberNumber);
-            return;
-        }
-
-        if (target.IsBot()) {
-            this.conn.SendMessage("Whisper", `(You cannot block the bot)`, sender.MemberNumber);
-            return;
-        }
-
-        const nowBlocked = player.toggleBlocked(target.MemberNumber);
+        const nowBlocked = player.toggleBlocked(resolved.memberNumber);
         this.playerService.save(player);
 
         if (nowBlocked) {
             const senderQuest = this.questManager.playerHasQuestAssigned(sender.MemberNumber);
-            if (senderQuest && senderQuest.targetPlayer === target.MemberNumber) {
+            if (senderQuest && senderQuest.targetPlayer === resolved.memberNumber) {
                 this.questManager.cancelQuestForPlayer(sender.MemberNumber);
             }
-            const targetQuest = this.questManager.playerHasQuestAssigned(target.MemberNumber);
+            const targetQuest = this.questManager.playerHasQuestAssigned(resolved.memberNumber);
             if (targetQuest && targetQuest.targetPlayer === sender.MemberNumber) {
-                this.questManager.cancelQuestForPlayer(target.MemberNumber);
+                this.questManager.cancelQuestForPlayer(resolved.memberNumber);
             }
-            this.conn.SendMessage("Whisper", `(You blocked ${target.toString()}. You will no longer be assigned as quest targets for each other.)`, sender.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You blocked ${resolved.label}. You will no longer be assigned as quest targets for each other.)`, sender.MemberNumber);
         } else {
-            this.conn.SendMessage("Whisper", `(You unblocked ${target.toString()})`, sender.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You unblocked ${resolved.label})`, sender.MemberNumber);
+        }
+    }
+
+    private resolveBlockTarget(
+        sender: API_Character,
+        player: ReturnType<PlayerService["get"]>,
+        targetIdentifier: string,
+    ): { memberNumber: number; label: string } | string {
+        const inRoom = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+        if (typeof inRoom !== 'string') {
+            if (sender.MemberNumber === inRoom.MemberNumber) return "You cannot block yourself";
+            if (inRoom.IsBot()) return "You cannot block the bot";
+            return { memberNumber: inRoom.MemberNumber, label: inRoom.toString() };
+        }
+
+        const memberNumber = PlayerIdentifier.parseMemberNumber(targetIdentifier);
+        if (memberNumber === null) {
+            if (inRoom.includes("not found")) {
+                return `${inRoom}. Use Member Number to block a saved player who is not in the room.`;
+            }
+            return inRoom;
+        }
+
+        if (sender.MemberNumber === memberNumber) return "You cannot block yourself";
+        if (this.conn.Player.MemberNumber === memberNumber) return "You cannot block the bot";
+        if (!player.hasBlocked(memberNumber) && !this.playerService.has(memberNumber)) {
+            return `Could not find player #${memberNumber} in the room or saved players`;
+        }
+
+        return { memberNumber, label: `#${memberNumber}` };
+    }
+
+    public async onCommandFriend(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
+        if (sender.IsBot()) return;
+
+        const added = this.sendFriendRequest(sender.MemberNumber);
+        if (added) {
+            this.conn.SendMessage(
+                "Whisper",
+                `(Friend request sent. Accept it to see when I'm online in your friend list.)`,
+                sender.MemberNumber,
+            );
+        } else {
+            this.conn.SendMessage(
+                "Whisper",
+                `(We're already friends. If I don't show as online, add me back from my profile.)`,
+                sender.MemberNumber,
+            );
         }
     }
 
@@ -1135,15 +1189,16 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`);
         for (const [itemId, count] of entries) {
             const item = getVirtualItem(itemId);
             if (!item) continue;
-            lines.push(`${item.name} x${count} - /bot use ${item.id} [player]`);
+            const targetHint = item.id === ITEM_RELEASE ? "" : " [player]";
+            lines.push(`${item.name} x${count} - /bot use ${item.id}${targetHint}`);
         }
         lines.push(")");
         this.conn.SendMessage("Whisper", lines.join("\n"), sender.MemberNumber);
     }
 
     public async onCommandUse(sender: API_Character, msg: BC_Server_ChatRoomMessage, args: string[]) {
-        if (args.length < 2) {
-            this.conn.SendMessage("Whisper", "(Usage: /bot use [item] [player]. Check /bot inventory for what you have and how each item works.)", sender.MemberNumber);
+        if (args.length < 1) {
+            this.conn.SendMessage("Whisper", "(Usage: /bot use [item] [player]. Player is optional for release. Check /bot inventory for what you have and how each item works.)", sender.MemberNumber);
             return;
         }
 
@@ -1154,11 +1209,21 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`);
             return;
         }
 
-        const targetIdentifier = args.slice(1).join(' ');
-        const target = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
-        if (typeof target === 'string') {
-            this.conn.SendMessage("Whisper", `(${target})`, sender.MemberNumber);
-            return;
+        const targetIdentifier = args.slice(1).join(' ').trim();
+        let target: API_Character;
+        if (!targetIdentifier) {
+            if (itemId !== ITEM_RELEASE) {
+                this.conn.SendMessage("Whisper", "(Usage: /bot use [item] [player]. Check /bot inventory for what you have and how each item works.)", sender.MemberNumber);
+                return;
+            }
+            target = sender;
+        } else {
+            const identified = PlayerIdentifier.identifyPlayerInRoom(this.conn.chatRoom, targetIdentifier);
+            if (typeof identified === 'string') {
+                this.conn.SendMessage("Whisper", `(${identified})`, sender.MemberNumber);
+                return;
+            }
+            target = identified;
         }
 
         if (target.IsBot()) {
@@ -1527,6 +1592,7 @@ Private Room: ${privateRoomEmpty ? 'Empty' : 'In Use'})`);
         this.commandParser.register("performance", this.onCommandPerformance.bind(this));
         this.commandParser.register("dominant", this.onCommandDominant.bind(this));
         this.commandParser.register("block", this.onCommandBlock.bind(this));
+        this.commandParser.register("friend", this.onCommandFriend.bind(this));
         this.commandParser.register("inventory", this.onCommandInventory.bind(this));
         this.commandParser.register("use", this.onCommandUse.bind(this));
         this.commandParser.register("shop", this.onCommandShop.bind(this));

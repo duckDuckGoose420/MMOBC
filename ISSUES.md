@@ -6,7 +6,6 @@
 - merge save and intro area
 - let people friend the bot to highlight the room
 - auto kick AFK players. Some architectures already exist, but not sure if they work
-- room private when bot leaves
 - captured player cant leave private room (key)
 
 ## Commands

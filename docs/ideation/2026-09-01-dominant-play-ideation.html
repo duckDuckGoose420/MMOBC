@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ideation: Dominanz nach dem Capture</title>
+  <style>
+    :root {
+      --ink: #1c1917;
+      --muted: #57534e;
+      --line: #d6d3d1;
+      --paper: #fafaf9;
+      --card: #ffffff;
+      --accent: #9f1239;
+      --ok: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.5 "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif;
+    }
+    main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    h1, h2, h3 { font-family: "Source Sans 3", "Segoe UI", sans-serif; font-weight: 650; letter-spacing: -0.02em; }
+    h1 { font-size: 1.85rem; margin: 0 0 0.4rem; }
+    h2 { font-size: 1.25rem; margin: 2.2rem 0 0.7rem; border-bottom: 1px solid var(--line); padding-bottom: 0.3rem; }
+    h3 { font-size: 1.05rem; margin: 1.1rem 0 0.35rem; }
+    p, li { color: var(--ink); }
+    .muted { color: var(--muted); font-size: 0.92rem; }
+    .meta { font-family: "Source Sans 3", "Segoe UI", sans-serif; font-size: 0.85rem; color: var(--muted); display: grid; gap: 0.15rem; margin-bottom: 1.5rem; }
+    nav a { color: var(--accent); text-decoration: none; margin-right: 0.85rem; }
+    nav a:hover { text-decoration: underline; }
+    .jump { font-family: "Source Sans 3", "Segoe UI", sans-serif; font-size: 0.9rem; }
+    .jump ol { padding-left: 1.2rem; }
+    article { background: var(--card); border: 1px solid var(--line); padding: 1rem 1.1rem 1.15rem; margin: 1rem 0; }
+    .k { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.84em; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 0.45rem 0.4rem; vertical-align: top; }
+    th { font-family: "Source Sans 3", "Segoe UI", sans-serif; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    svg { max-width: 100%; height: auto; margin: 0.6rem 0 0.2rem; }
+    footer { margin-top: 2.5rem; color: var(--muted); font-size: 0.82rem; font-family: "Source Sans 3", "Segoe UI", sans-serif; }
+    .tag { display: inline-block; font-family: "Source Sans 3", "Segoe UI", sans-serif; font-size: 0.75rem; border: 1px solid var(--line); padding: 0.05rem 0.4rem; margin-right: 0.3rem; }
+    .first { color: var(--ok); font-weight: 650; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Ideation: Dominanz nach dem Capture</h1>
+  <div class="meta">
+    <div>Datum: <time datetime="2026-09-01">2026-09-01</time></div>
+    <div>Topic: dominant-play</div>
+    <div>Focus: Dominieren interaktiver und belohnender machen, damit Hunter Captives nicht nach dem Quest-Geld sofort freilassen</div>
+    <div>Mode: repo-grounded</div>
+  </div>
+  <nav>
+    <a href="#grounding">Grounding</a>
+    <a href="#axes">Achsen</a>
+    <a href="#ideas">Ideen</a>
+    <a href="#reject">Verworfen</a>
+  </nav>
+
+  <h2 id="grounding">Grounding Context</h2>
+  <p><strong>Codebase Context.</strong> BC RPG vergibt Quests, damit Play startet. <span class="k">runLoop</span> prüft alle 10s <span class="k">successCondition</span>: Arm-Lock durch den Owner, plus bei Kidnap/Prison Leash und Zone, plus bei Climax Orgasmus-Count. Erfolg zahlt sofort <span class="k">player.money += 100</span>, setzt 10 Minuten Quest-CD, hängt Grace 0–20 Minuten an den <em>Hunter</em> und flüstert Quest complete. Die gefangene Person bekommt keinen Hold-State. <span class="k">bonus()</span> existiert auf jeder Quest und wird nirgends aufgerufen. LockQuest hat Gewicht 5 von 10. <span class="k">/bot dominant</span> ist Prey-Opt-out ohne Job. Level senkt die Chance, von niedrigeren Huntern getargetet zu werden. Prison läuft 5 Minuten und ruft dann <span class="k">Util.freeCharacter</span>. Ein Private Room, Partner muss confirm. Intro bittet bereits, nicht sofort loszulassen.</p>
+  <p class="muted">Player-named: ISSUES asylum, Self-Release-Bounty, Timed Task nach Capture, Bonus für weitere Interaktion, jemanden wählen der dich targetet, Titles. Feedback: Dominic (Timer-Tasks), ghost (Belohnung fürs Binden statt für Play; Level soll erfolgreiche Keeper mehr targeten).</p>
+  <p><strong>External Context.</strong> Dom-Mangel ist Arbeit, Angst und Verantwortung, nicht nur Kopfzahl (Not Toby; Elle; Devon Price „Kink-Dispenser“). Capture-Payout ist Arrival Fallacy / Dating-Sim nach der Confession. SDT: Kompetenz, Autonomie, Bezogenheit. Besitz über Kontrolle, Wissen, Selbstinvestition (Endowment / IKEA). RimWorld: Capture startet Warden-Jobs. Dungeon Keeper: Convert vs Kill. CK3/EVE: Ransom über Deal, nicht Enforcement. Consent: Y/N/M und Task-Menüs. Nicht: Dumper bestrafen, Non-Con erzwingen.</p>
+  <p class="muted">Past learnings: kein <span class="k">solutions/</span>-Korpus. Evidence-Dossiers wurden im Orchestrator extrahiert; Ideation-Flotte, Web-Research, Basis-Verifier und Novelty-Critic liefen als getrennte Agenten.</p>
+
+  <h2 id="axes">Topic Axes</h2>
+  <ol>
+    <li>Reward-Timing nach dem Capture</li>
+    <li>Post-Capture Ownership und Hold</li>
+    <li>Dominant-Identität und Targeting</li>
+    <li>Interaktions-Affordances</li>
+    <li>Permission-Signale der Captive</li>
+  </ol>
+
+  <h2 id="ideas">Ranked Ideas</h2>
+  <p class="muted">48 Rohideen über sechs Frames, 16 Cluster, 7 Survivors. Dump wird nicht bestraft.</p>
+  <nav class="jump">
+    <ol>
+      <li><a href="#i1">Zweite Kasse: bonus() als Warden-Schicht</a></li>
+      <li><a href="#i2">Request-Zettel: Keep / Play / Danke</a></li>
+      <li><a href="#i3">Klemmbrett: Captive markiert, Hunter klickt</a></li>
+      <li><a href="#i4">Dominant als Schicht, nicht als Versteck</a></li>
+      <li><a href="#i5">Dump als Übergabe, nicht als Wegwerfen</a></li>
+      <li><a href="#i6">Bound Maid: Ankunft ist nicht das Ende</a></li>
+      <li><a href="#i7">Nachfrage statt Tarnung: WANT + Level-Magnet</a></li>
+    </ol>
+  </nav>
+
+  <svg viewBox="0 0 640 150" role="img" aria-labelledby="loop-title">
+    <title id="loop-title">Ist-Loop gegen Soll-Loop</title>
+    <text x="0" y="14" fill="#57534e" font-size="12">Heute: Sieg am Lock</text>
+    <rect x="8" y="24" width="100" height="30" fill="none" stroke="#1c1917"/>
+    <text x="58" y="43" text-anchor="middle" font-size="13">Jagd</text>
+    <rect x="126" y="24" width="100" height="30" fill="none" stroke="#1c1917"/>
+    <text x="176" y="43" text-anchor="middle" font-size="13">Lock</text>
+    <rect x="244" y="24" width="100" height="30" fill="none" stroke="#1c1917"/>
+    <text x="294" y="43" text-anchor="middle" font-size="13">+100</text>
+    <rect x="362" y="24" width="100" height="30" fill="none" stroke="#1c1917"/>
+    <text x="412" y="43" text-anchor="middle" font-size="13">Dump</text>
+    <text x="0" y="84" fill="#57534e" font-size="12">Soll: Lock ist Mise, Play ist Service</text>
+    <rect x="8" y="94" width="90" height="30" fill="none" stroke="#1c1917"/>
+    <text x="53" y="113" text-anchor="middle" font-size="12">Jagd</text>
+    <rect x="114" y="94" width="90" height="30" fill="none" stroke="#1c1917"/>
+    <text x="159" y="113" text-anchor="middle" font-size="12">Lock</text>
+    <rect x="220" y="94" width="90" height="30" fill="none" stroke="#9f1239"/>
+    <text x="265" y="113" text-anchor="middle" font-size="12" fill="#9f1239">Zettel</text>
+    <rect x="326" y="94" width="90" height="30" fill="none" stroke="#9f1239"/>
+    <text x="371" y="113" text-anchor="middle" font-size="12" fill="#9f1239">Beat</text>
+    <rect x="432" y="94" width="90" height="30" fill="none" stroke="#9f1239"/>
+    <text x="477" y="113" text-anchor="middle" font-size="12" fill="#9f1239">Bonus</text>
+  </svg>
+  <p class="muted">Analogie: Küchen-Pass. Ticket-Druck ist nicht Feierabend. Expo schickt das Gericht, dann kommt der Lohn für den Service.</p>
+
+  <article id="i1">
+    <h3>1. Zweite Kasse: bonus() als Warden-Schicht <span class="tag first">First ship</span> <span class="tag">Reward-Timing</span></h3>
+    <p><strong>Description.</strong> Capture zahlt weiter sofort 100. Der tote <span class="k">bonus()</span>-Hook zahlt extra nur solange <span class="k">LockMemberNumber == owner</span> und ein schwaches Play-Signal da ist (Keep-Antwort, gleiche Map-Region, vorhandener Orgasm-Hook). Freilassen kostet nichts. Die 10-Minuten-QUEST_CD wird zur bezahlten Schicht statt zur Wartehalle vor der nächsten Jagd.</p>
+    <p><strong>Axis:</strong> Reward-Timing nach dem Capture</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> <span class="k">rpg.ts</span> <span class="k">player.money += 100</span> dann <span class="k">questCD</span> 10 min; <span class="k">IQuest.bonus()</span> nie aufgerufen; ISSUES „bonus for further interaction with the target after capture“. <span class="k">external:</span> Arrival Fallacy; Octalysis Ownership. <span class="k">reasoned:</span> Dump ist optimal solange die nächste Jagd der einzige Drucker ist.</p>
+    <p><strong>Rationale:</strong> Unique Hook genau im Dump-Moment, ohne Map, ohne Zweitwährung, ohne Consent-Geisel.</p>
+    <p><strong>Downsides:</strong> Großes Overlay ohne Play-Signal = AFK-Lock-Farm. Muss an Idee 2 oder Nähe gekoppelt werden.</p>
+    <p><strong>Confidence:</strong> 85% · <strong>Complexity:</strong> Low</p>
+  </article>
+
+  <article id="i2">
+    <h3>2. Request-Zettel: Keep / Play / Danke <span class="tag">Permission</span></h3>
+    <p><strong>Description.</strong> Nach dem Lock flüstert der Bot zuerst der gefangenen Person: Keep / kurz spielen / Danke, frei lassen ist ok. Der Hunter sieht das auf der Complete-Zeile. Dump nach „Danke“ ist ein gelesener Raum. Dump nach „Keep“ bleibt erlaubt — nur unbezahlt in der zweiten Kasse.</p>
+    <p><strong>Axis:</strong> Permission-Signale der Captive</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> Intro bittet nicht zu dumpen; Complete-Whisper nur an den Hunter; ghost will Target-Check vor Play-Reward; Private-Confirm existiert schon als Consent-Gate. <span class="k">external:</span> DJ Request-Slip; Y/N/M; SDT Relatedness.</p>
+    <p><strong>Rationale:</strong> Shy Hunters dumpen in den ersten Sekunden weil sie nicht wissen ob sie gewollt sind. Eine zweite Predigt scheitert — die Intro hat das schon ausgegeben.</p>
+    <p><strong>Downsides:</strong> Whisper ohne Payoff wird ignoriert. Deshalb im selben Patch wie Idee 1.</p>
+    <p><strong>Confidence:</strong> 80% · <strong>Complexity:</strong> Low</p>
+  </article>
+
+  <article id="i3">
+    <h3>3. Klemmbrett: Captive markiert, Hunter klickt <span class="tag">Interaktion</span></h3>
+    <p><strong>Description.</strong> Captive hat Y/N/M über vorgefertigte Beats (ISSUES: 3 Heat-Pats in 5 min im Petsuit; Dominic: betteln / Orgasmus-Count). Hunter bekommt nur die Schnittmenge als nummeriertes Menü. Skip ohne Strafe. Fail-Prison nur wenn die Karte angenommen wurde.</p>
+    <p><strong>Axis:</strong> Interaktions-Affordances</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> LockQuest Gewicht 5; kein <span class="k">/bot task</span>; ClimaxQuest zählt Orgasmen; ISSUES timed task; Dominic-Prompt. <span class="k">external:</span> Youth-Coach Klemmbrett; SDT Kompetenz ohne Improvisationsangst; Not Toby unsichtbare Arbeit.</p>
+    <p><strong>Rationale:</strong> Dominieren interaktiv machen heißt den Job entwerfen, nicht mehr RP verlangen. Subs schreiben den Brief, Hunter klickt — das invertiert den Kink-Dispenser.</p>
+    <p><strong>Downsides:</strong> Außer Orgasmus/Zone/Item ist Detection Honor-System. Erst messbare Karten.</p>
+    <p><strong>Confidence:</strong> 70% · <strong>Complexity:</strong> Medium</p>
+  </article>
+
+  <article id="i4">
+    <h3>4. Dominant als Schicht, nicht als Versteck <span class="tag">Identität</span></h3>
+    <p><strong>Description.</strong> <span class="k">/bot dominant</span> clockt ein: keine Prey-Quests, dafür inbound Keep-Aufträge. Schicht hat Ende (z. B. 20 min). Clock-out released Captives freundlich. Stationen optional: Grill (Locks), Pastry (Climax), Warden (Zellen).</p>
+    <p><strong>Axis:</strong> Dominant-Identität und Targeting</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> Flag nur „wont be targetet“; keine Rewards/Titles/Jobs; Dominants nicht imprisonable. <span class="k">external:</span> Küchen-Brigade; Dom-Burnout; Devon Price.</p>
+    <p><strong>Rationale:</strong> Der einzige „ich bin Dom“-Control entfernt Arbeit statt sie zu geben. Eine Schicht mit Feierabend senkt die Verantwortungsschwelle.</p>
+    <p><strong>Downsides:</strong> Leere Schichten ohne Supply. Nur mit Idee 5.</p>
+    <p><strong>Confidence:</strong> 68% · <strong>Complexity:</strong> Medium</p>
+  </article>
+
+  <article id="i5">
+    <h3>5. Dump als Übergabe, nicht als Wegwerfen <span class="tag">Hold</span></h3>
+    <p><strong>Description.</strong> <span class="k">/bot dropoff</span> in Bound Maid oder Keeper-Queue. Hunter behält die 100. Optional kleiner bonus() für saubere Übergabe. Queue-Timeout auto-free wie Prison.</p>
+    <p><strong>Axis:</strong> Post-Capture Ownership und Hold</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> KidnapQuestBoundMaid liefert schon in den Club; Bound Maid ist Public-Play Safe Zone. <span class="k">reasoned:</span> Jagd-Spieler bleiben Jagd-Spieler; der Hebel ist wohin der Körper geht.</p>
+    <p><strong>Rationale:</strong> Dump zu bekämpfen verliert gegen den beobachteten Loop. Dump in eine Dom-Schicht zu leiten wächst das Angebot.</p>
+    <p><strong>Downsides:</strong> Laundry-Chute wenn niemand on-duty ist. Timeout zwingend.</p>
+    <p><strong>Confidence:</strong> 65% · <strong>Complexity:</strong> Medium</p>
+  </article>
+
+  <article id="i6">
+    <h3>6. Bound Maid: Ankunft ist nicht das Ende <span class="tag">Hold</span></h3>
+    <p><strong>Description.</strong> Erfolg von KidnapQuestBoundMaid ist Lock+Leash+Region — Dump an der Club-Tür. Stay-in-Club bei gehaltenem Lock zahlt Idee 1. Ein Private Room (Kosten 100) skaliert nicht.</p>
+    <p><strong>Axis:</strong> Post-Capture Ownership und Hold</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> Bound Maid Safe Zone + Delivery-Quest; ein Private Room, blockiert wenn belegt. <span class="k">external:</span> SDT Relatedness; öffentliche Performance.</p>
+    <p><strong>Rationale:</strong> Öffentliche Dominanz ist niedrigere Improvisationslast als 1:1 und der einzige Raum der skaliert.</p>
+    <p><strong>Downsides:</strong> Ohne Stay-Pay bleibt die Bühne Flavor-Text.</p>
+    <p><strong>Confidence:</strong> 75% · <strong>Complexity:</strong> Medium</p>
+  </article>
+
+  <article id="i7">
+    <h3>7. Nachfrage statt Tarnung: WANT + Level-Magnet <span class="tag">Identität</span></h3>
+    <p><strong>Description.</strong> Captives setzen WANT auf Hunter. <span class="k">generateQuestWithTarget</span> zieht daraus. Level-Invert nur auf dem WANT-Pfad: erfolgreiche Keeper werden gebucht, nicht vor Prey versteckt. Titles später, sobald Keep messbar ist.</p>
+    <p><strong>Axis:</strong> Dominant-Identität und Targeting</p>
+    <p><strong>Basis:</strong> <span class="k">direct:</span> <span class="k">questAssignmentProbability</span> senkt Target-Chance pro Level; Copy sagt „mostly a stat for doms“; ghost will das Gegenteil; TargetPriorityService hat PRIORITY, UI ist Admin-only; ISSUES choose-someone-to-target-you; Self-Bounty ist der einzige Please-catch-me-Kanal. <span class="k">external:</span> EVE Reputation; SDT Relatedness (chosen werden).</p>
+    <p><strong>Rationale:</strong> Random Lock auf Fremde produziert Dump. Gebucht werden produziert Keep.</p>
+    <p><strong>Downsides:</strong> Invert ohne WANT stapelt High-Level-Subs. Titles ohne Keep-Metric sind Dumper-Kosmetik.</p>
+    <p><strong>Confidence:</strong> 78% · <strong>Complexity:</strong> Medium</p>
+  </article>
+
+  <h2 id="reject">Rejection Summary</h2>
+  <table>
+    <thead><tr><th>#</th><th>Idee</th><th>Grund</th></tr></thead>
+    <tbody>
+      <tr><td>M2</td><td>Presence als zweite XP-Währung</td><td>Dual Economy in einem Room der Money/Level schon kaum erklärt; Overlay in Money (Idee 1) reicht</td></tr>
+      <tr><td>M3</td><td>Capture-Lohn auf 0</td><td>Tötet den Matchmaker; widerspricht natürlicher Animation</td></tr>
+      <tr><td>M4</td><td>Grace pauschal auf Captive</td><td>Gedumpte Locked-Leute werden untargetable; Rescue stirbt</td></tr>
+      <tr><td>M9</td><td>Asylum als Warden-Campus jetzt</td><td>Ohne Dom-Job prettier Dump-Slot; später als Map, nicht First Ship</td></tr>
+      <tr><td>M10</td><td>Release-Kauf zahlt Lock-Owner</td><td>Captive finanziert AFK-Dump</td></tr>
+      <tr><td>M11</td><td>Success = Unlock nach Play</td><td>Consent-Geisel / Fake-Confirm</td></tr>
+      <tr><td>M12</td><td>Genau ein Collar-Slot</td><td>Zu eng für diesen Room; Quest-Grammatik ist Arm-Lock</td></tr>
+      <tr><td>M14</td><td>Nächste Quest dieselbe Person als Default</td><td>Stalk/Farm; WANT ist der Opt-in</td></tr>
+      <tr><td>M16</td><td>Orgasmus-Ledger als Dom-XP</td><td>Trainiert Cum-then-Dump; schlechtes Play-Orakel</td></tr>
+      <tr><td>M8-T</td><td>Titles zuerst</td><td>Kosmetik ohne Keep-Metric</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Keine Achse ohne Survivor. Asylum bleibt ISSUES-Kontext, nicht aktive Richtung für dieses Ziel.</p>
+
+  <footer class="composition-signal">Composed 2026-09-01T14:30Z by ce-ideate from user request on post-capture dominant play in MMOBC</footer>
+</main>
+</body>
+</html>

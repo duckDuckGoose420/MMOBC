@@ -169,13 +169,6 @@ export class QuestManager {
 
         const maxAttempts = 10;
 
-        const catchMeQuest = this.consumeAndTryCatchMeQuest(memberNumber, gracePeriods);
-        if (catchMeQuest) {
-            this.quests.add(catchMeQuest);
-            conn.SendMessage("Whisper", "(New quest: " + catchMeQuest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
-            return;
-        }
-
         // First, try to assign quest with priority targets
         const priorityTargets = this.targetPriorityService.getPriorityTargets(memberNumber);
         if (priorityTargets.length > 0) {
@@ -209,6 +202,13 @@ export class QuestManager {
                     return;
                 }
             }
+        }
+
+        const catchMeQuest = this.consumeAndTryCatchMeQuest(memberNumber, gracePeriods);
+        if (catchMeQuest) {
+            this.quests.add(catchMeQuest);
+            conn.SendMessage("Whisper", "(New quest: " + catchMeQuest.description() + ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ", memberNumber);
+            return;
         }
 
         // If no priority target worked, try normal quest generation

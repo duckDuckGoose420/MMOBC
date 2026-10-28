@@ -30,6 +30,10 @@ export class PlayerService {
         });
     }
 
+    has(memberNumber: number): boolean {
+        return Boolean(this.playerStorage.get(memberNumber.toString()));
+    }
+
     get(memberNumber: number): IPlayer {
         // Performance monitoring: Track file system reads
         this.performanceMonitor.incrementCounter('playerService_get_calls');

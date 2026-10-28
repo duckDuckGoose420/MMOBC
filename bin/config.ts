@@ -130,14 +130,18 @@ export function loadConfig(cfgFile = process.argv[2] ?? "./config.json"): Config
     }
 
     const fog = envBool("ROOM_FOG") ?? fileRoom.MapData?.Fog ?? true;
+    const isPrivate = envBool("ROOM_PRIVATE") ?? fileRoom.Private ?? false;
+    const isLocked = envBool("ROOM_LOCKED") ?? fileRoom.Locked ?? false;
 
     const room: RoomDefinition = {
         ...fileRoom,
         Name: roomName,
         Description: envString("ROOM_DESCRIPTION") ?? fileRoom.Description ?? "",
         Background: envString("ROOM_BACKGROUND") ?? fileRoom.Background ?? "",
-        Private: envBool("ROOM_PRIVATE") ?? fileRoom.Private ?? false,
-        Locked: envBool("ROOM_LOCKED") ?? fileRoom.Locked ?? false,
+        Private: isPrivate,
+        Locked: isLocked,
+        Access: isLocked ? ["Admin", "Whitelist"] : ["All"],
+        Visibility: isPrivate ? ["Admin", "Whitelist"] : ["All"],
         Space: envString("ROOM_SPACE") ?? fileRoom.Space ?? "X",
         Ban: envNumberList("ROOM_BAN") ?? fileRoom.Ban ?? [],
         Limit: envInt("ROOM_LIMIT") ?? fileRoom.Limit ?? 20,

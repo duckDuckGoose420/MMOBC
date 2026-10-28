@@ -93,7 +93,7 @@ export class RPG {
         "/bot pay [player] [amount] - Example /bot pay 12345 200 will transfer 200 money from you to player 12345",
         "/bot stats - Check your money, XP and level",
         "/bot inventory - List your virtual items",
-        "/bot use [item] [player] - Use an item from your inventory",
+        "/bot use [item] [player] - Use an item from your inventory. Player is optional for release",
         "/bot shop - Open the shop (only in the shop area)",
         "/bot buy [item] [count] - Buy an item from the shop",
         "/bot sell [item] [count] - Sell an item to the shop",
@@ -112,7 +112,8 @@ export class RPG {
         "/bot private check - It will tell you if the private room is empty, in case you want to use it",
         "",
         "/bot settings - Configure your grace period (0-20 minutes, max 20) after completing quests",
-        "/bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other",
+        "/bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other. Use Member Number if they are not in the room",
+        "/bot friend - Send a friend request so you can see when the bot is online",
         "",
         "/bot feedback [your message] - ",
         "Use this command to send suggestions, advice, complaints, bug reports, or anything else you'd like me to see. I'll read every message as soon as possible. Constructive criticism is welcome and helpful - just keep it polite.",
@@ -202,7 +203,21 @@ export class RPG {
         this.prisonService.save();
         await this.updateMapOnShutdown();
 
+        if (!forRestart) {
+            this.unlistRoomOnShutdown();
+        }
+
         await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    private unlistRoomOnShutdown(): void {
+        this.conn.ChatRoomUpdate({
+            Visibility: ["Admin", "Whitelist"],
+        });
+        const offlineNotice = "(The bot is now offline and the room is private.)";
+        for (let i = 0; i < 3; i++) {
+            this.conn.SendMessage("Chat", offlineNotice);
+        }
     }
 
     private async updateMapOnShutdown(): Promise<void> {
@@ -420,8 +435,36 @@ export class RPG {
         }
         this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
         this.conn.SendMessage("Chat", `(${character.toString()} has been imprisoned)`);
+        this.notifyCaptorPrisonKeyTaken(character);
         character.takeKey(["bronze"]);
         this.prisonService.imprisonPlayer(character);
+    }
+
+    private notifyCaptorPrisonKeyTaken(character: API_Character): void {
+        const message = `(You can release them now, don't worry, we have taken their key)`;
+        const recipients = new Set<number>();
+        const lockOwner = character.Appearance.InventoryGet("ItemArms")?.getData()?.Property?.LockMemberNumber;
+        if (lockOwner && lockOwner !== character.MemberNumber) {
+            recipients.add(Number(lockOwner));
+        }
+        for (const other of this.conn.chatRoom.characters) {
+            if (
+                other.IsBot()
+                || other.MemberNumber === character.MemberNumber
+                || !positionIsInRegion(other.MapPos, mapRegions.PRISON_ROOM)
+                || this.prisonService.isImprisoned(other)
+            ) {
+                continue;
+            }
+            recipients.add(other.MemberNumber);
+        }
+        if (recipients.size === 0) {
+            this.conn.SendMessage("Chat", message);
+            return;
+        }
+        for (const memberNumber of recipients) {
+            this.conn.SendMessage("Whisper", message, memberNumber);
+        }
     }
 
     private onEnterIntroductionArea(character: API_Character): void {

@@ -668,7 +668,7 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
         try {
             this.wrappedSock.emit("ChatRoomCreate", {
                 Admin: [this._player.MemberNumber],
-                ...roomDef,
+                ...toChatRoomAdminRoom({ ...roomDef }),
             });
 
             const createResult = await this.roomCreatePromise.prom;
@@ -698,14 +698,36 @@ export class API_Connector extends EventEmitter<ConnectorEvents> {
         while (true) {
             console.log("Trying to join room...", roomDef);
             const joinResult = await this.ChatRoomJoin(roomDef.Name);
-            if (joinResult) return;
+            if (joinResult) {
+                this.applyRoomAccessVisibility(roomDef);
+                return;
+            }
 
             console.log("Failed to join room, trying to create...", roomDef);
             const createResult = await this.ChatRoomCreate(roomDef);
-            if (createResult) return;
+            if (createResult) {
+                this.applyRoomAccessVisibility(roomDef);
+                return;
+            }
 
             await wait(3000);
         }
+    }
+
+    private applyRoomAccessVisibility(roomDef: RoomDefinition): void {
+        if (!this._chatRoom) return;
+        const desired = toChatRoomAdminRoom({ ...roomDef });
+        const current = this._chatRoom.ToInfo();
+        if (
+            JSON.stringify(current.Access ?? []) === JSON.stringify(desired.Access ?? []) &&
+            JSON.stringify(current.Visibility ?? []) === JSON.stringify(desired.Visibility ?? [])
+        ) {
+            return;
+        }
+        this.ChatRoomUpdate({
+            Access: desired.Access,
+            Visibility: desired.Visibility,
+        });
     }
 
     public ChatRoomLeave() {

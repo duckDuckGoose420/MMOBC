@@ -25,4 +25,10 @@ describe("toChatRoomAdminRoom", () => {
         assert.deepEqual(room.Visibility, ["Admin", "Whitelist"]);
         assert.equal("Private" in room, false);
     });
+
+    it("derives public Access from Locked false", () => {
+        const room = toChatRoomAdminRoom({ Locked: false });
+        assert.deepEqual(room.Access, ["All"]);
+        assert.equal("Locked" in room, false);
+    });
 });
