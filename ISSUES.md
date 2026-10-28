@@ -2,6 +2,7 @@
 
 ## General
 
+- upstream PR to FriendsOfBC/ropeybot: character cache identity fix (`characterFromCache`/`update`, fixes ropeybot#2) + appearance rebuild only on changed `Appearance` reference and `findMember` via `getCharacter`. Port of commits `f492047` (src part) and `6a03690`; needs fork + prettier
 - merge to the default player management (very complicated, not a priority. Need to take some time for this)
 - merge save and intro area
 - let people friend the bot to highlight the room
