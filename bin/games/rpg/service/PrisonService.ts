@@ -1,26 +1,59 @@
 import { API_Character } from "bc-bot";
 import Storage from "node-storage";
 
-const PRISON_DURATION = 5 * 60 * 1000; // 5 Minuten
+export const PRISON_DURATION = 5 * 60 * 1000; // 5 Minuten
 const STORAGE_KEY = "prisoners";
+const DEFAULT_STORAGE_PATH = "./bin/games/rpg/data/prison";
+
+export type ImprisonmentState = {
+    inPrisonRoom: boolean;
+    restrained: boolean;
+    leashed: boolean;
+    dominant: boolean;
+    imprisoned: boolean;
+    releaseHold: boolean;
+};
+
+export function shouldImprison(state: ImprisonmentState): boolean {
+    return state.inPrisonRoom
+        && state.restrained
+        && state.leashed
+        && !state.dominant
+        && !state.imprisoned
+        && !state.releaseHold;
+}
 
 export class PrisonService {
     private prisoners: Map<number, number> = new Map(); // memberNumber → imprisonedAt timestamp
-    private storage = new Storage("./bin/games/rpg/data/prison");
+    private releaseHold: Set<number> = new Set();
+    private storage: Storage;
 
-    constructor() {
+    constructor(storagePath = DEFAULT_STORAGE_PATH) {
+        this.storage = new Storage(storagePath);
         this.load();
     }
 
     imprisonPlayer(character: API_Character): void {
+        this.releaseHold.delete(character.MemberNumber);
         this.prisoners.set(character.MemberNumber, Date.now());
         this.save();
     }
 
     releasePlayer(character: API_Character): void {
         this.prisoners.delete(character.MemberNumber);
-        character.giveKey(["bronze"]);
         this.save();
+    }
+
+    holdReleaseUntilLeave(memberNumber: number): void {
+        this.releaseHold.add(memberNumber);
+    }
+
+    clearReleaseHold(memberNumber: number): void {
+        this.releaseHold.delete(memberNumber);
+    }
+
+    hasReleaseHold(memberNumber: number): boolean {
+        return this.releaseHold.has(memberNumber);
     }
 
     getRemainingTime(character: API_Character): number {
@@ -37,14 +70,13 @@ export class PrisonService {
         return this.prisoners.has(character.MemberNumber);
     }
 
-    checkExpiredPrisons(character: API_Character): number[] {
+    checkExpiredPrisons(): number[] {
         const now = Date.now();
         const expired: number[] = [];
 
         for (const [memberNumber, imprisonedAt] of this.prisoners) {
             if (now - imprisonedAt >= PRISON_DURATION) {
-                character.giveKey(["bronze"]);
-                expired.push(character.MemberNumber);
+                expired.push(memberNumber);
             }
         }
 

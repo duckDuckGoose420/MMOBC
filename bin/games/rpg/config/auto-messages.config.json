@@ -1,0 +1,22 @@
+{
+  "messages": [
+    {
+      "enabled": true,
+      "intervalMinutes": 10,
+      "type": "Chat",
+      "text": "(Friendly reminder: found a bug, have an idea, or anything else you'd like me to know? Use /bot feedback — I'll read every message and really appreciate it. This is your chance to shape the game.)"
+    },
+    {
+      "enabled": true,
+      "intervalMinutes": 30,
+      "type": "Chat",
+      "text": "(Still looking for map designers. If you're interested, please use /bot feedback to contact me.)"
+    },
+    {
+      "enabled": false,
+      "intervalMinutes": 5,
+      "type": "Chat",
+      "text": "(Currently testing some brand new features. Probably not perfect, so if you notice anything please use /bot feedback to let me know. Bot might rejoin for minor fixes.)"
+    }
+  ]
+}

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-import { API_Character, API_Connector, BC_Server_ChatRoomMessage, CommandParser, ItemPermissionLevel, MapRegion, MessageEvent, positionIsInRegion } from "bc-bot";
+import { API_Character, API_Connector, API_Message, BC_Server_ChatRoomMessage, CommandParser, ItemPermissionLevel, MapRegion, positionIsInRegion } from "bc-bot";
 import { decompressFromBase64 } from "lz-string";
 import { remainingTimeString } from "../utils";
 import mapConfig from "./rpg/config/map.config.json";
@@ -22,12 +22,13 @@ import { Util } from "./rpg/util/Util";
 import { PrivateRequest } from "./rpg/types/PrivateRequest";
 import { FeedbackService } from "./rpg/service/FeedbackService";
 import { TargetPriorityService, TargetStatus } from "./rpg/service/TargetPriorityService";
-import { PrisonService } from "./rpg/service/PrisonService";
+import { PrisonService, shouldImprison } from "./rpg/service/PrisonService";
 import { PlayerIdentifier } from "./rpg/util/PlayerIdentifier";
 import { PlayerCommands } from "./rpg/util/commands";
 import { mapRegions } from "./rpg/util/areas";
 import { PET_EARS, PrisonItem } from "./rpg/objects/items";
 import { PerformanceMonitorService } from "./rpg/service/PerformanceMonitorService";
+import { AutoMessageService } from "./rpg/service/AutoMessageService";
 import { RejoinStateService, mapToRecord, recordToMap, setToArray, arrayToSet, booleanMapToRecord, recordToBooleanMap, privateRequestsToRecord, recordToPrivateRequests } from "./rpg/service/RejoinStateService";
 
 const MAP = mapConfig.EncodedMap;
@@ -37,7 +38,6 @@ const botYPos = 18;
 
 
 const REROLL_CD = 3 * 60 * 1000;
-const QUEST_CD = 10 * 60 * 1000;
 const GRACE_PERIOD = 20 * 60 * 1000;
 const PRIVATE_CONFIRMATION_DURATION = 2 * 60 * 1000;
 const BOUNTY_EVENT_SUCCESS_CD = 60 * 60 * 1000;
@@ -48,6 +48,7 @@ const PRISON_DURATION = 5 * 60 * 1000; // 5 Minuten
 const PRISON_RELEASE_COST = 250; // Kosten für Freikauf
 const PRIVATE_ROOM_SPAWN_1: ChatRoomMapPos = { X: 19, Y: 3 };
 const PRIVATE_ROOM_SPAWN_2: ChatRoomMapPos = { X: 20, Y: 3 };
+const DEV_ROOM_KICK_POS: ChatRoomMapPos = { X: 4, Y: 16 };
 const PLAYER_INIT_DELAY_MS = 750;
 
 
@@ -59,6 +60,7 @@ export class RPG {
     private privatePlayRequests: Map<number, PrivateRequest> = new Map<number, PrivateRequest>();   // To note that the player who receives the request is used as key here
     private alreadyEnteredBoundMaid: Set<number> = new Set();
     private alreadyEnteredIntroduction: Set<number> = new Set();
+    private hasLeftSpawnSafeArea: Set<number> = new Set();
     private processedPlayers: Set<number> = new Set();
     private closedPermissionNotifiedPlayers: Set<number> = new Set();
     private playerInitInProgress = false;
@@ -73,6 +75,7 @@ export class RPG {
     private prisonService: PrisonService = new PrisonService();
     private rejoinStateService: RejoinStateService = new RejoinStateService();
     private performanceMonitor: PerformanceMonitorService = new PerformanceMonitorService();
+    private autoMessageService: AutoMessageService;
     public commands: PlayerCommands;
     private runLoopInterval?: ReturnType<typeof setInterval>;
     private performanceSaveInterval?: ReturnType<typeof setInterval>;
@@ -88,11 +91,16 @@ export class RPG {
         "/bot quest - Check the quest currently assigned to you",
         "/bot reroll - Cancel your current quest, you can use this every 3 mins",
         "/bot pay [player] [amount] - Example /bot pay 12345 200 will transfer 200 money from you to player 12345",
-        "/bot stats - Check your money and level",
+        "/bot stats - Check your money, XP and level",
+        "/bot inventory - List your virtual items",
+        "/bot use [item] [player] - Use an item from your inventory. Player is optional for release",
+        "/bot shop - Open the shop (only in the shop area)",
+        "/bot buy [item] [count] - Buy an item from the shop",
+        "/bot sell [item] [count] - Sell an item to the shop",
+        "/bot bounty - List all active bounties",
         "/bot bounty [player] [bounty] - Example: /bot bounty 12345 500 to put a bounty of 500 money on the member 12345. The first person to lock the target's arms with a lock will earn the money.",
         "Tip: You have the option put a bounty on yourself and the first person who catches you will get the reward",
-        "/bot levelup - Check how many money you need to level up, plus explanation for levels",
-        "/bot buy release - Cost: 1000 money, get freed from your arms and hands restraints",
+        "/bot levelup - Check your XP progress and how leveling works",
         "/bot buy prisonrelease - Cost: 250 money, buy your freedom from prison",
         "/bot prisontime - Check how much time you have left in prison",
         "",
@@ -104,6 +112,8 @@ export class RPG {
         "/bot private check - It will tell you if the private room is empty, in case you want to use it",
         "",
         "/bot settings - Configure your grace period (0-20 minutes, max 20) after completing quests",
+        "/bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other. Use Member Number if they are not in the room",
+        "/bot friend - Send a friend request so you can see when the bot is online",
         "",
         "/bot feedback [your message] - ",
         "Use this command to send suggestions, advice, complaints, bug reports, or anything else you'd like me to see. I'll read every message as soon as possible. Constructive criticism is welcome and helpful - just keep it polite.",
@@ -123,14 +133,17 @@ export class RPG {
     public constructor(
         private conn: API_Connector,
         private requestRestart?: () => Promise<void>,
+        private superusers: number[] = [],
     ) {
         this.conn.on("RoomCreate", this.onChatRoomCreated);
         this.conn.on("RoomJoin", this.onChatRoomJoined);
         this.conn.on("Message", this.onMessage.bind(this));
+        this.conn.on("CharacterLeft", this.onCharacterLeft);
         //this.conn.on("ServerLeave", this.onServerLeave);
 
         this.playerService = new PlayerService(this.performanceMonitor);
-        this.questManager = new QuestManager(conn.chatRoom, this, this.targetPriorityService, this.performanceMonitor, this.playerService);
+        this.autoMessageService = new AutoMessageService(this.conn);
+        this.questManager = new QuestManager(conn.chatRoom!, this, this.targetPriorityService, this.performanceMonitor, this.playerService);
         this.commands = new PlayerCommands(
             this.conn,
             this.playerService,
@@ -146,6 +159,8 @@ export class RPG {
             this.privatePlayRequests,
             this.lastTargetBeforeReroll,
             this.performanceMonitor,
+            this.autoMessageService,
+            this.superusers,
             this.requestRestart,
         );
 
@@ -162,6 +177,8 @@ export class RPG {
         this.performanceSaveInterval = setInterval(() => {
             this.performanceMonitor.saveToFile();
         }, 5 * 60 * 1000);
+
+        this.autoMessageService.start();
     }
 
     public async shutdown(forRestart = false): Promise<void> {
@@ -170,6 +187,7 @@ export class RPG {
 
         if (this.runLoopInterval) clearInterval(this.runLoopInterval);
         if (this.performanceSaveInterval) clearInterval(this.performanceSaveInterval);
+        this.autoMessageService.stop();
 
         if (forRestart) {
             this.saveRejoinState();
@@ -185,7 +203,21 @@ export class RPG {
         this.prisonService.save();
         await this.updateMapOnShutdown();
 
+        if (!forRestart) {
+            this.unlistRoomOnShutdown();
+        }
+
         await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    private unlistRoomOnShutdown(): void {
+        this.conn.ChatRoomUpdate({
+            Visibility: ["Admin", "Whitelist"],
+        });
+        const offlineNotice = "(The bot is now offline and the room is private.)";
+        for (let i = 0; i < 3; i++) {
+            this.conn.SendMessage("Chat", offlineNotice);
+        }
     }
 
     private async updateMapOnShutdown(): Promise<void> {
@@ -203,9 +235,11 @@ export class RPG {
             lastTargetBeforeReroll: mapToRecord(this.lastTargetBeforeReroll),
             isPlayerSafe: booleanMapToRecord(this.isPlayerSafe),
             targetPriorities: this.targetPriorityService.serialize(),
+            pendingCatchMeTargets: this.playerService.serializePendingCatchMe(),
             privatePlayRequests: privateRequestsToRecord(this.privatePlayRequests),
             alreadyEnteredBoundMaid: setToArray(this.alreadyEnteredBoundMaid),
             alreadyEnteredIntroduction: setToArray(this.alreadyEnteredIntroduction),
+            hasLeftSpawnSafeArea: setToArray(this.hasLeftSpawnSafeArea),
             processedPlayers: setToArray(this.processedPlayers),
             closedPermissionNotifiedPlayers: setToArray(this.closedPermissionNotifiedPlayers),
         });
@@ -216,19 +250,21 @@ export class RPG {
         if (!state) return;
 
         this.questManager.restoreQuests(state.quests);
-        this.gracePeriods = recordToMap(state.gracePeriods);
-        this.questCD = recordToMap(state.questCD);
-        this.climaxTracker = recordToMap(state.climaxTracker);
-        this.bounties = recordToMap(state.bounties ?? {});
-        this.rerollCD = recordToMap(state.rerollCD ?? {});
-        this.lastTargetBeforeReroll = recordToMap(state.lastTargetBeforeReroll ?? {});
-        this.isPlayerSafe = recordToBooleanMap(state.isPlayerSafe ?? {});
+        recordToMap(state.gracePeriods ?? {}, this.gracePeriods);
+        recordToMap(state.questCD ?? {}, this.questCD);
+        recordToMap(state.climaxTracker ?? {}, this.climaxTracker);
+        recordToMap(state.bounties ?? {}, this.bounties);
+        recordToMap(state.rerollCD ?? {}, this.rerollCD);
+        recordToMap(state.lastTargetBeforeReroll ?? {}, this.lastTargetBeforeReroll);
+        recordToBooleanMap(state.isPlayerSafe ?? {}, this.isPlayerSafe);
         this.targetPriorityService.restore(state.targetPriorities ?? {});
-        this.privatePlayRequests = recordToPrivateRequests(state.privatePlayRequests ?? {});
-        this.alreadyEnteredBoundMaid = arrayToSet(state.alreadyEnteredBoundMaid ?? []);
-        this.alreadyEnteredIntroduction = arrayToSet(state.alreadyEnteredIntroduction ?? []);
-        this.processedPlayers = arrayToSet(state.processedPlayers ?? []);
-        this.closedPermissionNotifiedPlayers = arrayToSet(state.closedPermissionNotifiedPlayers ?? []);
+        this.playerService.restorePendingCatchMe(state.pendingCatchMeTargets ?? {});
+        recordToPrivateRequests(state.privatePlayRequests ?? {}, this.privatePlayRequests);
+        arrayToSet(state.alreadyEnteredBoundMaid ?? [], this.alreadyEnteredBoundMaid);
+        arrayToSet(state.alreadyEnteredIntroduction ?? [], this.alreadyEnteredIntroduction);
+        arrayToSet(state.hasLeftSpawnSafeArea ?? [], this.hasLeftSpawnSafeArea);
+        arrayToSet(state.processedPlayers ?? [], this.processedPlayers);
+        arrayToSet(state.closedPermissionNotifiedPlayers ?? [], this.closedPermissionNotifiedPlayers);
         this.rejoinStateService.clear();
     }
 
@@ -259,9 +295,8 @@ export class RPG {
             mapRegions.ENTER_INTRODUCTION_AREA,
             this.onEnterIntroductionArea.bind(this)
         );
-
-        this.conn.chatRoom.map.addEnterRegionTrigger(
-            mapRegions.LEAVE_SAFE_AREA_1,
+        this.conn.chatRoom.map.addLeaveRegionTrigger(
+            mapRegions.ENTER_INTRODUCTION_AREA,
             this.onLeaveIntroductionArea.bind(this)
         );
 
@@ -278,10 +313,6 @@ export class RPG {
             mapRegions.BOUND_MAID_AREA,
             this.onEnterBoundMaid.bind(this)
         );
-        this.conn.chatRoom.map.addLeaveRegionTrigger(
-            mapRegions.BOUND_MAID_AREA,
-            this.onLeaveBoundMaid.bind(this)
-        );
         this.conn.chatRoom.map.addEnterRegionTrigger(
             mapRegions.PRISON_INTAKE_AREA,
             this.onEnterPrisonIntakeArea.bind(this)
@@ -294,12 +325,18 @@ export class RPG {
             mapRegions.PRISON_ROOM,
             this.onLeavePrisonRoom.bind(this)
         );
+        this.conn.chatRoom.map.addEnterRegionTrigger(
+            mapRegions.DEV_ROOM_AREA,
+            this.onEnterDevRoom.bind(this)
+        );
+        this.conn.chatRoom.map.addEnterRegionTrigger(
+            mapRegions.SHOP_AREA,
+            this.onEnterShopArea.bind(this)
+        );
     };
 
-    private onMessage = async (msg: MessageEvent) => {
-        // Performance monitoring: Track message handler calls
-        this.performanceMonitor.incrementCounter('onMessage_calls');
-        const startTime = this.performanceMonitor.startTimer('onMessage');
+    private onMessage = async (msg: API_Message) => {
+        const startTime = this.performanceMonitor.startTimer();
 
         if (
             msg.message.Type === "Activity" &&
@@ -310,14 +347,24 @@ export class RPG {
                     let orgasms = Number(quest.additionalInfo["orgasms"]) + 1;
                     quest.additionalInfo["orgasms"] = orgasms;
                     this.climaxTracker.set(quest.targetPlayer, Date.now());
-                    console.log(quest.additionalInfo);
                 }
             }
-            console.log(msg);
             console.log(`${msg.sender.toString()} climaxed!`);
         }
 
         this.performanceMonitor.endTimer('onMessage', startTime);
+    };
+
+    private onCharacterLeft = (
+        _sourceMemberNumber: number,
+        character: API_Character,
+    ) => {
+        if (!character) return;
+        this.questManager.cancelQuestForPlayer(
+            character.MemberNumber,
+            this.conn,
+            character.toString(),
+        );
     };
 
     private onServerLeave = async () => {
@@ -359,22 +406,68 @@ export class RPG {
                 this.conn.SendMessage("Whisper", "(Dominants cannot be imprisoned.)", character.MemberNumber);
                 return;
             }
-            this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
-            character.takeKey(["bronze"]);
-            this.prisonService.imprisonPlayer(character);
         }
+        this.tryImprison(character);
     }
 
     private onLeavePrisonRoom(character: API_Character): void {
-        // character.giveKey(["bronze"]);
+        const wasImprisoned = this.prisonService.isImprisoned(character);
+        if (wasImprisoned) {
+            this.conn.SendMessage("Whisper", "(You have been released from prison.)", character.MemberNumber);
+        }
         this.prisonService.releasePlayer(character);
-        // this.conn.SendMessage("Whisper", ``, character.MemberNumber);
-        // character.Appearance.RemoveItem("ItemArms");
+        this.prisonService.clearReleaseHold(character.MemberNumber);
+        character.giveKey(["bronze"]);
+    }
+
+    private tryImprison(character: API_Character): void {
+        if (character.IsBot()) return;
+        if (!shouldImprison({
+            inPrisonRoom: positionIsInRegion(character.MapPos, mapRegions.PRISON_ROOM),
+            restrained: Boolean(character.Appearance.InventoryGet("ItemArms")),
+            leashed: character.IsLeashed(),
+            dominant: this.playerService.get(character.MemberNumber).getIsDominant(),
+            imprisoned: this.prisonService.isImprisoned(character),
+            releaseHold: this.prisonService.hasReleaseHold(character.MemberNumber),
+        })) {
+            return;
+        }
+        this.conn.SendMessage("Whisper", `(You are now a prisoner. You will be released when you complete your time, buy your freedom or escape other wise (leashd out by another player). You can check your remaining time with /bot prisontime)`, character.MemberNumber);
+        this.conn.SendMessage("Chat", `(${character.toString()} has been imprisoned)`);
+        this.notifyCaptorPrisonKeyTaken(character);
+        character.takeKey(["bronze"]);
+        this.prisonService.imprisonPlayer(character);
+    }
+
+    private notifyCaptorPrisonKeyTaken(character: API_Character): void {
+        const message = `(You can release them now, don't worry, we have taken their key)`;
+        const recipients = new Set<number>();
+        const lockOwner = character.Appearance.InventoryGet("ItemArms")?.getData()?.Property?.LockMemberNumber;
+        if (lockOwner && lockOwner !== character.MemberNumber) {
+            recipients.add(Number(lockOwner));
+        }
+        for (const other of this.conn.chatRoom.characters) {
+            if (
+                other.IsBot()
+                || other.MemberNumber === character.MemberNumber
+                || !positionIsInRegion(other.MapPos, mapRegions.PRISON_ROOM)
+                || this.prisonService.isImprisoned(other)
+            ) {
+                continue;
+            }
+            recipients.add(other.MemberNumber);
+        }
+        if (recipients.size === 0) {
+            this.conn.SendMessage("Chat", message);
+            return;
+        }
+        for (const memberNumber of recipients) {
+            this.conn.SendMessage("Whisper", message, memberNumber);
+        }
     }
 
     private onEnterIntroductionArea(character: API_Character): void {
-        if (this.isPlayerSafe.get(character.MemberNumber) == true || this.questManager.playerHasQuestAssigned(character.MemberNumber)) {
-            this.isPlayerSafe.set(character.MemberNumber, true);
+        if (this.hasLeftSpawnSafeArea.has(character.MemberNumber)) {
             return;
         }
 
@@ -402,6 +495,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
     }
 
     private onLeaveIntroductionArea(character: API_Character): void {
+        this.hasLeftSpawnSafeArea.add(character.MemberNumber);
         if (this.isPlayerSafe.get(character.MemberNumber) == true) {
             this.isPlayerSafe.set(character.MemberNumber, false);
             this.conn.SendMessage("Whisper", `(You're leaving the safe area, you can now be the target of other people's quests. Note that we gave you the keys to all doors!)`, character.MemberNumber);
@@ -410,18 +504,26 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
     }
 
     private onEnterBoundMaid(character: API_Character): void {
-        this.isPlayerSafe.set(character.MemberNumber, true);
         const memberId = character.MemberNumber;
 
         // If the player hasn't been welcomed before
         if (!this.alreadyEnteredBoundMaid.has(memberId)) {
-            this.conn.SendMessage("Whisper", `(You entered the local BDSM club, the "Bound Maid". This is a public play area and considered a safe zone)`, character.MemberNumber);
+            this.conn.SendMessage("Whisper", `(You entered the local BDSM club, the "Bound Maid". This is a public play area.)`, character.MemberNumber);
             this.alreadyEnteredBoundMaid.add(memberId);
         }
     }
 
-    private onLeaveBoundMaid(character: API_Character): void {
-        this.isPlayerSafe.set(character.MemberNumber, false);
+    private onEnterDevRoom(character: API_Character): void {
+        if (character.IsBot()) return;
+
+        if (!character.IsRoomAdmin()) {
+            character.mapTeleport(DEV_ROOM_KICK_POS);
+            this.conn.SendMessage("Whisper", "(This area is restricted to developers.)", character.MemberNumber);
+        }
+    }
+
+    private onEnterShopArea(character: API_Character): void {
+        this.conn.SendMessage("Whisper", `(This is the local BDSM shop. Here you can buy and sell items. Use /bot shop to open the shop menu.)`, character.MemberNumber);
     }
 
     isPrivateRoomEmpty(): boolean {
@@ -435,9 +537,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
 
     private checkBounties() {
-        // Performance monitoring: Track bounty checking
-        this.performanceMonitor.incrementCounter('checkBounties_calls');
-        const startTime = this.performanceMonitor.startTimer('checkBounties');
+        const startTime = this.performanceMonitor.startTimer();
 
         for (const [key] of this.bounties) {
             let target = this.conn.chatRoom.findMember(key);
@@ -465,24 +565,11 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
 
 
     private runLoop() {
-        // Performance monitoring: Track main loop
-        this.performanceMonitor.incrementCounter('runLoop_calls');
-        const startTime = this.performanceMonitor.startTimer('runLoop');
+        const startTime = this.performanceMonitor.startTimer();
 
         const completedQuests = this.questManager.completeQuests();
         for (const quest of completedQuests) {
-            let player = this.playerService.get(quest.owner);
-            player.money += 100;
-            this.playerService.save(player);
-            this.questCD.set(quest.owner, Date.now() + (QUEST_CD));
-            const gracePeriodMinutes = player.getGracePeriodMinutes();
-            if (gracePeriodMinutes > 0) {
-                const gracePeriodMs = gracePeriodMinutes * 60 * 1000;
-                this.gracePeriods.set(quest.owner, Date.now() + gracePeriodMs);
-                this.conn.SendMessage("Whisper", "(You have completed your quest! You have " + remainingTimeString(Date.now() + gracePeriodMs + 5000) + " free from being the target of quests to have some time to play with your target. Within this time you can access the private room with \"/bot private claim [player]\")", quest.owner);
-            } else {
-                this.conn.SendMessage("Whisper", "(You have completed your quest!)", quest.owner);
-            }
+            this.commands.rewardCompletedQuest(quest);
         }
 
         const failedQuests = this.questManager.cancelQuests(this.gracePeriods);
@@ -496,17 +583,24 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         this.handlePlayerRejoin();
 
         // Check for expired prison sentences
-        const expiredPrisons = this.prisonService.checkExpiredPrisons(this.conn.chatRoom.characters.at(0));
+        const prisonStartTime = this.performanceMonitor.startTimer();
+        const expiredPrisons = this.prisonService.checkExpiredPrisons();
         for (const memberNumber of expiredPrisons) {
             const character = this.conn.chatRoom.findMember(memberNumber);
             if (character) {
                 character.giveKey(["bronze"]);
-                // Also remove restraints like when manually leaving prison
-                Util.freeCharacter(character);
+                character.Appearance.RemoveItem("ItemArms");
+                character.Appearance.RemoveItem("ItemHands");
                 this.conn.SendMessage("Whisper", "(Your prison time is up, you are free to leave)", memberNumber);
+                this.prisonService.releasePlayer(character);
+                this.prisonService.holdReleaseUntilLeave(character.MemberNumber);
             }
-            this.prisonService.releasePlayer(character);
         }
+
+        for (const character of this.conn.chatRoom.characters) {
+            this.tryImprison(character);
+        }
+        this.performanceMonitor.endTimer('prisonSweep', prisonStartTime);
 
         this.checkBounties();
 
@@ -517,9 +611,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
      * Handles players rejoining the room - checks prison status and gives keys
      */
     private handlePlayerRejoin(): void {
-        // Performance monitoring: Track player rejoin handling
-        this.performanceMonitor.incrementCounter('handlePlayerRejoin_calls');
-        const startTime = this.performanceMonitor.startTimer('handlePlayerRejoin');
+        const startTime = this.performanceMonitor.startTimer();
 
         const allCharacters = this.conn.chatRoom.characters;
 
@@ -563,34 +655,44 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
             this.closedPermissionNotifiedPlayers.add(character.MemberNumber);
             this.conn.SendMessage(
                 "Whisper",
-                "please open permissions to at least everyone except blacklist. If this is not what you want, this room is probably not for you. Only love <3",
+                "(please open permissions to at least everyone except blacklist. If this is not what you want, this room is probably not for you. Only love <3)",
                 character.MemberNumber
             );
         }
 
-        const inSafeZone =
-            positionIsInRegion(character.MapPos, mapRegions.ENTER_INTRODUCTION_AREA) ||
-            positionIsInRegion(character.MapPos, mapRegions.PRIVATE_ROOM_AREA) ||
-            positionIsInRegion(character.MapPos, mapRegions.BOUND_MAID_AREA);
-        this.isPlayerSafe.set(character.MemberNumber, inSafeZone);
-
-        character.giveKey(["gold", "silver", "bronze"]);
+        const inDevRoom = positionIsInRegion(character.MapPos, mapRegions.DEV_ROOM_AREA);
+        if (inDevRoom && !character.IsRoomAdmin()) {
+            character.mapTeleport(DEV_ROOM_KICK_POS);
+            this.conn.SendMessage("Whisper", "(This area is restricted to developers.)", character.MemberNumber);
+            this.isPlayerSafe.set(character.MemberNumber, true);
+        } else {
+            const inPrivateRoom = positionIsInRegion(character.MapPos, mapRegions.PRIVATE_ROOM_AREA);
+            const inSpawnSafeArea = positionIsInRegion(character.MapPos, mapRegions.ENTER_INTRODUCTION_AREA)
+                && !this.hasLeftSpawnSafeArea.has(character.MemberNumber);
+            this.isPlayerSafe.set(character.MemberNumber, inPrivateRoom || inSpawnSafeArea);
+        }
 
         if (this.prisonService.isImprisoned(character)) {
             const remainingTime = this.prisonService.getRemainingTime(character);
 
             if (remainingTime <= 0) {
                 this.prisonService.releasePlayer(character);
+                if (positionIsInRegion(character.MapPos, mapRegions.PRISON_ROOM)) {
+                    this.prisonService.holdReleaseUntilLeave(character.MemberNumber);
+                }
                 this.conn.SendMessage("Whisper", "(Your prison time was up while you were away, you are now free)", character.MemberNumber);
+                character.giveKey(["gold", "silver", "bronze"]);
             } else {
                 const prisonCenter = {
                     X: Math.floor((mapRegions.PRISON_ROOM.TopLeft.X + mapRegions.PRISON_ROOM.BottomRight.X) / 2),
                     Y: Math.floor((mapRegions.PRISON_ROOM.TopLeft.Y + mapRegions.PRISON_ROOM.BottomRight.Y) / 2)
                 };
                 character.mapTeleport(prisonCenter);
-                character.takeKey(["bronze"]);
+                character.changeKeys(["gold", "silver"], ["bronze"]);
                 this.conn.SendMessage("Whisper", `(You are still serving your prison sentence. ${remainingTimeString(Date.now() + remainingTime)} remaining)`, character.MemberNumber);
             }
+        } else {
+            character.giveKey(["gold", "silver", "bronze"]);
         }
 
         setTimeout(() => this.processNextPlayerInit(), PLAYER_INIT_DELAY_MS);

@@ -1,26 +1,34 @@
 {
     "name": "bc-bot",
-    "version": "0.0.1",
+    "version": "0.0.6",
     "license": "Apache-2.0",
-    "description": "",
+    "description": "A node-based bot framework for BC",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/FriendsOfBC/ropeybot"
+    },
     "main": "dist/index.js",
     "type": "module",
     "types": "dist/index.d.ts",
+    "files": [
+        "dist/**"
+    ],
     "scripts": {
+        "prepare": "pnpm compile",
         "compile": "rm -rf dist/* && tsc -p tsconfig.json"
     },
     "dependencies": {
-        "bc-stubs": "117.0.0-Beta.1",
+        "@socket.io/component-emitter": "^3.1.2",
+        "bc-stubs": "130.0.0",
         "lz-string": "^1.5.0",
-        "prettier": "^3.5.3",
-        "socket.io-client": "^4.8.1"
+        "prettier": "^3.7.4",
+        "socket.io-client": "^4.8.3"
     },
     "devDependencies": {
-        "@tsconfig/node18": "^18.2.4",
-        "@types/node": "^20.17.50",
-        "esbuild": "^0.19.12",
-        "eslint": "^9.30.1",
-        "tsx": "^4.19.4",
-        "typescript": "^5.8.3"
+        "@tsconfig/node18": "^18.2.6",
+        "@types/node": "^20.19.27",
+        "esbuild": "^0.27.2",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3"
     }
 }
