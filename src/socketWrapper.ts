@@ -14,6 +14,7 @@
 
 import { DefaultEventsMap, EventsMap } from "@socket.io/component-emitter";
 import { Socket } from "socket.io-client";
+import { logger } from "./api.ts";
 
 // Don't send more than NUM_MESSAGES messages in TIME_INTERVAL milliseconds
 const NUM_MESSAGES = 5;
@@ -39,7 +40,7 @@ export class SocketWrapper<
 
     public emit(msg: string, ...args: any[]): void {
         if (!this.socket.connected) {
-            console.log(`Socket not connected, dropping message ${msg}`);
+            logger.warning(`Socket not connected, dropping message ${msg}`);
             return;
         }
 
@@ -54,7 +55,7 @@ export class SocketWrapper<
             const timeForLastMessageBatch = Date.now() - this.lastSendTimes[0];
             if (timeForLastMessageBatch < TIME_INTERVAL) {
                 const waitFor = TIME_INTERVAL - timeForLastMessageBatch;
-                console.log(`Throttling messages for ${waitFor}ms`);
+                logger.debug(`Throttling messages for ${waitFor}ms`);
                 this.sendTimer = setTimeout(this.onSendTimer, waitFor);
                 return;
             } else {

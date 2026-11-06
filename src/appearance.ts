@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 
+import { logger } from "./api.ts";
 import { API_Character, API_Character_Data } from "./apiCharacter.ts";
 import { isBind, isBody, isClothing, isCosplay } from "./assetHelpers.ts";
 import { wait } from "./util/wait.ts";
@@ -292,7 +293,7 @@ export class AppearanceType {
     public updateItemData(item: BC_AppearanceItem): void {
         const idx = this.data.findIndex((i) => i.Group === item.Group);
         if (idx === -1) {
-            console.error("Couldn't find item to update in slot", item.Group);
+            logger.error("Couldn't find item to update in slot", item.Group);
             return;
         }
 

@@ -13,6 +13,7 @@
  */
 
 import lzString from "lz-string";
+import { logger } from "./api.ts";
 import { API_Character } from "./apiCharacter.ts";
 import { API_Chatroom_Data } from "./apiChatroom.ts";
 import { API_Connector } from "./apiConnector.ts";
@@ -236,7 +237,7 @@ export class API_Map extends EventEmitter<MapEvents> {
             character.MapPos.X === prevPos.X &&
             character.MapPos.Y === prevPos.Y
         ) {
-            console.log(`Discarding duplicate move event for ${character}`);
+            logger.debug(`Discarding duplicate move event for ${character}`);
             return;
         }
 

@@ -13,6 +13,7 @@
  */
 
 import { EventEmitter } from "node:events";
+import { logger } from "./api.ts";
 import {
     API_Character,
     API_Character_Data,
@@ -247,14 +248,14 @@ export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
     ) {
         const char = this.getCharacter(memberNumber);
         if (!char) {
-            console.warn(
+            logger.warning(
                 `Trying to sync member number ${charData.MemberNumber} but can't find them!`,
             );
             return;
         }
         const sourceChar = this.getCharacter(sourceMemberNo);
         if (!sourceChar) {
-            console.warn(
+            logger.warning(
                 `Recieved ChatRoomCharacterSync from ${sourceMemberNo}, but they're not in the room?`,
             );
             return;
@@ -319,7 +320,7 @@ export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
             (x) => x.MemberNumber === itemUpdate.Target,
         );
         if (!charData || !charObject) {
-            console.warn(
+            logger.warning(
                 `Trying to update item on member number ${itemUpdate.Target} but can't find them!`,
             );
             return;
@@ -372,7 +373,7 @@ export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
             (x) => x.MemberNumber === memberNumber,
         );
         if (charData === undefined) {
-            console.warn(
+            logger.warning(
                 `Trying to position item on member number ${memberNumber} but can't find them!`,
             );
             return;
@@ -397,7 +398,7 @@ export class API_Chatroom extends EventEmitter<ChatRoomEvents> {
         try {
             this.map.onCharacterMove(char, prevPos);
         } catch (e) {
-            console.log("Error handling character move", e);
+            logger.error("Error handling character move", e);
         }
     }
 

@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 
+import { logger } from "./api.ts";
 import { API_Character } from "./apiCharacter.ts";
 import { API_Connector, API_Message } from "./apiConnector.ts";
 import { BC_Server_ChatRoomMessage } from "./logicEvent.ts";
@@ -83,14 +84,14 @@ export class CommandParser {
                     if (promiseRet && promiseRet.catch) {
                         // I am not sure if a check for promiseRet makes sense but if the return of the command is no promise it would error otherwise
                         promiseRet.catch((e) => {
-                            console.log(
+                            logger.error(
                                 "Command handler threw async exception",
                                 e,
                             );
                         });
                     }
                 } catch (e) {
-                    console.log("Command handler threw exception", e);
+                    logger.error("Command handler threw exception", e);
                 }
                 return;
             }
