@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 
+import { logger } from "./api.ts";
 import { API_Chatroom } from "./apiChatroom.ts";
 import { API_Connector, TellType } from "./apiConnector.ts";
 import { AppearanceType } from "./appearance.ts";
@@ -72,13 +73,13 @@ export function transformToCharacterData(
     };
     let blockItems: ServerItemPermissionsPacked = {};
     if (Array.isArray(character.BlockItems)) {
-        console.warn("character with unpacked blocked items?");
+        logger.debug("character with unpacked blocked items?");
     } else {
         blockItems = character.BlockItems ?? {};
     }
     let limitedItems: ServerItemPermissionsPacked = {};
     if (Array.isArray(character.LimitedItems)) {
-        console.warn("character with unpacked limited items?");
+        logger.debug("character with unpacked limited items?");
     } else {
         limitedItems = character.LimitedItems ?? {};
     }
@@ -262,7 +263,6 @@ export class API_Character {
     }
 
     public Tell(msgType: TellType, msg: string): void {
-        console.log(`Tell (${msgType}) ${this}: ${msg}`);
         this.connection.SendMessage(msgType, msg, this.data.MemberNumber);
     }
 
@@ -359,7 +359,9 @@ export class API_Character {
     }
 
     public IsLeashed(): boolean {
-        return Boolean(this.hasEffect("IsLeashed"));
+        // Standard leashes (CollarLeash/ChainLeash) only have Effect "Leash";
+        // "IsLeashed" appears on some extended/modular options only.
+        return this.hasEffect("IsLeashed") || this.hasEffect("Leash");
     }
 
     public CanTalk(): boolean {
@@ -384,7 +386,7 @@ export class API_Character {
     public SetHeightOverride(override: number | undefined): void {
         const emoticon = this.Appearance.InventoryGet("Emoticon");
         if (!emoticon) {
-            console.warn("No emoticon found for height override");
+            logger.warning("No emoticon found for height override");
             return;
         }
 

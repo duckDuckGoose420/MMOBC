@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 
+import { logger } from "./api.ts";
 import { API_Character } from "./apiCharacter.ts";
 import { AssetType } from "./appearance.ts";
 import { AssetFemale3DCG, PoseFemale3DCG } from "./bcdata/female3DCG.js";
@@ -42,7 +43,7 @@ function getPoseCategories(
     for (const pose of poses) {
         const poseObj = PoseFemale3DCG.find((x) => x.Name === pose);
         if (!poseObj) {
-            console.warn("Couldn't find pose", pose);
+            logger.debug("Couldn't find pose", pose);
         } else {
             cats.add(poseObj.Category);
         }
@@ -173,7 +174,13 @@ export class API_AppearanceItem {
     }
 
     public getEffects(): EffectName[] {
-        return this.data.Property?.Effect ?? [];
+        // Match BC: asset defaults plus dynamic Property.Effect (e.g. CollarLeash has Effect:[Leash] on the asset)
+        const assetDef = getAssetDef(AssetGet(this.data.Group, this.data.Name));
+        const fromAsset = (assetDef?.Effect ?? []) as EffectName[];
+        const fromProperty = this.data.Property?.Effect ?? [];
+        if (fromAsset.length === 0) return fromProperty;
+        if (fromProperty.length === 0) return [...fromAsset];
+        return [...new Set([...fromAsset, ...fromProperty])];
     }
 
     public setRemoved(): void {
@@ -338,7 +345,7 @@ export function getAssetDef(desc: BC_AppearanceItem): AssetDefinition | null {
     if (!grp) {
         // We could add support for the echo slots, but until then, don't spam about them
         if (!desc.Group.includes("Luzi"))
-            console.warn("Invalid item group: " + desc.Group);
+            logger.debug("Invalid item group: " + desc.Group);
         return null;
     }
 
@@ -357,7 +364,7 @@ export function getExtendedAssetDef(
 ): AssetArchetypeConfig | null {
     const grp = AssetFemale3DCGExtended[desc.Group];
     if (!grp) {
-        console.warn("Invalid item group: " + desc.Group);
+        logger.debug("Invalid item group: " + desc.Group);
         return null;
     }
 
