@@ -112,6 +112,7 @@ export class RPG {
         "/bot private check - It will tell you if the private room is empty, in case you want to use it",
         "",
         "/bot settings - Configure your grace period (0-20 minutes, max 20) after completing quests",
+        "/bot graceperiodend - End your current grace period early (also: /bot settings graceperiod end)",
         "/bot block [player] - Toggle blocking a player so you are not assigned as quest targets for each other. Use Member Number if they are not in the room",
         "/bot friend - Send a friend request so you can see when the bot is online",
         "",
@@ -576,6 +577,7 @@ instead of just leaving them immediately, it makes it more enjoyable for everyon
         for (const quest of failedQuests) {
             this.conn.SendMessage("Whisper", quest.failMessage, quest.owner);
             this.questCD.delete(quest.owner);
+            this.lastTargetBeforeReroll.set(quest.owner, quest.targetPlayer);
         }
         this.questManager.assignQuests(this.conn, this.questCD, this.gracePeriods, this.lastTargetBeforeReroll);
 
