@@ -1,6 +1,6 @@
 import { IQuest } from "../types/IQuest";
 import { IPlayer } from "../types/IPlayer";
-import { API_Character, API_Chatroom, API_Connector, positionIsInRegion } from "bc-bot";
+import { API_Character, API_Chatroom, API_Connector } from "bc-bot";
 import { LockQuest } from "./LockQuest";
 import { Util } from "../util/Util";
 import { RPG } from "../../rpg";
@@ -12,7 +12,7 @@ import { PrisonQuest } from "./PrisonQuest";
 import { PerformanceMonitorService } from "../service/PerformanceMonitorService";
 import { PlayerService } from "../service/PlayerService";
 import { SavedQuest } from "../service/RejoinStateService";
-import { mapRegions } from "../util/areas";
+import { devRoomPresence } from "../util/devRoomPresence";
 
 const questTypes: { constructor: QuestConstructor; weight: number }[] = [
     { constructor: LockQuest, weight: 5 },
@@ -39,7 +39,7 @@ type QuestConstructor = new (
 
 const NEW_QUEST_HINT = ". If you don't like your target, can't find it or they're busy, you can /bot reroll) ";
 
-export type CatchMeBlockReason = "dominant" | "blocked" | "grace" | "safe" | "dev_room";
+export type CatchMeBlockReason = "dominant" | "blocked" | "grace" | "safe" | "dev_room" | "locked";
 
 class QuestList {
     private quests: IQuest[] = [];
@@ -166,33 +166,45 @@ export class QuestManager {
         this.performanceMonitor.incrementCounter('assignQuestToPlayer_calls');
 
         const hunter = this.playerService.get(memberNumber);
+        const selection = this.selectTarget(memberNumber, hunter, gracePeriods, lastTargetBeforeReroll.get(memberNumber));
+        if (!selection) return;
 
-        // First, try to assign quest with priority targets
-        for (const targetNumber of this.targetPriorityService.getPriorityTargets(memberNumber)) {
-            if (this.getTargetBlockReason(memberNumber, targetNumber, gracePeriods, hunter)) continue;
+        this.quests.add(selection.quest);
+        conn.SendMessage("Whisper", "(New quest: " + selection.quest.description() + NEW_QUEST_HINT, memberNumber);
+        if (selection.source === "targetMe") {
+            this.notifyPriorityTargetAssigned(conn, memberNumber, selection.quest.targetPlayer);
+        }
+    }
 
-            const quest = this.generateQuestWithTarget(memberNumber, targetNumber);
-            if (quest) {
-                this.quests.add(quest);
-                conn.SendMessage("Whisper", "(New quest: " + quest.description() + NEW_QUEST_HINT, memberNumber);
-                this.notifyPriorityTargetAssigned(conn, memberNumber, targetNumber);
-                return;
+    /**
+     * Target selection order: targetMe → catchMe → random.
+     * See QuestTargetSelection.mmd for the flow diagram.
+     * targetMe isBlocked is handled at /bot targetme confirm time; catchMe drops silently when blocked.
+     */
+    private selectTarget(
+        hunterNumber: number,
+        hunter: IPlayer,
+        gracePeriods: Map<number, number>,
+        excludedTarget?: number,
+    ): { quest: IQuest; source: "targetMe" | "catchMe" | "random" } | null {
+        for (const targetNumber of this.targetPriorityService.getPriorityTargets(hunterNumber)) {
+            const quest = this.generateQuestWithTarget(hunterNumber, targetNumber, { ignoreBlock: true, forcedByTargetMe: true });
+            if (quest) return { quest, source: "targetMe" };
+        }
+
+        const catchMeTarget = hunter.getPendingCatchMeTarget();
+        if (catchMeTarget !== null) {
+            hunter.setPendingCatchMeTarget(null);
+            this.playerService.save(hunter);
+            if (!this.arePlayersBlocked(hunterNumber, catchMeTarget, hunter)) {
+                const quest = this.generateQuestWithTarget(hunterNumber, catchMeTarget);
+                if (quest) return { quest, source: "catchMe" };
             }
         }
 
-        const catchMeQuest = this.consumeAndTryCatchMeQuest(hunter, gracePeriods);
-        if (catchMeQuest) {
-            this.quests.add(catchMeQuest);
-            conn.SendMessage("Whisper", "(New quest: " + catchMeQuest.description() + NEW_QUEST_HINT, memberNumber);
-            return;
-        }
-
-        // If no priority target worked, try normal quest generation
-        const quest = this.generateRandomQuest(memberNumber, gracePeriods, lastTargetBeforeReroll.get(memberNumber), hunter);
-        if (quest) {
-            this.quests.add(quest);
-            conn.SendMessage("Whisper", "(New quest: " + quest.description() + NEW_QUEST_HINT, memberNumber);
-        }
+        const quest = this.generateRandomQuest(hunterNumber, gracePeriods, excludedTarget, hunter);
+        if (quest) return { quest, source: "random" };
+        return null;
     }
 
     generateRandomQuest(
@@ -205,10 +217,9 @@ export class QuestManager {
             c => !c.IsBot()
                 && c.MemberNumber !== memberNumber
                 && c.MemberNumber !== excludedTarget
-                && !this.getTargetBlockReason(memberNumber, c.MemberNumber, gracePeriods, hunter, c)
+                && this.isTargetEligible(memberNumber, c.MemberNumber, gracePeriods, hunter, c)
         );
 
-        // Each candidate gets a few tries so a failed prerequisite (e.g. already restrained) does not waste the whole loop
         const maxAttempts = Math.min(candidateList.length * 2, 10);
         for (let i = 0; i < maxAttempts; i++) {
             const target = candidateList[Util.getRandomInt(candidateList.length)];
@@ -218,10 +229,18 @@ export class QuestManager {
         return null;
     }
 
-    generateQuestWithTarget(memberNumber: number, targetNumber: number): IQuest | null {
+    generateQuestWithTarget(
+        memberNumber: number,
+        targetNumber: number,
+        options?: { ignoreBlock?: boolean; forcedByTargetMe?: boolean },
+    ): IQuest | null {
         if (!this.chatRoom.findMember(targetNumber)) return null;
-        if (this.arePlayersBlocked(memberNumber, targetNumber)) return null;
-        return this.buildQuest(memberNumber, targetNumber);
+        if (!options?.ignoreBlock && this.arePlayersBlocked(memberNumber, targetNumber)) return null;
+        const quest = this.buildQuest(memberNumber, targetNumber);
+        if (quest && options?.forcedByTargetMe) {
+            quest.additionalInfo.forcedByTargetMe = true;
+        }
+        return quest;
     }
 
     private buildQuest(memberNumber: number, targetNumber: number): IQuest | null {
@@ -272,6 +291,20 @@ export class QuestManager {
         return this.getTargetBlockReason(hunterNumber, baitNumber, gracePeriods);
     }
 
+    isBlocked(hunterNumber: number, targetNumber: number): boolean {
+        return this.arePlayersBlocked(hunterNumber, targetNumber);
+    }
+
+    private isTargetEligible(
+        hunterNumber: number,
+        targetNumber: number,
+        gracePeriods: Map<number, number>,
+        hunter: IPlayer = this.playerService.get(hunterNumber),
+        target: API_Character | undefined = this.chatRoom.findMember(targetNumber),
+    ): boolean {
+        return this.getTargetBlockReason(hunterNumber, targetNumber, gracePeriods, hunter, target) === null;
+    }
+
     private getTargetBlockReason(
         hunterNumber: number,
         targetNumber: number,
@@ -284,20 +317,15 @@ export class QuestManager {
         if (this.isInGracePeriod(gracePeriods, targetNumber)) return "grace";
         if (this.RPG.isPlayerSafe.get(targetNumber) !== false) return "safe";
         if (targetPlayer.getIsDominant()) return "dominant";
-        if (target && positionIsInRegion(target.MapPos, mapRegions.DEV_ROOM_AREA)) return "dev_room";
+        if (target && devRoomPresence(targetNumber, target.MapPos) === "expired") return "dev_room";
+        if (this.hasArmsLock(target)) return "locked";
         return null;
     }
 
-    private consumeAndTryCatchMeQuest(hunter: IPlayer, gracePeriods: Map<number, number>): IQuest | null {
-        const forcedTarget = hunter.getPendingCatchMeTarget();
-        if (forcedTarget === null) return null;
-
-        hunter.setPendingCatchMeTarget(null);
-        this.playerService.save(hunter);
-
-        if (this.getTargetBlockReason(hunter.memberNumber, forcedTarget, gracePeriods, hunter)) return null;
-
-        return this.generateQuestWithTarget(hunter.memberNumber, forcedTarget);
+    private hasArmsLock(target: API_Character | undefined): boolean {
+        if (!target) return false;
+        const lockOwner = target.Appearance.InventoryGet("ItemArms")?.getData()?.Property?.LockMemberNumber;
+        return lockOwner !== undefined && lockOwner !== null;
     }
 
     private notifyPriorityTargetAssigned(conn: API_Connector, ownerNumber: number, targetNumber: number): void {

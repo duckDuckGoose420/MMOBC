@@ -1,5 +1,6 @@
 import { AbstractQuest } from "./AbstractQuest";
 import { API_Chatroom } from "bc-bot";
+import { QuestRequirement } from "../types/IQuest";
 
 export const refractaryPeriod = 20 * 60 * 1000;
 export class ClimaxQuest extends AbstractQuest {
@@ -20,12 +21,11 @@ export class ClimaxQuest extends AbstractQuest {
         return (Number(this.additionalInfo["lastClimaxed"]) + refractaryPeriod) < Date.now();
     }
 
-    successCondition(): boolean {
-        return Number(this.additionalInfo['orgasms']) > 0;
-    }
-
-    protected successConditionForTarget(): boolean {
-        return this.successCondition();
+    requirements(): QuestRequirement[] {
+        return [{
+            label: "Target climaxed",
+            met: Number(this.additionalInfo["orgasms"]) > 0,
+        }];
     }
 
     bonus(): boolean {

@@ -1,6 +1,7 @@
 import { mapRegions } from "../util/areas";
 import { AbstractQuest } from "./AbstractQuest";
 import { API_Character } from "bc-bot";
+import { QuestRequirement } from "../types/IQuest";
 
 export class KidnapQuestBoundMaid extends AbstractQuest {
     description(): string {
@@ -17,9 +18,8 @@ export class KidnapQuestBoundMaid extends AbstractQuest {
         return this.failIfLockedByOther(target);
     }
 
-    // Locked, leashed, and in the collection building
-    protected successConditionForTarget(target: API_Character): boolean {
-        return this.deliveredTo(target, mapRegions.BOUND_MAID_AREA);
+    requirements(): QuestRequirement[] {
+        return this.deliveryRequirements(this.findTarget(), mapRegions.BOUND_MAID_AREA);
     }
 
     bonus(): boolean {

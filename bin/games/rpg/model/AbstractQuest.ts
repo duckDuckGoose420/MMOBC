@@ -1,15 +1,12 @@
-import { IQuest } from "../types/IQuest";
+import { IQuest, QuestRequirement } from "../types/IQuest";
 import { API_Chatroom, API_Character, MapRegion, positionIsInRegion } from "bc-bot";
-import { mapRegions } from "../util/areas";
-
-const DEV_ROOM_QUEST_CANCEL_MS = 30 * 1000;
+import { devRoomPresence } from "../util/devRoomPresence";
 
 export abstract class AbstractQuest implements IQuest {
     chatRoom: API_Chatroom;
     owner: number;
     targetPlayer: number;
     private _additionalInfo: Record<string, unknown>;
-    private devRoomSeenAt: number | null = null;
 
     failMessage: string;
 
@@ -49,15 +46,28 @@ export abstract class AbstractQuest implements IQuest {
         return lockOwner !== undefined && lockOwner !== this.owner;
     }
 
-    protected deliveredTo(target: API_Character, region: MapRegion): boolean {
-        return this.armsLockedByOwner(target)
-            && target.IsLeashed()
-            && positionIsInRegion(target.MapPos, region);
+    protected deliveryRequirements(target: API_Character | undefined, region: MapRegion): QuestRequirement[] {
+        const lockedByOwner = !!target && this.armsLockedByOwner(target);
+        const leashed = !!target && target.IsLeashed();
+        let inPosition = false;
+        if (target) {
+            const targetInRegion = positionIsInRegion(target.MapPos, region);
+            const owner = this.chatRoom.findMember(this.owner);
+            const ownerInRegion = !!owner && positionIsInRegion(owner.MapPos, region);
+            inPosition = targetInRegion || ownerInRegion;
+        }
+        return [
+            { label: "Arms locked by you", met: lockedByOwner },
+            { label: "Leashed", met: leashed },
+            { label: "In position", met: inPosition },
+        ];
     }
 
     protected targetIsFree(): boolean {
         const target = this.findTarget();
-        return !!target && !target.IsRestrained();
+        if (!target || target.IsRestrained()) return false;
+        // LockMemberNumber can be set without the Block effect IsRestrained() checks
+        return this.armsLockOwner(target) === undefined;
     }
 
     abstract prerequisite(): boolean;
@@ -65,25 +75,24 @@ export abstract class AbstractQuest implements IQuest {
     failCondition(gracePeriods: Map<number, number>): boolean {
         const target = this.findTarget();
         if (!target) {
+            devRoomPresence(this.targetPlayer, undefined);
             this.failMessage = "(Your quest target left the room, you'll be assigned a new quest)";
             return true;
         }
-        const grace = gracePeriods.get(this.targetPlayer);
-        if (grace && Date.now() < grace) {
-            this.failMessage = "(Your quest target completed their quest, we'll give you a new quest to not bother their possible session)";
-            return true;
-        }
-        if (positionIsInRegion(target.MapPos, mapRegions.DEV_ROOM_AREA)) {
-            if (this.devRoomSeenAt === null) {
-                this.devRoomSeenAt = Date.now();
+        const forcedByTargetMe = this.additionalInfo?.forcedByTargetMe === true;
+        if (!forcedByTargetMe) {
+            const grace = gracePeriods.get(this.targetPlayer);
+            if (grace && Date.now() < grace) {
+                this.failMessage = "(Your quest target completed their quest, we'll give you a new quest to not bother their possible session)";
+                return true;
             }
-            if (Date.now() - this.devRoomSeenAt >= DEV_ROOM_QUEST_CANCEL_MS) {
+            const presence = devRoomPresence(this.targetPlayer, target.MapPos);
+            if (presence === "expired") {
                 this.failMessage = "(Your quest target is no longer available, you'll be assigned a new quest)";
                 return true;
             }
-            return false;
+            if (presence === "waiting") return false;
         }
-        this.devRoomSeenAt = null;
         return this.failConditionForTarget(target);
     }
 
@@ -100,12 +109,11 @@ export abstract class AbstractQuest implements IQuest {
         return false;
     }
 
-    successCondition(): boolean {
-        const target = this.findTarget();
-        return !!target && this.successConditionForTarget(target);
-    }
+    abstract requirements(): QuestRequirement[];
 
-    protected abstract successConditionForTarget(target: API_Character): boolean;
+    successCondition(): boolean {
+        return this.requirements().every(r => r.met);
+    }
 
     abstract bonus(): boolean;
 

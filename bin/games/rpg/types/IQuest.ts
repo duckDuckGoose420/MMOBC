@@ -1,5 +1,7 @@
 import { API_Chatroom } from "bc-bot";
 
+export type QuestRequirement = { label: string; met: boolean };
+
 export interface IQuest {
     chatRoom: API_Chatroom;
     owner: number;
@@ -9,6 +11,7 @@ export interface IQuest {
 
     prerequisite(): boolean;
     failCondition(gracePeriod: Map<number,number>): boolean;
+    requirements(): QuestRequirement[];
     successCondition(): boolean;
     bonus(): boolean;
 

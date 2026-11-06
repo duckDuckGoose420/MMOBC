@@ -1,0 +1,32 @@
+flowchart TD
+    hunterGate{Hunter soll Quest bekommen?}
+    hunterGate -->|nein| skip[skip]
+    hunterGate -->|ja| selectTarget
+
+    subgraph selectTarget [selectTarget]
+        direction TB
+        targetMe{targetMe?}
+        targetMe -->|ja| blockedTargetMe{isBlocked?}
+        blockedTargetMe --> pickedTargetMe[Target = targetMe]
+        targetMe -->|nein| catchMe{catchMe?}
+        catchMe -->|ja| blockedCatchMe{isBlocked?}
+        blockedCatchMe -->|ja| catchMeDrop[drop silent]
+        catchMeDrop --> randomLoop
+        blockedCatchMe -->|nein| pickedCatchMe[Target = catchMe]
+        catchMe -->|nein| randomLoop
+
+        subgraph randomLoop [random]
+            pick[Zufalls-Kandidat]
+            pick --> eligible{isTargetEligible?}
+            eligible -->|nein| pick
+            eligible -->|ja| pickedRandom[Target = random]
+        end
+    end
+
+    pickedTargetMe --> build[buildQuest]
+    pickedCatchMe --> build
+    pickedRandom --> build
+
+    build -->|ok und targetMe| forced[Quest mit forcedByTargetMe]
+    build -->|ok| normal[Quest]
+    build -->|fail| none[keine Quest]

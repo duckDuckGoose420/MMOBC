@@ -3,7 +3,7 @@
     {
       "id": "catchme",
       "name": "Catch me if you can",
-      "warning": "This only makes their next challenge roll target you. You cannot use this if you cannot currently be assigned as a quest target (for example if you are Dominant). If they reroll, lose their quest, or never get a new roll, the item is wasted.",
+      "warning": "This only makes their next challenge roll target you. You cannot use this if you cannot currently be assigned as a quest target (for example if you are Dominant or blocked). If they become blocked before the roll, reroll, lose their quest, or never get a new roll, the item is wasted.",
       "price": 500,
       "sellPrice": 100,
       "isPurchaseable": true,

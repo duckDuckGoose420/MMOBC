@@ -1,5 +1,6 @@
 import { API_Character } from "bc-bot";
 import { AbstractQuest } from "./AbstractQuest";
+import { QuestRequirement } from "../types/IQuest";
 
 export class LockQuest extends AbstractQuest {
     description(): string {
@@ -14,8 +15,12 @@ export class LockQuest extends AbstractQuest {
         return this.failIfLockedByOther(target);
     }
 
-    protected successConditionForTarget(target: API_Character): boolean {
-        return this.armsLockedByOwner(target);
+    requirements(): QuestRequirement[] {
+        const target = this.findTarget();
+        return [{
+            label: "Arms locked by you",
+            met: !!target && this.armsLockedByOwner(target),
+        }];
     }
 
     bonus(): boolean {
