@@ -1,0 +1,18 @@
+---
+description: Codespace hat genau zwei Repos unter /workspaces
+alwaysApply: true
+---
+
+# Zwei Repos auf dem Codespace
+
+Nur auf der Remote-Maschine (`/workspaces`), nichts lokal auf dem Laptop:
+
+| Repo | Pfad |
+|------|------|
+| **MMOBCRPG** | `/workspaces/MMOBC` |
+| **Bondage Club** | `/workspaces/Bondage-Club` |
+
+1. Standard-Arbeit: `/workspaces/MMOBC`
+2. BC nur wenn der User es explizit will
+3. BC = Upstream → kein Commit/Push auf `origin`; nur Fork + MR/PR nach Freigabe
+4. Nie BC in MMOBC verschachteln und umgekehrt
