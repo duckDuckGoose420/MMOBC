@@ -283,11 +283,17 @@ export class RPG {
 
     private setupRoom = async () => {
         try {
-            this.conn.chatRoom.map.mapData.Fog = true;
-            this.conn.chatRoom.map.setMapFromData(
-                JSON.parse(decompressFromBase64(MAP)),
-            );
-
+            const mapData = JSON.parse(decompressFromBase64(MAP));
+            const fogEnv = process.env.ROOM_FOG;
+            const fog = fogEnv === undefined || fogEnv === ""
+                ? true
+                : fogEnv.toLowerCase() === "true" || fogEnv === "1";
+            if (fog) {
+                mapData.Fog = true;
+            } else {
+                delete mapData.Fog;
+            }
+            this.conn.chatRoom.map.setMapFromData(mapData);
         } catch (e) {
             console.log("Map data not loaded", e);
         }
